@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0B0D" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>SYSTEM</title>
+    <!--
+      Stamps the saved preferences onto <html> synchronously, before the
+      module script and before first paint. Without this the app renders
+      one frame in the default theme and then snaps — the flash every
+      theme-able site gets wrong. Kept deliberately tiny and total-failure
+      safe: if anything here throws, the defaults in tokens.css still
+      produce a correct screen.
+      Mirrors src/store/settings.ts — see design/03-SETTINGS-AND-THEMING.md §3.
+    -->
+    <script>
+      (function () {
+        try {
+          var d = document.documentElement;
+          var s = JSON.parse(localStorage.getItem('system.settings.v1') || '{}');
+          d.dataset.theme = s.theme || 'arc';
+          d.dataset.textScale = s.textScale || 'm';
+          d.dataset.density = s.density || 'comfortable';
+          d.dataset.motion = s.motion || 'system';
+          d.dataset.art = s.art || 'full';
+          d.dataset.glow = s.glow === false ? 'off' : 'on';
+          d.dataset.accent = s.accent || 'theme';
+          var hex = {
+            mana: '#4da3ff',
+            violet: '#a678ff',
+            frost: '#5fd8e8',
+            ember: '#ff8a5c',
+            gold: '#e8a13c',
+          }[s.accent];
+          if (hex) d.style.setProperty('--accent-user', hex);
+        } catch (e) {
+          /* defaults in tokens.css already render correctly */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

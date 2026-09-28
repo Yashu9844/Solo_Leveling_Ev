@@ -1,0 +1,52 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# PWA generated
+dev-dist/
+
+# The System's rendered voice pack (scripts/generate-voice-pack.mjs) is
+# deliberately NOT ignored.
+#
+# It was, on the reasoning that ~5 MB of cloned character audio belongs
+# on the Player's own machine rather than in a public repo. That held
+# right up until the app was deployed: `public/` is copied verbatim into
+# the build, so keeping the pack out of git only kept it off the
+# *deployment*, where the entire feature lives. Production fell back to
+# the device's speech engine on every line, which is the generic voice
+# this pack exists to replace.
+#
+# Nor did ignoring it keep the audio private. A deployed build serves
+# every clip at https://<host>/voice/<id>.mp3 to anyone who asks, so the
+# public exposure is identical either way — the only thing the ignore
+# rule bought was a broken feature in production.
+#
+# Regenerate with `npm run voice`. A clip that is absent still falls back
+# to the device's engine rather than to silence.
+
+# Personal event-log exports used as private golden-master fixtures
+# (platform/04-QUALITY-AND-OPERATIONS.md §32.4). Real personal data —
+# never commit anything under this path.
+platform-fixtures/private/
+
+# Claude Code session lock
+.claude/scheduled_tasks.lock

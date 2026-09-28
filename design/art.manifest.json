@@ -1,0 +1,146 @@
+{
+  "$comment": [
+    "Slot -> source art. design/00-DESIGN-SYSTEM.md §2.4 is the classification protocol.",
+    "mood: blue = effort, gold = evidence, boss = BOSS surfaces only.",
+    "focal: CSS object-position — keeps the figure clear of the copy.",
+    "text: true means the plate carries its own baked-in tagline, so the screen",
+    "      must not overlay a competing one (§2.4 rule 4).",
+    "A slot with source null renders a procedural gradient instead; every screen",
+    "must look finished with zero art present.",
+    "Re-run `npm run art` after editing this file."
+  ],
+  "sourceDir": "C:/Users/yashwanth/Desktop/system-app/project/assests_high_res",
+  "slots": {
+    "boot": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_49_48 PM.png",
+      "mood": "blue",
+      "focal": "50% 28%",
+      "text": false,
+      "note": "Lit-eye portrait. Quiet enough to sit under the wordmark."
+    },
+    "start-hero": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_04_44 PM.png",
+      "mood": "gold",
+      "focal": "50% 42%",
+      "text": true,
+      "note": "Carries DISCIPLINE CREATES FREEDOM / A BETTER YOU AWAITS. The promise.",
+      "zoom": 1.22
+    },
+    "onboarding": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_48_22 PM.png",
+      "mood": "blue",
+      "focal": "50% 30%",
+      "text": false
+    },
+    "today": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_51_01 PM.png",
+      "mood": "blue",
+      "focal": "70% 25%",
+      "text": false,
+      "note": "Bleeds from the top-right corner only, under a directional scrim."
+    },
+    "level-up": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_15_38 PM.png",
+      "mood": "blue",
+      "focal": "50% 45%",
+      "text": true,
+      "note": "Ascending a staircase toward a colossus. DISCIPLINE TODAY / A GREATER YOU TOMORROW.",
+      "zoom": 1.6,
+      "$zoomNote": "zoom is the default crop scale for this plate. Several plates carry their own lettering down a margin; a phone viewport is narrower than the source aspect, so cover-cropping slices that text mid-word. Zooming pushes it cleanly out of frame. Set here rather than at each call site so a plate cannot be used wrongly by a new screen."
+    },
+    "rank": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_21_19 PM.png",
+      "mood": "gold",
+      "focal": "50% 40%",
+      "text": true,
+      "note": "Reaching for the eclipse. HIGHER THAN YESTERDAY. Rank is evidence, so gold.",
+      "zoom": 1.5
+    },
+    "checkpoint": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_02_52 PM.png",
+      "mood": "gold",
+      "focal": "50% 55%",
+      "text": false,
+      "note": "The cliff at sunrise. The report screen — the one that says something changed."
+    },
+    "progress": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_54_45 PM.png",
+      "mood": "blue",
+      "focal": "50% 35%",
+      "text": false
+    },
+    "skills": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_56_27 PM.png",
+      "mood": "blue",
+      "focal": "50% 30%",
+      "text": false,
+      "note": "Armoured monarch silhouette — mastery."
+    },
+    "training": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_44_12 PM.png",
+      "mood": "blue",
+      "focal": "50% 45%",
+      "text": true,
+      "note": "Full physique under banners that map body parts to attributes — CHEST BUILDS CONFIDENCE, BACK BUILDS STRENGTH, ABS BUILDS SELF CONTROL, LEGS BUILDS RESILIENCE. The app's own attribute model in a picture.",
+      "zoom": 1.2
+    },
+    "review": {
+      "source": "ChatGPT Image Sep 6, 2026, 10_59_54 PM.png",
+      "mood": "blue",
+      "focal": "50% 35%",
+      "text": false,
+      "note": "The nightly climb. Evening review header."
+    },
+    "review-weekly": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_09_20 PM.png",
+      "mood": "gold",
+      "focal": "50% 50%",
+      "text": true,
+      "note": "A BRIGHTER YOU SOMEDAY. The weekly distance-travelled block.",
+      "zoom": 1.5
+    },
+    "boss": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_24_03 PM.png",
+      "mood": "boss",
+      "focal": "50% 45%",
+      "text": true,
+      "note": "Landscape banner, 1945x808. NEXT LEVEL AWAITS. The BossList header."
+    },
+    "boss-throne": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_01_19 PM.png",
+      "mood": "boss",
+      "focal": "50% 40%",
+      "text": false,
+      "note": "Locked-boss state."
+    },
+    "boss-cleared": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_22_43 PM.png",
+      "mood": "gold",
+      "focal": "50% 45%",
+      "text": true,
+      "note": "Enthroned. Gold, not red — clearing a boss is evidence, and the plate agrees.",
+      "zoom": 1.45
+    },
+    "quote": {
+      "source": "ChatGPT Image Sep 6, 2026, 11_33_22 PM.png",
+      "mood": "blue",
+      "focal": "50% 45%",
+      "text": true,
+      "note": "Seated, resting, looking out. Contemplative rather than flexing — sits far back behind a quote card at low opacity."
+    }
+  },
+  "overflow": {
+    "$comment": "Classified but not yet slotted. Kept here so nothing is lost and a later screen can claim one without re-reviewing the folder.",
+    "ChatGPT Image Sep 6, 2026, 10_39_47 PM.png": "boss · wide demon banner",
+    "ChatGPT Image Sep 6, 2026, 11_25_25 PM.png": "boss · stairs toward a red demon",
+    "ChatGPT Image Sep 6, 2026, 11_27_15 PM.png": "boss · red demon portrait, no text",
+    "ChatGPT Image Sep 6, 2026, 11_29_35 PM.png": "boss · EVOLVE ADAPT ASCEND REPEAT, a tier ladder",
+    "ChatGPT Image Sep 6, 2026, 10_58_14 PM.png": "blue · muscular back over ruins",
+    "ChatGPT Image Sep 6, 2026, 11_30_52 PM.png": "blue · muscular back, PROGRESS OVER COMFORT",
+    "$gymSeries": "blue · a chest/back/shoulders/arms set. Reserved for the Training log sheet to vary by session type in task 7.3, once the training_session.type values are known. Not slotted now — importing art nothing renders would just spend budget.",
+    "ChatGPT Image Sep 6, 2026, 11_35_24 PM.png": "blue · gym, chest/bench. WARNING: the bottle reads CHARRCTER — a misspelling baked into the plate. Never surface this one at a size where that is legible.",
+    "ChatGPT Image Sep 6, 2026, 11_36_42 PM.png": "blue · gym, back. A STRONGER BACK A GREATER YOU",
+    "ChatGPT Image Sep 6, 2026, 11_38_44 PM.png": "blue · gym, shoulders. CONSISTENCY CREATES CHANGE",
+    "ChatGPT Image Sep 6, 2026, 11_41_19 PM.png": "blue · gym, arms. STRONGER THAN YESTERDAY"
+  }
+}

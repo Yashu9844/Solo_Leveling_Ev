@@ -1,0 +1,406 @@
+/* Design tokens v2 — "Monarch".
+ * design/00-DESIGN-SYSTEM.md §3 · design/03-SETTINGS-AND-THEMING.md §3.
+ *
+ * Supersedes final/06-ux-screens-design.md §4.1.
+ *
+ * Three layers, in this order:
+ *   1. STRUCTURAL   :root                — geometry. Theme-independent.
+ *   2. THEME        [data-theme="…"]     — ground, ink, accent, glow.
+ *   3. MODIFIER     [data-text-scale] …  — user preferences that scale or gate 1 and 2.
+ *
+ * The data-attributes are stamped on <html> by the inline bootstrap in
+ * index.html before first paint, then kept in sync by SettingsProvider.
+ * One mechanism, not two.
+ *
+ * Contrast figures in comments are measured against that theme's own
+ * --void, not assumed. Nothing dimmer than --faint may carry a word.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 1. STRUCTURAL — geometry only. Never varies by theme.
+ * ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* clip-path corner cuts — the reference's signature panel shape */
+  --cut-sm: 10px;
+  --cut-md: 12px;
+  --cut-lg: 14px;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  --gutter: 24px; /* screen side gutter; density- and width-aware below */
+  --row-min: 64px; /* quest row height — never drops below the 44px target */
+  --shell-max: 430px; /* the phone column */
+
+  --type-scale: 1; /* multiplied into every font size; set by [data-text-scale] */
+  --art-opacity: 1; /* gated by [data-art] */
+
+  /* Motion tokens — design/00-DESIGN-SYSTEM.md §5 */
+  --duration-instant: 0ms;
+  --duration-micro: 120ms;
+  --duration-fast: 180ms;
+  --duration-std: 280ms;
+  --duration-deliberate: 450ms;
+  --duration-cinematic: 1200ms;
+
+  --ease-system: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-system-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-system-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 2. THEMES
+ * ══════════════════════════════════════════════════════════════════════ */
+
+/* ── arc (default) — near-black + electric mana blue. The Blue Arc. ─── */
+:root,
+[data-theme='arc'] {
+  color-scheme: dark;
+
+  --void: #04070d;
+  --abyss: #05080f;
+  --deep: #070b12;
+  --panel-top: #0a1424;
+  --panel-bot: #060a12;
+  --surface: #0c1626;
+  --surface-2: #122036;
+  --scrim: rgba(4, 7, 13, 0.86);
+
+  --accent-deep: #1f5fb8;
+  --accent: var(--accent-user, #4da3ff);
+  --accent-mid: #5fb2ff;
+  --accent-bright: #7cc4ff;
+  --accent-soft: #9bd4ff;
+  --accent-core: #d9efff;
+
+  /* Gold Horizon — evidence surfaces only (design system §2.2) */
+  --dawn-deep: #8a5a1e;
+  --dawn: #e8a13c;
+  --dawn-bright: #ffc76b;
+  --dawn-core: #fff0d0;
+
+  --hair-strong: rgba(77, 163, 255, 0.45);
+  --hair: rgba(77, 163, 255, 0.22);
+  --hair-faint: rgba(77, 163, 255, 0.14);
+  --fill-faint: rgba(77, 163, 255, 0.08);
+
+  --ink-100: #eaf3ff; /* 18.02:1 */
+  --ink-300: #dce8f7; /* 16.26:1 */
+  --ink-500: #b3c7dd; /* 11.65:1 */
+  --ink-700: #90a8c2; /*  8.23:1 */
+  --ink-900: #7b8fa8; /*  6.08:1 */
+  --faint: #6d8299; /*  5.09:1 — the floor for text */
+
+  --state-complete: #3fbf8f;
+  --state-pending: #77828f; /* neutral grey, NEVER red — final/06 §4.1 */
+  --state-recover: #e0a33e;
+  --state-alert: #d95c5c; /* RESERVED: data-loss + safety warnings only */
+  --boss: #ff4d6d; /* RESERVED: BOSS surfaces only */
+
+  --on-accent: #061019;
+
+  --glow-sm: 0 0 12px rgba(77, 163, 255, 0.45);
+  --glow-md: 0 0 26px rgba(77, 163, 255, 0.28);
+  --glow-lg: 0 0 40px rgba(77, 163, 255, 0.18);
+  --glow-text: 0 0 28px rgba(77, 163, 255, 0.55);
+  --glow-icon: drop-shadow(0 0 8px rgba(77, 163, 255, 0.55));
+}
+
+/* ── dawn — the Gold Horizon mood as an everyday theme. Still dark. ─── */
+[data-theme='dawn'] {
+  color-scheme: dark;
+
+  --void: #0b0803;
+  --abyss: #0d0a04;
+  --deep: #100b05;
+  --panel-top: #1e1508;
+  --panel-bot: #0e0a04;
+  --surface: #1a1207;
+  --surface-2: #261a0c;
+  --scrim: rgba(11, 8, 3, 0.86);
+
+  --accent-deep: #8a5a1e;
+  --accent: var(--accent-user, #e8a13c);
+  --accent-mid: #f0ae4e;
+  --accent-bright: #ffc76b;
+  --accent-soft: #ffd98f;
+  --accent-core: #fff0d0;
+
+  --dawn-deep: #8a5a1e;
+  --dawn: #e8a13c;
+  --dawn-bright: #ffc76b;
+  --dawn-core: #fff0d0;
+
+  --hair-strong: rgba(232, 161, 60, 0.45);
+  --hair: rgba(232, 161, 60, 0.22);
+  --hair-faint: rgba(232, 161, 60, 0.14);
+  --fill-faint: rgba(232, 161, 60, 0.08);
+
+  --ink-100: #fff6e8; /* 18.66:1 */
+  --ink-300: #f7ecda; /* 17.11:1 */
+  --ink-500: #ddccb2; /* 12.72:1 */
+  --ink-700: #c2ae90; /*  9.28:1 */
+  --ink-900: #a89478; /*  6.83:1 */
+  --faint: #99866c; /*  5.69:1 */
+
+  --state-complete: #5cc79a;
+  --state-pending: #8f8577;
+  /* Cool, not amber: this theme's accent IS amber, and a state colour
+   * must never be mistakable for the accent. States swing opposite the
+   * accent's temperature. */
+  --state-recover: #7fb0ff;
+  --state-alert: #e07070;
+  --boss: #ff6b5c;
+
+  --on-accent: #140d02;
+
+  --glow-sm: 0 0 12px rgba(232, 161, 60, 0.45);
+  --glow-md: 0 0 26px rgba(232, 161, 60, 0.28);
+  --glow-lg: 0 0 40px rgba(232, 161, 60, 0.18);
+  --glow-text: 0 0 28px rgba(232, 161, 60, 0.55);
+  --glow-icon: drop-shadow(0 0 8px rgba(232, 161, 60, 0.55));
+}
+
+/* ── abyss — near-monochrome, minimal glow. For 02:00. ──────────────── */
+[data-theme='abyss'] {
+  color-scheme: dark;
+
+  --void: #000000;
+  --abyss: #030304;
+  --deep: #050506;
+  --panel-top: #0c0d10;
+  --panel-bot: #050506;
+  --surface: #0a0b0d;
+  --surface-2: #131519;
+  --scrim: rgba(0, 0, 0, 0.9);
+
+  --accent-deep: #4a5b6e;
+  --accent: var(--accent-user, #8fa6bd);
+  --accent-mid: #9db2c7;
+  --accent-bright: #b3c4d5;
+  --accent-soft: #c7d4e1;
+  --accent-core: #e4ebf2;
+
+  --dawn-deep: #6e5a3a;
+  --dawn: #b99a66;
+  --dawn-bright: #d4b98c;
+  --dawn-core: #ece0cc;
+
+  --hair-strong: rgba(143, 166, 189, 0.4);
+  --hair: rgba(143, 166, 189, 0.18);
+  --hair-faint: rgba(143, 166, 189, 0.1);
+  --fill-faint: rgba(143, 166, 189, 0.06);
+
+  --ink-100: #e8ecf0; /* 17.69:1 */
+  --ink-300: #d5dbe1; /* 15.05:1 */
+  --ink-500: #aab3bd; /*  9.89:1 */
+  --ink-700: #8c96a1; /*  6.99:1 */
+  --ink-900: #79838e; /*  5.45:1 */
+  --faint: #6e7883; /*  4.68:1 — floor */
+
+  --state-complete: #4fb894;
+  --state-pending: #6e7883;
+  --state-recover: #c99a4a;
+  --state-alert: #c96a6a;
+  --boss: #d95c6b;
+
+  --on-accent: #05070a;
+
+  /* deliberately no glow — this theme exists to lower stimulation */
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-text: none;
+  --glow-icon: none;
+}
+
+/* ── contrast — maximum legibility, no glow, strong hairlines. ──────── */
+[data-theme='contrast'] {
+  color-scheme: dark;
+
+  --void: #000000;
+  --abyss: #000000;
+  --deep: #000000;
+  --panel-top: #0a0a0a;
+  --panel-bot: #000000;
+  --surface: #0d0d0d;
+  --surface-2: #1a1a1a;
+  --scrim: rgba(0, 0, 0, 0.94);
+
+  --accent-deep: #2f7fd4;
+  --accent: var(--accent-user, #7dbcff);
+  --accent-mid: #93c8ff;
+  --accent-bright: #aed6ff;
+  --accent-soft: #c7e3ff;
+  --accent-core: #ffffff;
+
+  --dawn-deep: #a67a28;
+  --dawn: #ffb84d;
+  --dawn-bright: #ffcd7a;
+  --dawn-core: #ffe9c4;
+
+  --hair-strong: rgba(125, 188, 255, 0.75);
+  --hair: rgba(125, 188, 255, 0.45);
+  --hair-faint: rgba(125, 188, 255, 0.3);
+  --fill-faint: rgba(125, 188, 255, 0.12);
+
+  --ink-100: #ffffff; /* 21.00:1 */
+  --ink-300: #f5f5f5; /* 19.26:1 */
+  --ink-500: #e0e0e0; /* 15.91:1 */
+  --ink-700: #c4c4c4; /* 12.04:1 */
+  --ink-900: #a8a8a8; /*  8.83:1 */
+  --faint: #949494; /*  6.92:1 — floor */
+
+  --on-accent: #000000;
+
+  --state-complete: #56e0aa;
+  --state-pending: #949494;
+  --state-recover: #ffb84d;
+  --state-alert: #ff8080;
+  --boss: #ff7a8c;
+
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-text: none;
+  --glow-icon: none;
+}
+
+/* ── daylight — the opt-in light theme. Never system-following. ─────── */
+[data-theme='daylight'] {
+  color-scheme: light;
+
+  --void: #f4f6f9;
+  --abyss: #eef1f6;
+  --deep: #f7f9fc;
+  --panel-top: #ffffff;
+  --panel-bot: #f1f4f8;
+  --surface: #ffffff;
+  --surface-2: #e9eef5;
+  --scrim: rgba(244, 246, 249, 0.9);
+
+  --accent-deep: #0b4f9e;
+  --accent: var(--accent-user, #1667c8);
+  --accent-mid: #145bb0;
+  --accent-bright: #0f4f9c;
+  --accent-soft: #7fb2ea;
+  --accent-core: #0a3f7d;
+
+  --dawn-deep: #7a4e12;
+  --dawn: #a76c15;
+  --dawn-bright: #c98a2a;
+  --dawn-core: #6b430f;
+
+  --hair-strong: rgba(22, 103, 200, 0.45);
+  --hair: rgba(22, 103, 200, 0.22);
+  --hair-faint: rgba(22, 103, 200, 0.12);
+  --fill-faint: rgba(22, 103, 200, 0.07);
+
+  /* ratios below are measured against this theme's --void (#f4f6f9) */
+  --ink-100: #0b1220; /* 17.29:1 */
+  --ink-300: #16202f; /* 15.13:1 */
+  --ink-500: #2f3d4f; /* 10.20:1 */
+  --ink-700: #47576b; /*  6.82:1 */
+  --ink-900: #566575; /*  5.52:1 */
+  --faint: #5c6e82; /*  4.84:1 — floor */
+
+  --on-accent: #ffffff;
+
+  --state-complete: #157a56;
+  --state-pending: #63758a;
+  --state-recover: #8a5a10;
+  --state-alert: #a52a2a;
+  --boss: #b3213a;
+
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-text: none;
+  --glow-icon: none;
+
+  /* The one light theme, and every art plate in the app is a dark
+     illustration. At full strength on this ground they read as ink
+     blots rather than atmosphere, and the ink measured above loses its
+     ratio wherever it sits over one. §5 requires the art surfaces to
+     still read correctly per theme; here that means a pale wash.
+     Multiplied with the user's art setting, never replacing it. */
+  --art-theme-scale: 0.3;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 3. MODIFIERS — user preferences. Settings doc §1.
+ * ══════════════════════════════════════════════════════════════════════ */
+
+/* Text size multiplies the WHOLE scale, not just body copy — otherwise
+ * headings and data stop relating to each other at the extremes. */
+[data-text-scale='xs'] {
+  --type-scale: 0.88;
+}
+[data-text-scale='s'] {
+  --type-scale: 0.94;
+}
+[data-text-scale='m'] {
+  --type-scale: 1;
+}
+[data-text-scale='l'] {
+  --type-scale: 1.12;
+}
+[data-text-scale='xl'] {
+  --type-scale: 1.25;
+}
+
+/* The same clash the dawn theme avoids, but reached from the other
+ * direction: a warm user-chosen accent on a cool theme would collide
+ * with the amber --state-recover. Swing the state cool for exactly
+ * those accents. Kept beside the themes rather than in the accent
+ * picker, so it holds no matter which theme is active. */
+[data-accent='ember'],
+[data-accent='gold'] {
+  --state-recover: #7fb0ff;
+}
+
+[data-density='compact'] {
+  --gutter: 18px;
+  --row-min: 56px; /* still clears the 44px target */
+}
+
+/* `dim` for low distraction, `off` for low data or maximum legibility.
+ * `off` also kills every glow — art and glow are one visual budget. */
+[data-art='dim'] {
+  --art-opacity: 0.45;
+}
+[data-art='off'] {
+  --art-opacity: 0;
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-text: none;
+  --glow-icon: none;
+}
+
+[data-glow='off'] {
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-text: none;
+  --glow-icon: none;
+}
+
+/* Below 360px the gutter tightens regardless of density — design system
+ * §8 rule 4. This is the 320px worst case the responsive spec tests. */
+@media (max-width: 359px) {
+  :root {
+    --gutter: 18px;
+  }
+}

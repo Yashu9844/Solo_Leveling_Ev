@@ -1,0 +1,1056 @@
+@import './ui/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Base
+ * `color-scheme` is no longer pinned here — each theme declares its own
+ * in tokens.css, so the light theme can actually be light.
+ * ───────────────────────────────────────────────────────────────────── */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink-300);
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--ink-100);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Focus
+ * A dark ground swallows the default ring, so it is replaced rather
+ * than removed (design system §9). Pointer users don't see it;
+ * keyboard users always do.
+ * ───────────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/*
+ * The same ring, for anything wearing a bevel.
+ *
+ * clip-path clips an element's outline along with everything else, so
+ * the rule above renders a completely invisible focus ring on every
+ * button, panel and card in this app — which is most of them. Drawing
+ * it as an inset pseudo-element instead puts it inside the clipped
+ * region, where it survives; and because the parent's clip-path also
+ * clips the pseudo-element, the ring picks up the bevel for free
+ * instead of sitting square inside a cut corner.
+ */
+.cut-sm:focus-visible,
+.cut-md:focus-visible,
+.cut-lg:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.cut-sm:focus-visible::after,
+.cut-md:focus-visible::after,
+.cut-lg:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 2px solid var(--accent-bright);
+  pointer-events: none;
+}
+
+@layer utilities {
+  /* The reference's signature panel shape — a bevel off two opposite
+   * corners. clip-path rather than border-radius because the cut has to
+   * read as machined, not soft. */
+  .cut-sm {
+    clip-path: polygon(
+      var(--cut-sm) 0,
+      100% 0,
+      100% calc(100% - var(--cut-sm)),
+      calc(100% - var(--cut-sm)) 100%,
+      0 100%,
+      0 var(--cut-sm)
+    );
+  }
+  .cut-md {
+    clip-path: polygon(
+      var(--cut-md) 0,
+      100% 0,
+      100% calc(100% - var(--cut-md)),
+      calc(100% - var(--cut-md)) 100%,
+      0 100%,
+      0 var(--cut-md)
+    );
+  }
+  .cut-lg {
+    clip-path: polygon(
+      var(--cut-lg) 0,
+      100% 0,
+      100% calc(100% - var(--cut-lg)),
+      calc(100% - var(--cut-lg)) 100%,
+      0 100%,
+      0 var(--cut-lg)
+    );
+  }
+
+  /* Resolves to `none` under abyss, contrast, daylight and
+   * [data-art="off"] — the glow budget is a token, not a decision made
+   * at each call site. */
+  .glow-text {
+    text-shadow: var(--glow-text);
+  }
+
+  /* A rule that fades to nothing at both ends. Used under every screen
+   * header and between sections. */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--hair-strong), transparent);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Art layers honour [data-art] without every component reading the
+   * setting itself. */
+  .art-layer {
+    /* Two independent dials, multiplied rather than overriding each
+       other: --art-opacity is the user's art-intensity setting, and
+       --art-theme-scale is what a theme needs from the plates. Every
+       plate in this app is a dark illustration, so the light theme has
+       to hold them back to a wash — and if the theme simply reassigned
+       --art-opacity, choosing "dim" on that theme would make the art
+       brighter than "full" did. */
+    opacity: calc(var(--art-opacity) * var(--art-theme-scale, 1));
+    pointer-events: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Keyframes
+ * ───────────────────────────────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Route entrances. CSS rather than JS on purpose — see
+ * src/ui/kit/PageTransition.tsx for why the distinction matters. */
+@keyframes route-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sheet entrance. CSS for the same reason route transitions are: a
+ * JS-driven transform that never completes leaves the sheet parked
+ * off-screen while still counting as visible. */
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ring-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes float-xp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.9);
+  }
+}
+
+.animate-float-xp {
+  animation: float-xp 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Range sliders
+ * The three checkpoint instruments are the only sliders in the app, and
+ * a default OS slider on this surface looks like a browser control that
+ * wandered in. Track and thumb are drawn from the same tokens as
+ * MeterBar so a slider reads as a meter you can push.
+ *
+ * The thumb is 24px — larger than it looks, because the visible circle
+ * is 16px with a ring. final/06 §7 wants 44px targets; a range input's
+ * whole track is draggable, so the row already clears that, and an
+ * oversized thumb would just cover the value it is setting.
+ * ───────────────────────────────────────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fill-faint);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px; /* centres a 16px thumb on a 6px track */
+  height: 16px;
+  width: 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 2px solid var(--void);
+  box-shadow: var(--glow-sm);
+}
+
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fill-faint);
+}
+
+input[type='range']::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 2px solid var(--void);
+  box-shadow: var(--glow-sm);
+}
+
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * System window arrival
+ *
+ * The signature event of the genre: a pane that *materialises* rather
+ * than one that was always already there. Three overlapping beats —
+ * the frame snaps in, a scan line sweeps it once, the content rises.
+ *
+ * All CSS. design/00 §5.1: anything whose final state matters cannot be
+ * animated in JavaScript, because a starved frame budget leaves it
+ * stranded mid-way and the element still counts as visible. Every rule
+ * below settles on its final frame via `both`, and the reduced-motion
+ * block collapses the durations to nothing.
+ * ───────────────────────────────────────────────────────────────────── */
+@keyframes system-frame-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.86);
+    box-shadow: 0 0 0 rgba(77, 163, 255, 0);
+  }
+  60% {
+    opacity: 1;
+    transform: scaleY(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes system-scan {
+  from {
+    transform: translateY(-110%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(320%);
+    opacity: 0;
+  }
+}
+
+@keyframes system-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The corner brackets draw themselves outward from each corner. */
+@keyframes system-bracket-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Swipe affordance
+ *
+ * A gesture nobody can see is a gesture nobody uses. The chevron on an
+ * incomplete quest row drifts a few pixels and settles, which is the
+ * cheapest honest way to say "this side moves". Slow and small on
+ * purpose — six of these are on screen at once, and anything livelier
+ * would read as a fault rather than an invitation.
+ *
+ * The reduced-motion rules below collapse it, which is correct: the
+ * gesture still works, it simply stops advertising itself, and the
+ * completion button beside it is always there regardless.
+ * ───────────────────────────────────────────────────────────────────── */
+@keyframes swipe-hint {
+  0%,
+  72%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.55;
+  }
+  84% {
+    transform: translateX(3px);
+    opacity: 1;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Motion
+ * Three states, per design/03-SETTINGS-AND-THEMING.md §1:
+ *   reduced → always still
+ *   full    → always animated, even if the OS asks for less
+ *   system  → follow prefers-reduced-motion (the default)
+ * Nothing functional depends on animation (final/06 §4.3), so killing
+ * it is always safe.
+ * ───────────────────────────────────────────────────────────────────── */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) *,
+  :root:not([data-motion='full']) *::before,
+  :root:not([data-motion='full']) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * The awakening sequence — onboarding
+ *
+ * Onboarding is the one screen every user sees before they have any
+ * reason to trust the app, and it used to be six identical boxes. The
+ * motion here does one job: make the System read as a machine coming
+ * online around the user rather than a web form with a progress bar.
+ *
+ * All CSS, all `both`. design/00 §5.1 — anything whose final state
+ * matters must not depend on JavaScript reaching its last frame, and
+ * every field on these screens matters. The [data-motion='reduced']
+ * block above collapses every duration below to nothing and the steps
+ * simply exist, fully formed.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* A step arriving. Directional: forward slides in from the right, Back
+ * from the left, so the flow has a spatial memory and "Back" feels like
+ * a reversal rather than a redraw. */
+@keyframes init-step-fwd {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes init-step-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The staggered rise inside a step. Delays are kept under ~260ms on
+ * purpose: `animation-delay` is NOT collapsed by the reduced-motion
+ * rules, so a long delay would hold an element at its `from` frame even
+ * for a user who asked for stillness. */
+@keyframes init-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* A spine node locking in as its step is reached. */
+@keyframes init-node-lock {
+  0% {
+    transform: rotate(45deg) scale(0.3);
+    opacity: 0;
+  }
+  62% {
+    transform: rotate(45deg) scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* The halo around the node the user is standing on. */
+@keyframes init-node-halo {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: rotate(45deg) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: rotate(45deg) scale(1.55);
+  }
+}
+
+/* The spine's filled length growing to the current node. Scale rather
+ * than width so it never triggers layout. */
+@keyframes init-spine-grow {
+  from {
+    transform: scaleX(0.001);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The terminal caret on a live echo line. */
+@keyframes init-caret {
+  0%,
+  48% {
+    opacity: 1;
+  }
+  49%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The status dot in the header — the System is listening.
+ *
+ * The glow is the token, not an rgba: --glow-sm resolves to `none`
+ * under [data-art="off"] and the contrast, abyss and daylight themes,
+ * so the §3 glow budget is honoured here without this keyframe knowing
+ * which theme is on. A literal shadow would have outlived all five. */
+@keyframes init-live-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: var(--glow-sm);
+  }
+}
+
+/* The ambient lattice drifting behind the whole flow. 80px is exactly
+ * two cells, so the loop is seamless. */
+@keyframes init-lattice {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 -80px,
+      0 -80px;
+  }
+}
+
+/* A trigger going from drafted to armed. Fires on the readout line the
+ * moment both of its fields are filled. */
+@keyframes init-arm {
+  0% {
+    background: var(--fill-faint);
+  }
+  32% {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+  100% {
+    background: var(--fill-faint);
+  }
+}
+
+@layer utilities {
+  /* The lattice: two hairline grids at different scales, masked to a
+     radial so it never reads as a tablecloth at the edges of the
+     screen. Decorative only — always aria-hidden and inert. */
+  .init-lattice {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        var(--hair-faint) 0 1px,
+        transparent 1px 40px
+      ),
+      repeating-linear-gradient(90deg, var(--hair-faint) 0 1px, transparent 1px 40px);
+    mask-image: radial-gradient(120% 80% at 50% 0%, #000 0%, transparent 72%);
+    -webkit-mask-image: radial-gradient(120% 80% at 50% 0%, #000 0%, transparent 72%);
+    animation: init-lattice 22s linear infinite;
+    opacity: 0.55;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * The awakening sequence, second pass — atmosphere and instruments
+ *
+ * The first pass gave the flow a spine and gave each step a name. What
+ * it did not give it was *depth*: once a step had landed, the screen
+ * was completely still, every surface sat at the same luminance, and
+ * the two short steps (ARC, DIRECTIVE) left the upper half of the
+ * screen empty, which reads as content that failed to load rather than
+ * as restraint.
+ *
+ * This block is the ambient half of the fix. Same rules as above: all
+ * CSS, every entrance uses `both`, every delay stays under ~260ms, and
+ * the reduced-motion block collapses the lot to a still, complete
+ * screen.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* The mana field. Two counter-drifting radial washes — the ground stops
+ * being a flat colour and starts being a space with something moving in
+ * it. Deliberately far below the threshold of conscious notice: at 0.5
+ * opacity on a near-black ground this registers as depth, not as an
+ * animation. */
+@keyframes init-aurora-a {
+  0%,
+  100% {
+    transform: translate3d(-6%, -3%, 0) scale(1.12);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(7%, 4%, 0) scale(1.28);
+    opacity: 0.85;
+  }
+}
+
+@keyframes init-aurora-b {
+  0%,
+  100% {
+    transform: translate3d(8%, 5%, 0) scale(1.2);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate3d(-5%, -6%, 0) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+/* The console's periodic sweep. Not an entrance — this runs forever, on
+ * a long cycle, and it is what says the panel is a live instrument
+ * rather than a printed card. The bar is mostly transparent and the
+ * cycle is 9s, so it reads as a scan passing rather than as a loading
+ * shimmer. */
+@keyframes init-console-sweep {
+  0% {
+    transform: translate3d(0, -120%, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 900%, 0);
+    opacity: 0;
+  }
+}
+
+/* A hero figure resolving into focus — the big number each step is
+ * really about. Blur plus scale, because a number that simply fades in
+ * looks like it was always there and a number that snaps looks like a
+ * glitch. */
+@keyframes init-hero-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate3d(0, 6px, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* A pulse running the length of a span bar, the way a charge runs down
+ * a line. Used on ARC's timeline. */
+@keyframes init-travel {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* A chip accepting a tap. Scale only — a chip that moves in layout on
+ * selection shifts every chip after it. */
+@keyframes init-chip-pop {
+  0% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* The glint that crosses a ceremonial heading once as it lands. One
+ * pass, then gone — the mark of a surface that matters. */
+@keyframes init-glint {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 280% 0;
+  }
+}
+
+/* A meter segment filling. Used for the armed count on TRIGGERS. */
+@keyframes init-seg-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The seal landing on DIRECTIVE and on the MANIFEST — a struck stamp,
+ * overshooting slightly then settling. */
+@keyframes init-seal-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* The slow breath on an idle instrument's edge light. */
+@keyframes init-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* The horizon behind the action bar — a rising glow that keeps the
+ * bottom of the screen from being a hard black band. */
+@keyframes init-horizon {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scaleY(1.18);
+  }
+}
+
+@layer utilities {
+  /* The two drifting washes. Painted as pseudo-elements so one inert
+     div buys the whole field, and masked to the top two-thirds so the
+     action bar always sits on clean ground. */
+  .init-field::before,
+  .init-field::after {
+    content: '';
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .init-field::before {
+    background: radial-gradient(
+      42% 34% at 26% 22%,
+      color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+      transparent 68%
+    );
+    animation: init-aurora-a 19s ease-in-out infinite;
+  }
+
+  .init-field::after {
+    background: radial-gradient(
+      38% 30% at 76% 58%,
+      color-mix(in srgb, var(--accent-deep) 34%, transparent) 0%,
+      transparent 70%
+    );
+    animation: init-aurora-b 24s ease-in-out infinite;
+  }
+
+  /* A heading that catches the light once. The text itself stays a
+     solid readable colour underneath — this only rides on top of it. */
+  .init-glint {
+    background-image: linear-gradient(
+      100deg,
+      transparent 38%,
+      color-mix(in srgb, var(--accent-core) 70%, transparent) 50%,
+      transparent 62%
+    );
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: init-glint 1500ms ease-out 200ms both;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * The machined slot — onboarding's form control
+ *
+ * Forms are most of what these six screens are by area, and the kit's
+ * `TextInput` is the one generic thing on them: a rounded rectangle
+ * with a flat fill, on a screen whose every other surface is clipped,
+ * bracketed and lit. That mismatch is most of why the flow read as a
+ * settings page wearing the app's colours.
+ *
+ * A slot is a *milled recess*: darker than the panel rather than
+ * lighter, lipped at the top so it reads as cut into the surface, with
+ * a corner notch and a left edge that lights when the field has focus.
+ *
+ * The lit state is driven by `:focus-within` on the wrapper rather than
+ * `:focus` on the input, because the thing that lights is the housing,
+ * not the control — and because a native date/time picker moves focus
+ * to its own internal segments, which `:focus` on the input misses.
+ * ───────────────────────────────────────────────────────────────────── */
+.init-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--void) 55%, var(--surface-2)) 0%,
+    color-mix(in srgb, var(--void) 22%, var(--surface-2)) 100%
+  );
+  border: 1px solid var(--hair);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 9px),
+    calc(100% - 9px) 100%,
+    0 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 14%, transparent),
+    inset 0 10px 16px -12px #000;
+  transition:
+    border-color 180ms var(--ease-system),
+    box-shadow 180ms var(--ease-system);
+}
+
+/* The edge light. Hairline at rest, a lit bar with focus. */
+.init-slot::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--hair);
+  transition: background 180ms var(--ease-system);
+  pointer-events: none;
+}
+
+.init-slot:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 10px 16px -12px #000,
+    inset 0 0 22px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.init-slot:focus-within::before {
+  background: linear-gradient(180deg, var(--accent-core), var(--accent-deep));
+}
+
+/* The control itself is invisible furniture — the housing carries every
+ * bit of the styling, so the input keeps only its text. */
+.init-slot > input,
+.init-slot > textarea {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--ink-100);
+  font-size: calc(16px * var(--type-scale));
+  /* The control fills its housing rather than sitting centred inside
+   * it. Without this the input is only as tall as its own text — 24px —
+   * so the housing's upper and lower thirds look tappable and are not,
+   * which fails the 44px floor in `final/06` §7 on every field in the
+   * flow. `align-self` rather than `height`, because the slot is a flex
+   * row and `align-items: center` is what was shrinking it. */
+  align-self: stretch;
+}
+
+.init-slot > input::placeholder,
+.init-slot > textarea::placeholder {
+  color: var(--faint);
+}
+
+/* A native date control draws its own calendar glyph inside the box,
+ * and at the 16px body size "09/01/2026" plus that glyph does not fit
+ * the ~148px column a two-up grid leaves at 320px — the year is the
+ * part that gets cut, which is the one digit group nobody can infer.
+ * Scaled with --type-scale rather than pinned, so the text-size setting
+ * still moves it. */
+.init-slot > input[type='date'],
+.init-slot > input[type='time'] {
+  font-size: calc(15px * var(--type-scale));
+}
+
+/* Native date/time controls paint their own picker glyph, which is
+ * near-invisible on a dark ground in Chrome. Inverting it costs one
+ * rule and is the difference between a visible affordance and a field
+ * that looks like it cannot be tapped. */
+.init-slot > input[type='date']::-webkit-calendar-picker-indicator,
+.init-slot > input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(1) sepia(1) saturate(4) hue-rotate(175deg) brightness(1.1);
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * The step panel's vertical anchor
+ *
+ * Bottom-weighted by default, and deliberately: the art plate owns the
+ * space above the panel, the instrument sits where the thumb already
+ * is, and the two read as one composition rather than a form floating
+ * in the middle of a picture.
+ *
+ * `margin-top: auto` rather than `justify-content` on the parent —
+ * auto margins absorb free space when a step is short and resolve to
+ * zero when it overflows, so RHYTHM, TRIGGERS and BASELINE still scroll
+ * from their own top. `justify-center` would clip an overflowing step's
+ * heading off the top of the column.
+ *
+ * With the plates suppressed there is nothing above the panel to sit
+ * under, only ground, and hugging the action bar then reads as content
+ * that has slipped down the screen. Those cases centre instead.
+ * ───────────────────────────────────────────────────────────────────── */
+.init-step {
+  margin-top: auto;
+}
+
+[data-art='off'] .init-step,
+[data-theme='daylight'] .init-step {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * The gauge — onboarding's range control
+ *
+ * A steps target moves in 500s between 0 and 20000, and a +/- stepper
+ * makes that 16 taps. A range is one drag, and it is the control that
+ * actually suits a continuous quantity.
+ *
+ * Both vendor thumb rules are written out in full rather than grouped:
+ * a selector list containing an unrecognised pseudo-element is dropped
+ * whole by every browser, so `::-webkit-slider-thumb, ::-moz-range-thumb`
+ * in one rule would style the thumb in neither.
+ * ───────────────────────────────────────────────────────────────────── */
+input[type='range'].init-gauge {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  /* The full 44px target, not the 6px the track looks like. The thumb's
+   * own `margin-top` is measured against the track, not this box, so
+   * the track stays centred whatever height this is. */
+  height: 44px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type='range'].init-gauge::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+        to right,
+        var(--accent-deep) 0%,
+        var(--accent) var(--fill, 0%),
+        transparent var(--fill, 0%)
+      )
+      no-repeat,
+    color-mix(in srgb, var(--void) 68%, var(--surface-2));
+  box-shadow: inset 0 1px 3px #000;
+}
+
+input[type='range'].init-gauge::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--void) 68%, var(--surface-2));
+  box-shadow: inset 0 1px 3px #000;
+}
+
+input[type='range'].init-gauge::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent-deep), var(--accent));
+}
+
+/* The thumb is a rotated square — the app's node shape, not a dot.
+ * 22px of visual, but the input's own 28px height is what the thumb is
+ * actually grabbed by, and the row it sits in is 44px tall. */
+input[type='range'].init-gauge::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  /* Explicitly square before the rotation: the app-wide slider rule is
+   * `input[type='range']::-webkit-slider-thumb`, which still applies
+   * here, and its `border-radius: 999px` would otherwise turn the
+   * diamond back into the circle it already draws everywhere else. */
+  border-radius: 0;
+  transform: rotate(45deg);
+  background: var(--accent-core);
+  border: 1px solid var(--accent);
+  box-shadow: var(--glow-sm);
+  transition: box-shadow 150ms var(--ease-system);
+}
+
+input[type='range'].init-gauge::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  background: var(--accent-core);
+  border: 1px solid var(--accent);
+  box-shadow: var(--glow-sm);
+}
+
+input[type='range'].init-gauge:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+input[type='range'].init-gauge:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
