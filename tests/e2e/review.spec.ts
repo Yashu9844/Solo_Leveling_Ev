@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding } from './helpers';
+import { completeOnboarding, questToggle, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -13,8 +13,8 @@ test('evening review: complete it, see the daily report, entry disappears and st
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
+  await questToggle(page, 'career').click();
+  await expectQuestComplete(page, 'career');
 
   const entry = page.getByRole('button', { name: 'Evening review · 25 seconds' });
   await expect(entry).toBeVisible();

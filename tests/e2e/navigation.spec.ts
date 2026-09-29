@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding } from './helpers';
+import { completeOnboarding, expectQuestComplete } from './helpers';
 
 // Same reasoning as core-loop.spec.ts: every assertion here needs "now"
 // to fall inside the arc's active window, so pin the clock well inside it.
@@ -95,7 +95,7 @@ test.describe('overlays and the back gesture', () => {
     await page.goBack();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page).toHaveURL(/\/today$/);
-    await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+    await expectQuestComplete(page, 'career', false);
   });
 
   test('opening a sheet from a sheet, repeatedly, never leaves the app', async ({ page }) => {

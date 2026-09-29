@@ -35,8 +35,8 @@ test('importing a daily-log CSV completes real quests for a past day', async ({ 
   await expect(page.getByText(/1 days imported/)).toBeVisible();
 
   await page.getByRole('link', { name: 'TODAY' }).click();
-  await waitForQuestInstanceState(page, 'DSA', '2026-09-01', 'complete');
-  await waitForQuestInstanceState(page, 'SLEEP', '2026-09-01', 'complete');
+  await waitForQuestInstanceState(page, 'dsa', '2026-09-01', 'complete');
+  await waitForQuestInstanceState(page, 'sleep', '2026-09-01', 'complete');
 
   fs.unlinkSync(csvFile);
 });

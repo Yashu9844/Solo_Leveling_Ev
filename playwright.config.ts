@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/** Not Vite's default 4173: another checkout of this app on the same
+ * machine serves there, and the suite must only ever test this one. */
+const PORT = 4273;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -19,7 +23,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -65,9 +69,13 @@ export default defineConfig({
     })),
   ],
   webServer: {
-    command: 'npm run build && npm run preview -- --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
+    // Never reuse. With reuse on, any server already listening on the
+    // port was tested instead of this checkout — including another
+    // copy of the app on the default 4173, and stale builds of this one.
+    // --strictPort then fails loudly if the port is taken.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

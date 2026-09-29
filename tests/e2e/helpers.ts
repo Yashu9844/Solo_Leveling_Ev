@@ -57,8 +57,23 @@ export async function completeOnboarding(page: Page, name = 'Ada') {
 }
 
 /**
- * Waits until db.quest_instance actually shows `state` for a template
- * titled `templateTitle` on `localDate` — i.e. the confirmed write, not
+ * A quest's complete/undo toggle, located by its stable quest key
+ * ('career', 'dsa', …) rather than its display title. Titles are
+ * presentation — they were renamed once already (design/07) and become
+ * user-configurable on the platform (platform/03 §27.1). Completion
+ * state is read from aria-pressed, which is what the button announces.
+ */
+export function questToggle(page: Page, questKey: string) {
+  return page.getByTestId(`quest-toggle-${questKey}`);
+}
+
+export async function expectQuestComplete(page: Page, questKey: string, complete = true) {
+  await expect(questToggle(page, questKey)).toHaveAttribute('aria-pressed', String(complete));
+}
+
+/**
+ * Waits until db.quest_instance actually shows `state` for the template
+ * with quest key `questKey` on `localDate` — i.e. the confirmed write, not
  * the optimistic UI. A toggle's write is a full rebuildProjections
  * (Slice 4+), which resolves on a different timeline than the
  * synchronous optimistic update a click triggers; a test that reloads
@@ -68,14 +83,14 @@ export async function completeOnboarding(page: Page, name = 'Ada') {
  */
 export async function waitForQuestInstanceState(
   page: Page,
-  templateTitle: string,
+  questKey: string,
   localDate: string,
   state: 'available' | 'complete'
 ) {
   await expect
     .poll(() =>
       page.evaluate(
-        ({ templateTitle, localDate, state }) =>
+        ({ questKey, localDate, state }) =>
           new Promise<boolean>((resolve, reject) => {
             const openReq = indexedDB.open('system-arc');
             openReq.onerror = () => reject(openReq.error);
@@ -85,8 +100,9 @@ export async function waitForQuestInstanceState(
               const templateStore = tx.objectStore('quest_template');
               const templateReq = templateStore.getAll();
               templateReq.onsuccess = () => {
-                const template = (templateReq.result as { id: string; title: string }[]).find(
-                  (t) => t.title === templateTitle
+                // By key, not title — see questToggle.
+                const template = (templateReq.result as { id: string; key: string }[]).find(
+                  (t) => t.key === questKey
                 );
                 if (!template) {
                   resolve(false);
@@ -110,7 +126,7 @@ export async function waitForQuestInstanceState(
               templateReq.onerror = () => reject(templateReq.error);
             };
           }),
-        { templateTitle, localDate, state }
+        { questKey, localDate, state }
       )
     )
     .toBe(true);

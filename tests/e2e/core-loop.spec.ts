@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, waitForQuestInstanceState } from './helpers';
+import { completeOnboarding, waitForQuestInstanceState, questToggle, expectQuestComplete } from './helpers';
 
 // Every one of these tests depends on "now" falling inside the arc's
 // active window (arc.startDate is the fixed constant 2026-09-01 in
@@ -19,29 +19,29 @@ test('complete a quest -> reload -> still complete', async ({ page }) => {
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  const careerButton = page.getByRole('button', { name: 'Complete CAREER' });
+  const careerButton = questToggle(page, 'career');
   await careerButton.click();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'career');
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'complete');
 
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career');
 });
 
 test('complete -> undo -> reload -> not complete', async ({ page }) => {
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'complete');
+  await questToggle(page, 'career').click();
+  await expectQuestComplete(page, 'career');
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'complete');
 
-  await page.getByRole('button', { name: 'Undo CAREER' }).click();
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'available');
+  await questToggle(page, 'career').click();
+  await expectQuestComplete(page, 'career', false);
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'available');
 
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career', false);
 });
 
 test('with a mocked clock at 03:05 local, rows are disabled and the banner shows', async ({ page }) => {
@@ -53,7 +53,7 @@ test('with a mocked clock at 03:05 local, rows are disabled and the banner shows
   await page.reload();
 
   await expect(page.getByText('Day closed. Next day begins at 04:00.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeDisabled();
+  await expect(questToggle(page, 'career')).toBeDisabled();
 });
 
 test('a mocked clock crossing 04:00 while the page is open regenerates instances for the new date', async ({
@@ -72,16 +72,17 @@ test('a mocked clock crossing 04:00 while the page is open regenerates instances
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
   await expect(page.getByText('Day closed. Next day begins at 04:00.')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeEnabled();
+  await expect(questToggle(page, 'career')).toBeEnabled();
 });
 
 test('all six rows are reachable without scrolling at 412x915 (Pixel 7)', async ({ page }) => {
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  const keys = ['CAREER', 'DSA', 'BUILD', 'TRAINING', 'SLEEP', 'ATTENTION'];
+  // By stable row testid, not display title (see helpers.ts#questToggle).
+  const keys = ['career', 'dsa', 'build', 'training', 'sleep', 'attention'];
   for (const key of keys) {
-    await expect(page.getByText(key, { exact: true })).toBeVisible();
+    await expect(page.getByTestId(`quest-row-${key}`)).toBeVisible();
   }
 
   const overflow = await page.evaluate(() => {

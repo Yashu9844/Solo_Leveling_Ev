@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding } from './helpers';
+import { completeOnboarding, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -45,5 +45,5 @@ test('logging a problem without ever touching the timer still works — it is ne
   await page.getByRole('button', { name: /First impact|First attempt/ }).click();
   await page.getByRole('button', { name: /Record Logic Trial|Log problem/ }).click();
 
-  await expect(page.getByRole('button', { name: 'Undo DSA' })).toBeVisible();
+  await expectQuestComplete(page, 'dsa');
 });

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding } from './helpers';
+import { completeOnboarding, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -113,7 +113,7 @@ test('art: off removes every plate and the content is still readable', async ({ 
 
   // design/00 §2.5: every screen must look finished with zero art, so
   // the quest rows are still all there and still tappable.
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career', false);
 });
 
 test('appearance settings survive resetting the arc', async ({ page }) => {
@@ -133,7 +133,9 @@ test('appearance settings survive resetting the arc', async ({ page }) => {
 
   // The arc is gone; the device preference is not. design/03 §2 makes
   // that explicit — re-onboarding should not reset your text size.
-  await expect(page).toHaveURL(/\/onboarding$/);
+  // With no arc, every path lands on the Start screen in front of
+  // onboarding (App.tsx; see helpers.ts#reachStep6).
+  await expect(page).toHaveURL(/\/start$/);
   await expect.poll(() => rootData(page, 'theme')).toBe('abyss');
   await expect.poll(() => rootData(page, 'textScale')).toBe('l');
 });

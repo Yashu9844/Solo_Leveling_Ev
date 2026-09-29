@@ -310,6 +310,10 @@ export function QuestRow({ template, instance, dayClosed, xp, onToggle, onOpen }
           transition={{ type: 'spring', stiffness: 500, damping: 25 }}
           aria-label={complete ? `Undo ${template.title}` : `Complete ${template.title}`}
           aria-pressed={complete}
+          // Stable handle keyed by quest key, not display title — titles
+          // are presentation and become user-configurable
+          // (platform/03 §27.1). Tests locate quests through this.
+          data-testid={`quest-toggle-${template.key}`}
           className="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center"
         >
           <span

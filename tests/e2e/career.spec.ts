@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, waitForQuestInstanceState } from './helpers';
+import { completeOnboarding, waitForQuestInstanceState, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -41,14 +41,14 @@ test('logging 3 quality applications auto-completes the CAREER quest', async ({ 
   await completeOnboarding(page);
 
   await logPassingApplication(page, 'Acme', 'Their agent infra work matches what I want to build next.');
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career', false);
 
   await logPassingApplication(page, 'Beta Corp', 'They ship in public and the team writes real design docs.');
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career', false);
 
   await logPassingApplication(page, 'Gamma Inc', 'Strong distributed-systems focus matching my recent DSA work.');
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'complete');
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'career');
 });
 
 test('a duplicate why_line fails the quality gate and does not count toward completion', async ({ page }) => {
@@ -61,5 +61,5 @@ test('a duplicate why_line fails the quality gate and does not count toward comp
 
   await expect(page.getByText(/didn't pass/)).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByRole('button', { name: 'Complete CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career', false);
 });

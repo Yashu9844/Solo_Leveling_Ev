@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, waitForQuestInstanceState } from './helpers';
+import { completeOnboarding, waitForQuestInstanceState, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -20,8 +20,8 @@ test('logging 10,000+ steps auto-completes TRAINING', async ({ page }) => {
   }
   await page.getByRole('button', { name: 'Log steps' }).click();
 
-  await waitForQuestInstanceState(page, 'TRAINING', '2026-09-05', 'complete');
-  await expect(page.getByRole('button', { name: 'Undo TRAINING' })).toBeVisible();
+  await waitForQuestInstanceState(page, 'training', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'training');
 });
 
 test('logging a wake time inside the window auto-completes SLEEP', async ({ page }) => {
@@ -33,8 +33,8 @@ test('logging a wake time inside the window auto-completes SLEEP', async ({ page
   await page.getByLabel('Wake time').fill('08:15');
   await page.getByRole('button', { name: /Log Synchronization|Log wake time/ }).click();
 
-  await waitForQuestInstanceState(page, 'SLEEP', '2026-09-05', 'complete');
-  await expect(page.getByRole('button', { name: 'Undo SLEEP' })).toBeVisible();
+  await waitForQuestInstanceState(page, 'sleep', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'sleep');
 });
 
 test('logging screen time at or under the limit auto-completes ATTENTION', async ({ page }) => {
@@ -45,8 +45,8 @@ test('logging screen time at or under the limit auto-completes ATTENTION', async
   await page.getByRole('button', { name: /Log Friction Control|Log screen time/ }).click();
   await page.getByRole('button', { name: /Log Friction Control|Log screen time/ }).click(); // default 45 <= 60
 
-  await waitForQuestInstanceState(page, 'ATTENTION', '2026-09-05', 'complete');
-  await expect(page.getByRole('button', { name: 'Undo ATTENTION' })).toBeVisible();
+  await waitForQuestInstanceState(page, 'attention', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'attention');
 });
 
 test('Maintenance card ticks save immediately and never touch a core quest row', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, waitForQuestInstanceState } from './helpers';
+import { completeOnboarding, waitForQuestInstanceState, questToggle, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z'; // 2026-09-05T15:30 IST
 
@@ -25,18 +25,18 @@ test('a partial day offers a recovery quest the next day, which grants XP when c
   await completeOnboarding(page);
 
   // Day 1: complete only CAREER and DSA — a partial, incomplete day.
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
-  await page.getByRole('button', { name: 'Complete DSA' }).click();
-  await expect(page.getByRole('button', { name: 'Undo DSA' })).toBeVisible();
+  await questToggle(page, 'career').click();
+  await expectQuestComplete(page, 'career');
+  await questToggle(page, 'dsa').click();
+  await expectQuestComplete(page, 'dsa');
 
   // Those assertions only prove the OPTIMISTIC flip. advanceToDay
   // reloads, and a reload that outruns the confirmed write (a full
   // rebuildProjections) reads a Day 1 that was never partially
   // completed — so the recovery card describes a different day, or does
   // not appear. helpers.ts documents this race; poll IndexedDB for it.
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'complete');
-  await waitForQuestInstanceState(page, 'DSA', '2026-09-05', 'complete');
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'complete');
+  await waitForQuestInstanceState(page, 'dsa', '2026-09-05', 'complete');
 
   // Day 2: the recovery card should offer yesterday's gap. XP is
   // cumulative across the whole arc (not reset daily), so the bar is
@@ -45,7 +45,9 @@ test('a partial day offers a recovery quest the next day, which grants XP when c
   await advanceToDay(page, 1);
   const recoveryCard = page.getByTestId('recovery-card');
   await expect(recoveryCard).toContainText('Yesterday: 2 of 6.');
-  await expect(recoveryCard).toContainText('BUILD');
+  // The card names incomplete quests by their display title; BUILD's is
+  // FORGE (engine/quests.ts#CORE_QUEST_TITLES, renamed in design/07).
+  await expect(recoveryCard).toContainText('FORGE');
 
   const beforeClaim = await barWidthPct(page);
   await recoveryCard.getByRole('button', { name: /Recovery quest/ }).click();

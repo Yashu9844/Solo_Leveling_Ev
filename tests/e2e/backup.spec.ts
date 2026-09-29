@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, openDataSettings, waitForQuestInstanceState } from './helpers';
+import { completeOnboarding, openDataSettings, waitForQuestInstanceState, questToggle, expectQuestComplete } from './helpers';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -14,8 +14,8 @@ test('export downloads a real JSON backup, and importing it back restores state 
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await waitForQuestInstanceState(page, 'CAREER', '2026-09-05', 'complete');
+  await questToggle(page, 'career').click();
+  await waitForQuestInstanceState(page, 'career', '2026-09-05', 'complete');
 
   await openDataSettings(page);
   await expect(page.getByTestId('backup-card')).toBeVisible();
@@ -59,7 +59,7 @@ test('export downloads a real JSON backup, and importing it back restores state 
   // rather than the end so the assertion survives the depth.
   await page.waitForURL(/\/(profile|today)/, { timeout: 10000 });
   await page.getByRole('link', { name: 'TODAY' }).click();
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career');
 
   fs.unlinkSync(tmpFile);
 });

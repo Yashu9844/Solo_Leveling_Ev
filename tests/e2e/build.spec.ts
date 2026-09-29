@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding, waitForQuestInstanceState } from './helpers';
+import { test, type Page } from '@playwright/test';
+import { completeOnboarding, waitForQuestInstanceState, expectQuestComplete } from './helpers';
 
 const SAFE_TIME = '2026-09-05T10:00:00Z';
 
@@ -17,6 +17,6 @@ test('logging a 45-minute build session auto-completes the BUILD quest', async (
   await page.getByLabel('Project').fill('agent-project');
   await page.getByRole('button', { name: /Forge Construct|Log session/ }).click();
 
-  await waitForQuestInstanceState(page, 'BUILD', '2026-09-05', 'complete');
-  await expect(page.getByRole('button', { name: 'Undo BUILD' })).toBeVisible();
+  await waitForQuestInstanceState(page, 'build', '2026-09-05', 'complete');
+  await expectQuestComplete(page, 'build');
 });

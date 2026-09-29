@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { completeOnboarding } from './helpers';
+import { completeOnboarding, questToggle, expectQuestComplete } from './helpers';
 
 // Same reasoning as core-loop.spec.ts: never depend on the real wall
 // clock for which local_date the arc considers "today."
@@ -26,8 +26,8 @@ async function dismissMomentIfPresent(page: Page) {
   }
 }
 
-async function completeByTitle(page: Page, title: string) {
-  await page.getByRole('button', { name: `Complete ${title}` }).click();
+async function completeByKey(page: Page, questKey: string) {
+  await questToggle(page, questKey).click();
   await dismissMomentIfPresent(page);
 }
 
@@ -44,9 +44,9 @@ test('completing a quest shows +XP and advances the bar', async ({ page }) => {
   expect(await barWidthPct(page)).toBe(0);
 
   const row = page.getByTestId('quest-row-career');
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
+  await questToggle(page, 'career').click();
 
-  await expect(page.getByRole('button', { name: 'Undo CAREER' })).toBeVisible();
+  await expectQuestComplete(page, 'career');
   await expect(row).toContainText('+100');
   // Same reasoning as the undo test below: the button's optimistic flip
   // and the confirmed write (a full rebuildProjections) resolve on
@@ -69,10 +69,10 @@ test('tap -> XP feedback rendered in under 300ms', async ({ page }) => {
   // moving the threshold — if the app really regressed, at least two of
   // three taps would show it.
   const samples: number[] = [];
-  for (const quest of ['DSA', 'BUILD', 'CAREER']) {
+  for (const quest of ['dsa', 'build', 'career']) {
     const start = Date.now();
-    await page.getByRole('button', { name: `Complete ${quest}` }).click();
-    await expect(page.getByRole('button', { name: `Undo ${quest}` })).toBeVisible();
+    await questToggle(page, quest).click();
+    await expectQuestComplete(page, quest);
     samples.push(Date.now() - start);
   }
 
@@ -86,16 +86,16 @@ test('undo removes the XP; total returns to its prior value', async ({ page }) =
 
   expect(await barWidthPct(page)).toBe(0);
 
-  await page.getByRole('button', { name: 'Complete BUILD' }).click();
-  await expect(page.getByRole('button', { name: 'Undo BUILD' })).toBeVisible();
+  await questToggle(page, 'build').click();
+  await expectQuestComplete(page, 'build');
   // The button's optimistic flip and the confirmed XP write (a full
   // rebuildProjections since Slice 4) resolve on different timelines —
   // poll rather than assume the bar has caught up the instant the
   // button re-renders.
   await expect.poll(() => barWidthPct(page)).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Undo BUILD' }).click();
-  await expect(page.getByRole('button', { name: 'Complete BUILD' })).toBeVisible();
+  await questToggle(page, 'build').click();
+  await expectQuestComplete(page, 'build', false);
   await expect.poll(() => barWidthPct(page)).toBe(0);
 });
 
@@ -104,9 +104,9 @@ test('crossing a level boundary fires the LEVEL UP Moment', async ({ page }) => 
   await completeOnboarding(page);
 
   // career(100) + dsa(100) + build(100) = 300, crossing req(1)=280.
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await page.getByRole('button', { name: 'Complete DSA' }).click();
-  await page.getByRole('button', { name: 'Complete BUILD' }).click();
+  await questToggle(page, 'career').click();
+  await questToggle(page, 'dsa').click();
+  await questToggle(page, 'build').click();
 
   await expect(MOMENT(page)).toBeVisible();
   await expect(page.getByText('01 → 02')).toBeVisible();
@@ -116,9 +116,9 @@ test('the Moment dismisses on any tap', async ({ page }) => {
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await page.getByRole('button', { name: 'Complete DSA' }).click();
-  await page.getByRole('button', { name: 'Complete BUILD' }).click();
+  await questToggle(page, 'career').click();
+  await questToggle(page, 'dsa').click();
+  await questToggle(page, 'build').click();
   await expect(MOMENT(page)).toBeVisible();
 
   await MOMENT(page).click();
@@ -133,7 +133,7 @@ test('a level-up between milestones renders as an inline banner, not full screen
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  const CORE_TITLES = ['CAREER', 'DSA', 'BUILD', 'TRAINING', 'SLEEP', 'ATTENTION'];
+  const CORE_KEYS = ['career', 'dsa', 'build', 'training', 'sleep', 'attention'];
   // ~500 XP/day; cumulative req to L4 is 1,100 (280+370+450), so 3 full
   // days of all-six completions (1,500 XP) crosses L2, L3 and L4.
   //
@@ -149,8 +149,8 @@ test('a level-up between milestones renders as an inline banner, not full screen
       await page.clock.setFixedTime(next);
       await page.reload();
     }
-    for (const title of CORE_TITLES) {
-      await completeByTitle(page, title);
+    for (const key of CORE_KEYS) {
+      await completeByKey(page, key);
     }
   }
 
@@ -165,9 +165,9 @@ test('prefers-reduced-motion: Moment content present, no animation', async ({ pa
   await withSafeClock(page);
   await completeOnboarding(page);
 
-  await page.getByRole('button', { name: 'Complete CAREER' }).click();
-  await page.getByRole('button', { name: 'Complete DSA' }).click();
-  await page.getByRole('button', { name: 'Complete BUILD' }).click();
+  await questToggle(page, 'career').click();
+  await questToggle(page, 'dsa').click();
+  await questToggle(page, 'build').click();
 
   // With reduced motion, content is present at its final state
   // immediately — no need to wait out the 700ms phased reveal.
