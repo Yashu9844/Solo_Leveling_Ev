@@ -73,6 +73,31 @@ export default tseslint.config(
       ],
     },
   },
+  // ── The runtime-config seam (platform/05 loop 1.4) ─────────────────────
+  // The engine config is the ARC's (store/engineConfig.ts), never the
+  // owner's hard-coded DEFAULT_CONFIG — which carries Asia/Kolkata, the
+  // 04:00 boundary and 2026-09-01 for every user. UI and store code read
+  // getEngineConfig()/useEngineConfig() instead. Exempt: the runtime
+  // config store itself (it is where the defaults live) and onboarding's
+  // initial form, which runs before any arc exists (removed in loop 1.5).
+  {
+    files: ['src/ui/**/*.{ts,tsx}', 'src/store/**/*.{ts,tsx}'],
+    ignores: ['src/store/engineConfig.ts', 'src/ui/onboarding/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/engine/config', '**/engine'],
+              importNames: ['DEFAULT_CONFIG'],
+              message: "Use the arc's config: getEngineConfig() / useEngineConfig() from store/engineConfig.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // ── Stub-args allowance — shrinks every slice ──────────────────────────
   // Phase 0 stub functions have full typed signatures but throw
   // 'Not implemented — Slice N' instead of a body (final/09 Step 3), so
