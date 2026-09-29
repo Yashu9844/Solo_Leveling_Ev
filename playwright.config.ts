@@ -24,6 +24,11 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
+    // The suite's mocked clocks encode IST ("22:35Z = 04:05 local"), and
+    // new arcs take the device's timezone (platform/05 loop 1.5). Pinned
+    // so the result never depends on the host machine's zone; specs that
+    // test other zones override it with test.use({ timezoneId }).
+    timezoneId: 'Asia/Kolkata',
     trace: 'on-first-retry',
   },
   projects: [

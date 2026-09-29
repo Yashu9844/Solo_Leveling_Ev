@@ -122,11 +122,16 @@ function SpanRail({ startDate, endDate }: { startDate: string; endDate: string }
 export function Step2Arc({
   startDate,
   endDate,
+  timezone,
+  dayBoundaryHour,
   onChangeStart,
   onChangeEnd,
 }: {
   startDate: string;
   endDate: string;
+  /** The device's zone, detected for this new arc (./timezone.ts). */
+  timezone: string;
+  dayBoundaryHour: number;
   onChangeStart: (v: string) => void;
   onChangeEnd: (v: string) => void;
 }) {
@@ -214,7 +219,9 @@ export function Step2Arc({
               className="mt-[5px] block h-[3px] w-[3px] shrink-0 rotate-45"
               style={{ background: 'var(--faint)' }}
             />
-            <span className="min-w-0 leading-[1.5]">Asia/Kolkata · day rolls at 04:00</span>
+            <span className="min-w-0 leading-[1.5]" data-testid="arc-timezone">
+              {timezone} · day rolls at {String(dayBoundaryHour).padStart(2, '0')}:00
+            </span>
           </div>
         </Rise>
       </div>

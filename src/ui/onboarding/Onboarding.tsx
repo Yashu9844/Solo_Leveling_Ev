@@ -14,11 +14,13 @@ import { Step4Directive } from './Step4Directive';
 import { Step5Triggers } from './Step5Triggers';
 import { Step6Baseline, alarmLabel } from './Step6Baseline';
 import { EASE, TOTAL_STEPS, dayCount, type IntentionDraft } from './shared';
+import { detectTimeZone } from './timezone';
 
 interface FormState {
   name: string;
   startDate: string;
   endDate: string;
+  timezone: string;
   wakeTime: string;
   sleepTime: string;
   trainingDays: string[];
@@ -39,6 +41,9 @@ function initialForm(): FormState {
     name: '',
     startDate: DEFAULT_CONFIG.arc.startDate,
     endDate: DEFAULT_CONFIG.arc.endDate,
+    // The device's own zone, not the owner's Asia/Kolkata (platform/05
+    // loop 1.5). Fixed at arc creation; the arc row is the source after.
+    timezone: detectTimeZone(DEFAULT_CONFIG.arc.timezone),
     wakeTime: '08:30',
     sleepTime: '02:00',
     trainingDays: [],
@@ -146,7 +151,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       name: form.name.trim(),
       startDate: form.startDate,
       endDate: form.endDate,
-      timezone: DEFAULT_CONFIG.arc.timezone,
+      timezone: form.timezone,
       dayBoundaryHour: DEFAULT_CONFIG.arc.dayBoundaryHour,
       dayCloseHour: DEFAULT_CONFIG.arc.dayCloseHour,
       wakeTime: form.wakeTime,
@@ -308,6 +313,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   <Step2Arc
                     startDate={form.startDate}
                     endDate={form.endDate}
+                    timezone={form.timezone}
+                    dayBoundaryHour={DEFAULT_CONFIG.arc.dayBoundaryHour}
                     onChangeStart={(v) => update('startDate', v)}
                     onChangeEnd={(v) => update('endDate', v)}
                   />

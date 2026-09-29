@@ -50,3 +50,37 @@ export function arcDay(instantIso: string, startDate: string, tz: string, bounda
   const today = localDate(instantIso, tz, boundaryHour);
   return differenceInCalendarDays(parseISO(today), parseISO(startDate)) + 1;
 }
+
+/**
+ * Legacy IANA ids that browsers still report, mapped to their current
+ * names. ICU (and so Chromium) canonicalises to the OLD ids — it reports
+ * India as 'Asia/Calcutta' and even turns 'Asia/Kolkata' into it — so
+ * Intl cannot be used to normalise. Both names compute identical dates;
+ * this only keeps stored and displayed ids current and consistent with
+ * the owner's arc ('Asia/Kolkata').
+ */
+const LEGACY_TIME_ZONE_ALIASES: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+};
+
+/** Pure. The current name for a legacy IANA id; anything else unchanged. */
+export function canonicalTimeZone(tz: string): string {
+  return LEGACY_TIME_ZONE_ALIASES[tz] ?? tz;
+}
+
+/** Pure. Whether `tz` is an IANA zone this runtime can compute dates in. */
+export function isValidTimeZone(tz: string): boolean {
+  if (!tz) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}

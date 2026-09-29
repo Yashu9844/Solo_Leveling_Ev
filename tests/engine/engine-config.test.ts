@@ -3,7 +3,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, engineConfigFor } from '../../src/engine/config';
-import { isDayClosed, localDate } from '../../src/engine/time';
+import { canonicalTimeZone, isDayClosed, isValidTimeZone, localDate } from '../../src/engine/time';
 import { buildProjections } from '../../src/db/projections';
 import { getEngineConfig, setEngineConfigFromArc } from '../../src/store/engineConfig';
 import type { ArcRow } from '../../src/db/schema';
@@ -91,6 +91,26 @@ describe('buildProjections — templates start on the arc start date', () => {
   it("is unchanged for an arc starting on the owner's date", () => {
     const built = buildProjections(arcLog('2026-09-01', '2026-09-01'), DEFAULT_CONFIG, deps);
     expect(built.templates.every((t) => t.active_from === DEFAULT_CONFIG.arc.startDate)).toBe(true);
+  });
+});
+
+describe('timezone canonicalisation (loop 1.5)', () => {
+  it("maps the legacy ids browsers still report — Chromium reports India as 'Asia/Calcutta'", () => {
+    expect(canonicalTimeZone('Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(canonicalTimeZone('Europe/Kiev')).toBe('Europe/Kyiv');
+    expect(canonicalTimeZone('America/New_York')).toBe('America/New_York');
+  });
+
+  it('the legacy and current ids compute identical dates', () => {
+    const instant = '2026-09-10T22:45:00Z';
+    expect(localDate(instant, 'Asia/Calcutta', 4)).toBe(localDate(instant, 'Asia/Kolkata', 4));
+  });
+
+  it('validates zones', () => {
+    expect(isValidTimeZone('Asia/Kolkata')).toBe(true);
+    expect(isValidTimeZone('Asia/Kathmandu')).toBe(true);
+    expect(isValidTimeZone('Nope/Nowhere')).toBe(false);
+    expect(isValidTimeZone('')).toBe(false);
   });
 });
 

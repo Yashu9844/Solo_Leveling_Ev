@@ -78,8 +78,10 @@ export default tseslint.config(
   // owner's hard-coded DEFAULT_CONFIG — which carries Asia/Kolkata, the
   // 04:00 boundary and 2026-09-01 for every user. UI and store code read
   // getEngineConfig()/useEngineConfig() instead. Exempt: the runtime
-  // config store itself (it is where the defaults live) and onboarding's
-  // initial form, which runs before any arc exists (removed in loop 1.5).
+  // config store itself (it is where the defaults live) and onboarding,
+  // which runs before any arc exists. Since loop 1.5 onboarding takes the
+  // device's timezone; its date and boundary-hour defaults go when the
+  // adaptive onboarding replaces it (platform/05 Phase 10).
   {
     files: ['src/ui/**/*.{ts,tsx}', 'src/store/**/*.{ts,tsx}'],
     ignores: ['src/store/engineConfig.ts', 'src/ui/onboarding/**'],
