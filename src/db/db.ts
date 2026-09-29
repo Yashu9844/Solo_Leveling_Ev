@@ -31,6 +31,15 @@ import type {
   SystemTransmissionRow,
 } from './schema';
 
+/**
+ * The IndexedDB database name. Production keeps the historical
+ * 'system-arc'. Platform/preview builds set VITE_DB_NAME so that a build
+ * served from a shared origin can never open — and, after a schema bump,
+ * never upgrade — the owner's real database (platform/05 loop 0.5,
+ * platform/04 §34). Empty or whitespace values fall back to the default.
+ */
+export const DB_NAME = (import.meta.env.VITE_DB_NAME ?? '').trim() || 'system-arc';
+
 export class SystemDb extends Dexie {
   event!: Table<EventRow, string>;
   xp_ledger!: Table<XpLedgerRow, string>;
@@ -62,7 +71,7 @@ export class SystemDb extends Dexie {
   system_transmission!: Table<SystemTransmissionRow, string>;
 
   constructor() {
-    super('system-arc');
+    super(DB_NAME);
     this.version(1).stores(SCHEMA_V1);
     // Additive only (a new object store, nothing removed or re-indexed
     // on any existing one) — Dexie carries every unlisted table forward
