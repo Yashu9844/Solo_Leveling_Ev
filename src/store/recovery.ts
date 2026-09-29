@@ -17,6 +17,7 @@ import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { getAllEvents } from '../db/events';
 import { rebuildProjections } from '../db/projections';
+import { getActiveArc } from './arc';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -32,7 +33,7 @@ export interface RecoverableDay {
 /** The most recent incomplete, unpaused, not-yet-recovered day within the
  * recovery window (today-1 or today-2), or null if nothing qualifies. */
 export async function getRecoverableDay(today: string, config: EngineConfig): Promise<RecoverableDay | null> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) return null;
 
   const events = await getAllEvents();

@@ -29,6 +29,7 @@ import {
   SectionLabel,
   SecondaryButton,
 } from '../kit';
+import { getActiveArc, getActiveProfile } from '../../store/arc';
 
 const CHECKPOINT_DAYS: Checkpoint['day'][] = [14, 30, 60, 90, 120];
 const ARC_LENGTH_DAYS = 120;
@@ -39,7 +40,7 @@ export function Profile() {
 
   useEffect(() => {
     void (async () => {
-      const arc = await db.arc.toCollection().first();
+      const arc = await getActiveArc();
       if (!arc) return;
       setDay(arcDay(realDeps.now(), arc.start_date, arc.timezone, arc.day_boundary_hour));
     })();
@@ -99,8 +100,8 @@ function LevelSummary() {
     void Promise.all([
       getTotalXp(),
       getCurrentRank(),
-      db.arc.toCollection().first(),
-      db.profile.toCollection().first(),
+      getActiveArc(),
+      getActiveProfile(),
     ]).then(([xp, r, arc, profile]) => {
       if (!cancelled) {
         setTotalXp(xp);
@@ -209,7 +210,7 @@ function CheckpointRow() {
   const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
 
   const refresh = useCallback(async () => {
-    const arc = await db.arc.toCollection().first();
+    const arc = await getActiveArc();
     if (!arc) return;
     setDay(arcDay(realDeps.now(), arc.start_date, arc.timezone, arc.day_boundary_hour));
 
@@ -294,7 +295,7 @@ function ArcPauseControl() {
   const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
 
   const refresh = useCallback(async () => {
-    const arc = await db.arc.toCollection().first();
+    const arc = await getActiveArc();
     if (!arc) return;
     setArcId(arc.id);
     const events = await getAllEvents();

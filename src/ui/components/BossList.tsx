@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { DEFAULT_CONFIG } from '../../engine/config';
 import { arcDay, localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import { getBossStatus, clearBoss } from '../../store/boss';
 import type { BossId, BossResult } from '../../engine/boss';
 import { BOSSES } from '../../engine/boss';
 import { BossClearedMoment } from '../moments/BossClearedMoment';
 import { ArtLayer, Panel, PrimaryButton, SectionLabel } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 /** final/01 §7 — "Announced 7 days ahead with a live checklist. Cannot
  * be failed; a missed window reopens at the next checkpoint." The
@@ -24,7 +24,7 @@ export function BossList() {
   async function refresh() {
     const [results, arc] = await Promise.all([
       Promise.all(BOSSES.map((b) => getBossStatus(b.id, today))),
-      db.arc.toCollection().first(),
+      getActiveArc(),
     ]);
     setStatuses(results);
     if (arc) setDay(arcDay(realDeps.now(), arc.start_date, arc.timezone, arc.day_boundary_hour));
@@ -36,7 +36,7 @@ export function BossList() {
   }, [today]);
 
   async function handleClear(bossId: BossId) {
-    const arc = await db.arc.toCollection().first();
+    const arc = await getActiveArc();
     if (!arc || clearingId) return;
     setClearingId(bossId);
     try {

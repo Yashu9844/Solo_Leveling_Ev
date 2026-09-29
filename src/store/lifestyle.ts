@@ -11,6 +11,7 @@ import { appendEvent } from '../db/events';
 import { completeQuest } from './quests';
 import { rebuildProjections } from '../db/projections';
 import type { MaintenanceLogRow, MetricSampleRow } from '../db/schema';
+import { getActiveArc } from './arc';
 
 const REBUILD_ADJACENT_TABLES = [
   db.event,
@@ -140,7 +141,7 @@ export async function logMaintenance(
   config: EngineConfig,
   deps: EngineDeps
 ): Promise<void> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   const arcStartDate = arc?.start_date ?? today;
   const laundryDue = isLaundryDue(today, arcStartDate, config.maintenanceLaundryEveryDays);
   const allDone = maintenanceAllDone(input.bath, input.fuel, laundryDue, input.laundry);

@@ -24,6 +24,7 @@ import { getActiveWeeklyQuest, getWeeklyQuestProposal, type ActiveWeeklyQuest } 
 import type { WeeklyQuestProposal } from '../engine/weeklyQuest';
 import { getAllEvents, appendEvent } from '../db/events';
 import { db } from '../db/db';
+import { getActiveArc } from './arc';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -128,7 +129,7 @@ export async function getWeeklyReview(today: string, config: EngineConfig, deps:
   const thisWeekDates = weekDates(today);
   const lastWeekDates = weekDates(shiftDate(today, -7));
   const dateSet = new Set(thisWeekDates);
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
 
   const [thisWeek, lastWeek, afterAttributes, beforeAttributes, events, artifacts, correlation, activeWeeklyQuest] = await Promise.all([
     metricsFor(thisWeekDates),

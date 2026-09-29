@@ -4,7 +4,6 @@ import { arcDay, isDayClosed, localDate } from '../../engine/time';
 import { levelFor, type LevelState } from '../../engine/level';
 import type { CoreQuestKey, QuestInstance, QuestRecoveredPayload, QuestTemplate } from '../../engine/types';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import { loadTodayQuests, completeQuest, undoQuest } from '../../store/quests';
 import { getDayXpByInstance, getTotalXp } from '../../store/playerState';
 import { getStreakState, type LiveStreakState } from '../../store/streak';
@@ -36,6 +35,7 @@ import { resolveTransmission, type Transmission } from '../../store/systemMessag
 import { SystemTransmission } from '../today/SystemTransmission';
 import { useSystemVoice } from '../speech/useSystemVoice';
 import { recordReflectionShown } from '../../store/reflections';
+import { getActiveArc } from '../../store/arc';
 
 const CONFIG = DEFAULT_CONFIG;
 
@@ -165,14 +165,14 @@ export function Today() {
    * therefore free inside a band and meaningful when a tap crosses one.
    */
   const refreshTransmission = useCallback(async (date: string) => {
-    const arcRow = await db.arc.toCollection().first();
+    const arcRow = await getActiveArc();
     if (!arcRow) return;
     const dayNumber = arcDay(realDeps.now(), arcRow.start_date, arcRow.timezone, arcRow.day_boundary_hour);
     setTransmission(await resolveTransmission(date, dayNumber, CONFIG, realDeps));
   }, []);
 
   const refresh = useCallback(async () => {
-    const arcRow = await db.arc.toCollection().first();
+    const arcRow = await getActiveArc();
     if (!arcRow) return;
     setArc({ id: arcRow.id, start_date: arcRow.start_date, end_date: arcRow.end_date });
     setDay(arcDay(realDeps.now(), arcRow.start_date, arcRow.timezone, arcRow.day_boundary_hour));

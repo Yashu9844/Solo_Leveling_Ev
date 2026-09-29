@@ -4,9 +4,9 @@ import { getWeeklyReview, recordWeekReviewed, type WeeklyReviewReport } from '..
 import { acceptWeeklyQuest } from '../../store/weeklyQuest';
 import { exportSnapshotJson, getBackupStatus, type BackupStatus } from '../../store/checkpoint';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import type { Attribute } from '../../engine/types';
 import { ArtLayer, Panel, Portal, PrimaryButton, SecondaryButton, SectionLabel } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 function triggerDownload(filename: string, contents: string) {
   const blob = new Blob([contents], { type: 'application/json' });
@@ -81,7 +81,7 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
     void getBackupStatus(realDeps).then((s) => {
       if (!cancelled) setBackupStatus(s);
     });
-    void db.arc.toCollection().first().then((arc) => {
+    void getActiveArc().then((arc) => {
       if (!cancelled) setArcId(arc?.id ?? null);
     });
     return () => {

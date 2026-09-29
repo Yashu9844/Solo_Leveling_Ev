@@ -10,6 +10,7 @@ import type { ApplicationFixture, ApplicationStatus } from '../engine/career';
 import { getAllEvents, appendEvent } from '../db/events';
 import { rebuildProjections } from '../db/projections';
 import { db } from '../db/db';
+import { getActiveArc } from './arc';
 
 async function isBossCleared(bossId: BossId): Promise<boolean> {
   const events = await getAllEvents();
@@ -96,7 +97,7 @@ export async function computeBossEvidence(): Promise<BossEvidence> {
 }
 
 export async function getBossStatus(bossId: BossId, today: string): Promise<BossResult> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   // Both are already local_date strings in the arc's own timezone — a
   // plain calendar-day difference is exact here, unlike engine/time.ts's
   // arcDay (which converts an instant, not a date, and would need a

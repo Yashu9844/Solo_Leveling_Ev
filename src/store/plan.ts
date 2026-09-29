@@ -10,6 +10,7 @@ import { DEFAULT_CONFIG } from '../engine/config';
 import { appendEvent, getAllEvents } from '../db/events';
 import { rebuildProjections } from '../db/projections';
 import { db } from '../db/db';
+import { getActiveArc } from './arc';
 
 /**
  * Reading and amending the three implementation intentions.
@@ -90,7 +91,7 @@ export async function getArcClock(): Promise<{
   dayBoundaryHour: number;
   dayCloseHour: number;
 } | null> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) return null;
   return {
     id: arc.id,

@@ -14,6 +14,7 @@ import { applyEvents } from '../engine/reduce';
 import { getAllEvents } from '../db/events';
 import { buildDayOutcomes } from '../db/projections';
 import { db } from '../db/db';
+import { getActiveArc } from './arc';
 
 // The three core quests onboarding actually collects an implementation
 // intention for — store/onboarding.ts's Step 5 (career/DSA/training),
@@ -39,7 +40,7 @@ export interface AchievementsReport {
 }
 
 export async function getAchievementsReport(today: string, config: EngineConfig): Promise<AchievementsReport> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) return { achievements: achievementsFrom(EMPTY), identities: identitiesFrom(EMPTY) };
 
   const [events, gateEvidence, checkpoints, ifThenRate] = await Promise.all([

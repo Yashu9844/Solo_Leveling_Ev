@@ -35,6 +35,7 @@ import { buildDomainTables } from '../db/domainProjections';
 import { db } from '../db/db';
 import type { ArcRow, CheckpointRow, EventRow, ProfileRow } from '../db/schema';
 import type { EngineConfig, EngineDeps, Rank, SystemEvent } from '../engine/types';
+import { getActiveArc, getActiveProfile } from './arc';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -420,8 +421,8 @@ export async function exportSnapshotJson(deps: { now(): string }): Promise<strin
   const now = deps.now();
   const [events, arc, profileBefore, checkpoints] = await Promise.all([
     getAllEvents(),
-    db.arc.toCollection().first(),
-    db.profile.toCollection().first(),
+    getActiveArc(),
+    getActiveProfile(),
     db.checkpoint.toArray(),
   ]);
 
@@ -452,7 +453,7 @@ export interface BackupStatus {
 }
 
 export async function getBackupStatus(deps: { now(): string }): Promise<BackupStatus> {
-  const [profile, arc] = await Promise.all([db.profile.toCollection().first(), db.arc.toCollection().first()]);
+  const [profile, arc] = await Promise.all([getActiveProfile(), getActiveArc()]);
   const lastExportAt = profile?.last_export_at ?? null;
   const since = lastExportAt ?? arc?.start_date;
   const daysSince = since

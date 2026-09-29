@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DEFAULT_CONFIG } from '../../engine/config';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import {
   getDsaSkillsOverview,
   getFoundationSkillsOverview,
@@ -42,6 +41,7 @@ import {
   SecondaryButton,
   SegmentBar,
 } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 const ARC_LENGTH_DAYS = 120;
 
@@ -216,7 +216,7 @@ export function Skills() {
       getFoundationSkillsOverview(),
       getAiSkillsOverview(),
       getCareerTreeOverview(),
-      db.arc.toCollection().first(),
+      getActiveArc(),
     ]);
     setDsa(d);
     setFoundations(f);
@@ -641,7 +641,7 @@ function InterviewBenchmarkCard() {
   const [submitting, setSubmitting] = useState(false);
 
   async function refresh() {
-    const [p, h, arc] = await Promise.all([getInterviewBenchmarkPassed(), getInterviewBenchmarkHistory(), db.arc.toCollection().first()]);
+    const [p, h, arc] = await Promise.all([getInterviewBenchmarkPassed(), getInterviewBenchmarkHistory(), getActiveArc()]);
     setPassed(p);
     setHistory(h);
     setArcId(arc?.id ?? null);

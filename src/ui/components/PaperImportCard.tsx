@@ -1,10 +1,10 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { DEFAULT_CONFIG } from '../../engine/config';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import { parseDailyLog, parseDsaLog, type DailyLogEntry, type DsaLogEntry } from '../../engine/paperImport';
 import { importDailyLog, importDsaLog, type ImportSummary } from '../../store/paperImport';
 import { Panel, PrimaryButton, SecondaryButton, SectionLabel } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 type Pending =
   | { kind: 'daily'; fileName: string; entries: DailyLogEntry[]; errors: string[] }
@@ -48,7 +48,7 @@ export function PaperImportCard() {
 
   async function handleImport() {
     if (!pending) return;
-    const arc = await db.arc.toCollection().first();
+    const arc = await getActiveArc();
     if (!arc) return;
     setImporting(true);
     try {

@@ -13,6 +13,7 @@ import { streakFrom } from '../engine/streak';
 import { db } from '../db/db';
 import { appendEvent, getAllEvents } from '../db/events';
 import { rebuildProjections, buildDayOutcomes } from '../db/projections';
+import { getActiveArc } from './arc';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -85,7 +86,7 @@ const CONSISTENCY_KEY_WINDOW = 7;
  * this is called.
  */
 export async function getDailyReport(today: string, config: EngineConfig): Promise<DailyReport | null> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) return null;
 
   const rollup = await db.day_rollup.get(today);

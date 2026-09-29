@@ -18,6 +18,7 @@ import { localDate } from '../engine/time';
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import type { ArcRow, CheckpointRow, ProfileRow } from '../db/schema';
+import { getActiveArc } from './arc';
 
 export interface OnboardingIntentions {
   career: ImplementationIntention;
@@ -73,7 +74,7 @@ export async function initialiseArc(
     'rw',
     [db.event, db.arc, db.quest_template, db.checkpoint, db.profile],
     async () => {
-      const existing = await db.arc.toCollection().first();
+      const existing = await getActiveArc();
       if (existing) {
         return existing.id;
       }

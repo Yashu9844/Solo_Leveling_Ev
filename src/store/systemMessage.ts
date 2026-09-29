@@ -35,6 +35,7 @@ import { getTotalXp } from './playerState';
 import { getStreakState } from './streak';
 import { getRecoverableDay } from './recovery';
 import { getCurrentRank } from './checkpoint';
+import { getActiveArc } from './arc';
 
 /** engine/rank.ts's checkpoint ladder — the schedule, not a second copy of it. */
 const CHECKPOINT_DAYS = [14, 30, 60, 90, 120] as const;
@@ -74,7 +75,7 @@ export async function buildSystemMessageContext(
   config: EngineConfig,
   deps: Pick<EngineDeps, 'now'>
 ): Promise<SystemMessageContext | null> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) return null;
 
   const now = deps.now();

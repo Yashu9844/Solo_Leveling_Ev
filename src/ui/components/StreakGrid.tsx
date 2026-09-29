@@ -10,6 +10,7 @@ import { getAllEvents } from '../../db/events';
 import { applyEvents } from '../../engine/reduce';
 import { buildDayOutcomes } from '../../db/projections';
 import { streakFrom } from '../../engine/streak';
+import { getActiveArc } from '../../store/arc';
 
 export interface DayCell {
   date: string;
@@ -41,7 +42,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
 
   const loadData = useCallback(async () => {
     try {
-      const arc = await db.arc.toCollection().first();
+      const arc = await getActiveArc();
       if (!arc) {
         setLoading(false);
         return;

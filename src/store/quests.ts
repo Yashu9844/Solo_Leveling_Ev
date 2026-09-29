@@ -23,6 +23,7 @@ import { isDayClosed } from '../engine/time';
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { rebuildProjections } from '../db/projections';
+import { getActiveArc } from './arc';
 
 export interface TodayQuests {
   templates: QuestTemplate[];
@@ -49,7 +50,7 @@ export async function loadTodayQuests(
   config: EngineConfig,
   deps: EngineDeps
 ): Promise<TodayQuests> {
-  const arc = await db.arc.toCollection().first();
+  const arc = await getActiveArc();
   if (!arc) {
     return { templates: [], instances: [] };
   }

@@ -3,10 +3,10 @@ import { DEFAULT_CONFIG } from '../../engine/config';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { logBodyMetric } from '../../store/training';
-import { db } from '../../db/db';
 import { SingleChipSelect } from './SingleChipSelect';
 import { Stepper } from './Stepper';
 import { Panel, PrimaryButton, SectionLabel } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 const KINDS = ['weight_kg', 'waist_cm', 'bodyfat_pct'] as const;
 type Kind = (typeof KINDS)[number];
@@ -33,7 +33,7 @@ export function BodyMetricsCard() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
-    void db.arc.toCollection().first().then((arc) => setArcId(arc?.id ?? null));
+    void getActiveArc().then((arc) => setArcId(arc?.id ?? null));
   }, []);
 
   function selectKind(next: Kind) {

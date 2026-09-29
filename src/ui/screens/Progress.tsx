@@ -4,7 +4,6 @@ import { DEFAULT_CONFIG } from '../../engine/config';
 import { arcDay, localDate } from '../../engine/time';
 import { levelFor } from '../../engine/level';
 import { realDeps } from '../../store/deps';
-import { db } from '../../db/db';
 import { getTotalXp } from '../../store/playerState';
 import { getStreakState, type LiveStreakState } from '../../store/streak';
 import { getRealitySummary, type RealitySummary } from '../../store/reality';
@@ -13,6 +12,7 @@ import { StreakGrid } from '../components/StreakGrid';
 import { WeeklyReview } from '../review/WeeklyReview';
 import { getCurrentRank } from '../../store/checkpoint';
 import { ArtLayer, DayMeta, MeterBar, ScreenTitle, SectionLabel } from '../kit';
+import { getActiveArc } from '../../store/arc';
 
 const ARC_LENGTH_DAYS = 120;
 
@@ -26,7 +26,7 @@ export function Progress() {
 
   useEffect(() => {
     void (async () => {
-      const arc = await db.arc.toCollection().first();
+      const arc = await getActiveArc();
       if (!arc) return;
       const d = arcDay(realDeps.now(), arc.start_date, arc.timezone, arc.day_boundary_hour);
       setDay(d);
