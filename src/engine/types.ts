@@ -559,4 +559,9 @@ export interface EngineState {
   // reviewed day and carries the payload for the daily report.
   reviews: Record<string, ReviewCompletedPayload>;
   arc: ArcState | null;
+  // Event types this build doesn't know, skipped rather than thrown, with
+  // counts. Non-empty only when the log was written by a NEWER build —
+  // e.g. after a rollback (platform/04 §38). Surfaced so the skip is
+  // visible, never silent.
+  skipped: Record<string, number>;
 }

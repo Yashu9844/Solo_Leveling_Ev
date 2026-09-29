@@ -1,5 +1,9 @@
+import 'fake-indexeddb/auto'; // db/projections.ts's module graph constructs the Dexie instance
 import { describe, it, expect } from 'vitest';
-import { applyEvents } from '../../src/engine/reduce';
+import { applyEvents, KNOWN_EVENT_TYPES } from '../../src/engine/reduce';
+import { buildProjections } from '../../src/db/projections';
+import { buildDomainTables } from '../../src/db/domainProjections';
+import { legacyActivityLog } from './support/legacyActivityLog';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { arcDay } from '../../src/engine/time';
 import type {
@@ -349,5 +353,49 @@ describe('applyEvents — determinism and the boundary rule', () => {
   it('APP_OPENED is a handled no-op, not a silent default — Slice 3', () => {
     const opened = event('APP_OPENED', { seconds: 0 }, 'app-opened:2026-09-05');
     expect(() => applyEvents([arcStartedEvent(), opened], DEFAULT_CONFIG)).not.toThrow();
+  });
+});
+
+// platform/05-ROADMAP.md loop 1.1 — a log written by a NEWER build (event
+// types this build has never heard of) must still replay, so a rollback
+// can never brick the older build.
+describe('applyEvents — forward compatibility', () => {
+  function futureEvent(type: string, idem: string): SystemEvent {
+    return { ...event('APP_OPENED', {}, idem), type: type as SystemEvent['type'], payload: { from: 'the future' } };
+  }
+
+  it('skips an unknown event type instead of throwing, and counts it', () => {
+    const log = [...onboardingEventLog(), futureEvent('BLUEPRINT_ACTIVATED', 'f1'), futureEvent('BLUEPRINT_ACTIVATED', 'f2'), futureEvent('INSTRUMENT_RECORDED', 'f3')];
+    const state = applyEvents(log, DEFAULT_CONFIG);
+    expect(state.skipped).toEqual({ BLUEPRINT_ACTIVATED: 2, INSTRUMENT_RECORDED: 1 });
+  });
+
+  it('state is otherwise identical to the same log without the unknown events', () => {
+    const base = onboardingEventLog();
+    const withFuture = [...base.slice(0, 2), futureEvent('SOMETHING_NEW', 'f1'), ...base.slice(2)];
+    const { skipped, ...rest } = applyEvents(withFuture, DEFAULT_CONFIG);
+    const { skipped: noneSkipped, ...expected } = applyEvents(base, DEFAULT_CONFIG);
+    expect(skipped).toEqual({ SOMETHING_NEW: 1 });
+    expect(noneSkipped).toEqual({});
+    expect(rest).toEqual(expected);
+  });
+
+  it('a duplicate idem_key on an unknown event is still de-duplicated, not double-counted', () => {
+    const log = [...onboardingEventLog(), futureEvent('SOMETHING_NEW', 'same'), futureEvent('SOMETHING_NEW', 'same')];
+    expect(applyEvents(log, DEFAULT_CONFIG).skipped).toEqual({ SOMETHING_NEW: 1 });
+  });
+
+  it('every EventType member is known — only genuinely foreign types are skipped', () => {
+    expect(KNOWN_EVENT_TYPES.size).toBe(31);
+    expect(KNOWN_EVENT_TYPES.has('CHECKPOINT_SEALED')).toBe(true);
+    expect(KNOWN_EVENT_TYPES.has('BLUEPRINT_ACTIVATED')).toBe(false);
+  });
+
+  it('the full projection and domain folds are unchanged by unknown events (rollback safety)', () => {
+    const base = legacyActivityLog({ seed: 7, days: 30 });
+    const future = base.flatMap((e, i) => (i % 50 === 25 ? [e, futureEvent('INSTRUMENT_RECORDED', `future-${i}`)] : [e]));
+    const deps = { now: () => '2026-10-01T00:00:00Z', newId: () => 'x' };
+    expect(buildProjections(future, DEFAULT_CONFIG, deps)).toEqual(buildProjections(base, DEFAULT_CONFIG, deps));
+    expect(buildDomainTables(future, DEFAULT_CONFIG)).toEqual(buildDomainTables(base, DEFAULT_CONFIG));
   });
 });

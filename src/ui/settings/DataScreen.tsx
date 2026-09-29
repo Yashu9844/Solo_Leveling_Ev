@@ -131,6 +131,15 @@ function IntegrityGroup() {
                 ))}
               </ul>
             )}
+            {Object.keys(report.skipped).length > 0 ? (
+              <p className="mt-2 text-xs text-ink-500" data-testid="integrity-skipped">
+                Skipped events from a newer version of the app:{' '}
+                {Object.entries(report.skipped)
+                  .map(([type, count]) => `${type} ×${count}`)
+                  .join(', ')}
+                . They are kept in the log and ignored by this version.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </SettingsList>

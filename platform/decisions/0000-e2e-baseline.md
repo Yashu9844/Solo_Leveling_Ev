@@ -23,6 +23,13 @@
 
 The gate G2 ("e2e green") is therefore evaluated as **no new failures versus this list** until the owner decides.
 
+**Known flaky test** (found during loop 1.1, pre-existing):
+
+- `core-loop.spec.ts` › "all six rows are reachable without scrolling at 412x915" fails intermittently with `<main>` overflowing by exactly **131 px**.
+- It failed 3 of 8 runs on the committed tree before loop 1.1, and 1 of 5 with it.
+- The fixture arc starts 1 Sep while the test clock sits at 5 Sep, so four unopened days switch **Reduced Mode** on. The Reduced-Mode banner plus the reflection line then push Today past 915 px in some runs.
+- The exact source of the run-to-run variance is not yet identified. It is recorded, not fixed: the fix is either test data (start the arc on the clock's day) or a product decision about Today's height with Reduced Mode on.
+
 ## Other pre-existing issues found (no failing test)
 
 | Issue | Where | Impact |

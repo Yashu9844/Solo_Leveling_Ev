@@ -88,6 +88,18 @@ describe('Owner golden harness — synthetic export', () => {
     const reExported = JSON.parse(await exportSnapshotJson(harnessDeps)) as ExportSnapshot;
     expect(deriveGolden(reExported.events).digest).toBe(deriveGolden(events).digest);
   });
+
+  // platform/05 loop 1.1 — the rollback scenario end to end: an export
+  // containing event types from a newer build imports, verifies clean,
+  // reports the skip, and derives exactly what the known events alone do.
+  it('an export from a newer build imports cleanly and reports the unknown events', async () => {
+    const future = { ...events[5]!, id: 'evt-999999', type: 'BLUEPRINT_ACTIVATED' as SystemEvent['type'], idem_key: 'blueprint:x:2', payload: {} };
+    await importSnapshotJson(syntheticExport([...events, future]), DEFAULT_CONFIG, harnessDeps);
+    const report = await verifyIntegrity(DEFAULT_CONFIG, harnessDeps);
+    expect(report.clean).toBe(true);
+    expect(report.skipped).toEqual({ BLUEPRINT_ACTIVATED: 1 });
+    expect(deriveGolden([...events, future]).digest).toBe(deriveGolden(events).digest);
+  });
 });
 
 const owner = loadOwnerExport();

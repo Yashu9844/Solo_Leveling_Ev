@@ -351,6 +351,11 @@ export async function rebuildProjections(
 export interface IntegrityReport {
   clean: boolean;
   discrepancies: string[];
+  // Event types in the log that this build doesn't know (written by a
+  // newer build, e.g. before a rollback), with counts. They are skipped
+  // by every fold, so they never make the tables inconsistent — `clean`
+  // is unaffected — but they are reported rather than hidden.
+  skipped: Record<string, number>;
 }
 
 /**
@@ -406,7 +411,7 @@ export async function verifyIntegrity(config: EngineConfig, deps: EngineDeps): P
     discrepancies
   );
 
-  return { clean: discrepancies.length === 0, discrepancies };
+  return { clean: discrepancies.length === 0, discrepancies, skipped: applyEvents(events, config).skipped };
 }
 
 function diffById<T extends { id: string }>(table: string, live: T[], rebuilt: T[], out: string[]): void {

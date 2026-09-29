@@ -5,6 +5,7 @@ import type {
   ArcStartedPayload,
   EngineConfig,
   EngineState,
+  EventType,
   MetricRecordedPayload,
   PlanAmendedPayload,
   QuestCompletedPayload,
@@ -19,6 +20,47 @@ function shiftDate(dateStr: string, days: number): string {
 }
 
 /**
+ * Every event type this build knows. A Record rather than an array so the
+ * compiler refuses to build when a type is added to EventType without
+ * being listed here — the set can never silently fall behind the union.
+ */
+const KNOWN_EVENT_TYPE_MAP: Record<EventType, true> = {
+  ARC_STARTED: true,
+  ARC_PAUSED: true,
+  ARC_RESUMED: true,
+  ARC_AMENDED: true,
+  QUEST_COMPLETED: true,
+  QUEST_UNDONE: true,
+  QUEST_RECOVERED: true,
+  APPLICATION_LOGGED: true,
+  CAREER_SUBSTITUTE_LOGGED: true,
+  CAREER_EVENT_LOGGED: true,
+  RESUME_VERSION_CREATED: true,
+  FOLLOWUP_LOGGED: true,
+  PROBLEM_LOGGED: true,
+  PROBLEM_REVISITED: true,
+  LEARNING_BLOCK_LOGGED: true,
+  SYSTEM_DESIGN_LOGGED: true,
+  BUILD_SESSION_LOGGED: true,
+  ARTIFACT_SHIPPED: true,
+  TRAINING_SESSION_LOGGED: true,
+  STEPS_LOGGED: true,
+  METRIC_RECORDED: true,
+  SLEEP_LOGGED: true,
+  SCREENTIME_LOGGED: true,
+  MAINTENANCE_LOGGED: true,
+  REVIEW_COMPLETED: true,
+  WEEK_REVIEWED: true,
+  CHECKPOINT_SEALED: true,
+  BOSS_CLEARED: true,
+  PLAN_AMENDED: true,
+  APP_OPENED: true,
+  WEEKLY_QUEST_COMPLETED: true,
+};
+
+export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set(Object.keys(KNOWN_EVENT_TYPE_MAP));
+
+/**
  * Pure. Replays the event log into the full derived state. Deterministic:
  * applyEvents(log) twice yields identical state, and a duplicate idem_key
  * in the log is a no-op (tracked and skipped during the fold, mirroring
@@ -28,11 +70,16 @@ function shiftDate(dateStr: string, days: number): string {
  * behaviour (final/08 Slice 0 acceptance criteria), not a compromise —
  * it is simply what folding zero events over the identity state produces.
  *
- * Every unhandled event type still throws — deliberately no permissive
- * default case, so an unhandled event type fails loudly for the rest of
- * the build rather than being silently dropped.
- * TODO: Slice 3 (XP-bearing events) and beyond — each slice adds its
- * event types here.
+ * Forward compatibility (platform/02 D11, platform/05 loop 1.1): an event
+ * type this build does not KNOW — i.e. one written by a newer build — is
+ * skipped and counted in `state.skipped`, never thrown. Without this, any
+ * rollback after a newer build had written a new event type would leave
+ * the older build unable to replay its own log at all. This must ship,
+ * and soak, before any build writes a new event type.
+ *
+ * A KNOWN type with no fold still throws — deliberately no permissive
+ * default case, so a type this build claims to know but forgot to handle
+ * fails loudly rather than being silently dropped.
  */
 export function applyEvents(events: SystemEvent[], config: EngineConfig): EngineState {
   // Not read by any branch yet — no event handled so far needs a cap,
@@ -48,6 +95,10 @@ export function applyEvents(events: SystemEvent[], config: EngineConfig): Engine
       continue;
     }
     seenIdemKeys.add(event.idem_key);
+    if (!KNOWN_EVENT_TYPES.has(event.type)) {
+      state = { ...state, skipped: { ...state.skipped, [event.type]: (state.skipped[event.type] ?? 0) + 1 } };
+      continue;
+    }
     state = applyOne(state, event);
   }
 
@@ -275,5 +326,6 @@ function emptyEngineState(): EngineState {
     recoveries: {},
     reviews: {},
     arc: null,
+    skipped: {},
   };
 }
