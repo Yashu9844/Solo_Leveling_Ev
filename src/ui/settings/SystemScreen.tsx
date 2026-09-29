@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { CoreQuestKey, ImplementationIntention } from '../../engine/types';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { INTENTION_KEYS, amendIntention, getArcClock, getIntentions } from '../../store/plan';
@@ -168,15 +168,15 @@ export function ReminderScreen() {
     try {
       const today = localDate(
         realDeps.now(),
-        DEFAULT_CONFIG.arc.timezone,
-        DEFAULT_CONFIG.arc.dayBoundaryHour
+        getEngineConfig().arc.timezone,
+        getEngineConfig().arc.dayBoundaryHour
       );
       await amendIntention(
         key,
         { time, place: place.trim(), first_action: action.trim() },
         arcId,
         today,
-        DEFAULT_CONFIG,
+        getEngineConfig(),
         realDeps
       );
       back();

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logSleep } from '../../store/lifestyle';
 import { Field, PrimaryButton, Sheet, TextInput } from '../kit';
@@ -13,7 +13,7 @@ interface LogSleepSheetProps {
 /** final/04 §4 — wake time is the whole criterion; no sleep-duration
  * scoring, no "did you sleep enough" judgment anywhere in this sheet. */
 export function LogSleepSheet({ today, arcId, onClose }: LogSleepSheetProps) {
-  const [wakeTime, setWakeTime] = useState(DEFAULT_CONFIG.wakeTargetTime);
+  const [wakeTime, setWakeTime] = useState(getEngineConfig().wakeTargetTime);
   const [sleepTime, setSleepTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,7 +21,7 @@ export function LogSleepSheet({ today, arcId, onClose }: LogSleepSheetProps) {
     if (submitting || !wakeTime) return;
     setSubmitting(true);
     try {
-      await logSleep(today, arcId, wakeTime, DEFAULT_CONFIG, realDeps, sleepTime || undefined);
+      await logSleep(today, arcId, wakeTime, getEngineConfig(), realDeps, sleepTime || undefined);
       onClose();
     } finally {
       setSubmitting(false);

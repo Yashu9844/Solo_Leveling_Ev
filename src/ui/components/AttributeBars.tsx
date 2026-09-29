@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Barbell, Brain, Cpu, CaretRight, type Icon } from '@phosphor-icons/react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { getAttributes } from '../../store/attributes';
@@ -70,8 +70,8 @@ export function AttributeBars() {
 
   useEffect(() => {
     let cancelled = false;
-    const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
-    void getAttributes(today, DEFAULT_CONFIG).then((r) => {
+    const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
+    void getAttributes(today, getEngineConfig()).then((r) => {
       if (!cancelled) setResults(r);
     });
     return () => {

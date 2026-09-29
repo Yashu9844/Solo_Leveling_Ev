@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logProblem } from '../../store/dsa';
 import { getDsaTopicMastery } from '../../store/mastery';
@@ -62,7 +62,7 @@ export function LogProblemSheet({ today, arcId, onClose }: LogProblemSheetProps)
           minutes,
           insight: insight.trim() || undefined,
         },
-        DEFAULT_CONFIG,
+        getEngineConfig(),
         realDeps
       );
       const after = await getDsaTopicMastery(topic!);

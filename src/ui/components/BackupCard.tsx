@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { Panel, SecondaryButton, SectionLabel } from '../kit';
 import { exportSnapshotJson, importSnapshotJson, getBackupStatus, ImportValidationError, type BackupStatus } from '../../store/checkpoint';
@@ -95,7 +95,7 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
     setImporting(true);
     setError(null);
     try {
-      await importSnapshotJson(pendingImport.json, DEFAULT_CONFIG, realDeps);
+      await importSnapshotJson(pendingImport.json, getEngineConfig(), realDeps);
       setPendingImport(null);
       setDone('Imported. Reloading…');
       setTimeout(() => window.location.reload(), 800);

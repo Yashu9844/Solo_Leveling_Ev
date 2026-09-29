@@ -173,7 +173,16 @@ export function buildProjections(events: SystemEvent[], config: EngineConfig, de
   }
   const arc = state.arc;
 
-  const templates = generateCoreQuestTemplates(arc.id, state.intentions, config, deps);
+  // Templates start on the ARC's start date, not whatever config.arc
+  // says: under DEFAULT_CONFIG every rebuild stamped the owner's
+  // 2026-09-01 onto any arc, so an arc starting earlier had no quests on
+  // its first days (platform/01 §3.5). Identical for the owner's arc.
+  const templates = generateCoreQuestTemplates(
+    arc.id,
+    state.intentions,
+    { ...config, arc: { ...config.arc, startDate: arc.start_date } },
+    deps
+  );
 
   // "Was this day opened" is a recorded fact (APP_OPENED), not an
   // inference from whichever instance rows happen to exist in a cache.

@@ -8,7 +8,7 @@ import {
 } from '@phosphor-icons/react';
 import { ArtLayer, ScreenTitle } from '../kit';
 import { localDate } from '../../engine/time';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { db } from '../../db/db';
 
@@ -16,8 +16,8 @@ export function CraftDetailScreen() {
   const navigate = useNavigate();
   const todayStr = localDate(
     realDeps.now(),
-    DEFAULT_CONFIG.arc.timezone,
-    DEFAULT_CONFIG.arc.dayBoundaryHour
+    getEngineConfig().arc.timezone,
+    getEngineConfig().arc.dayBoundaryHour
   );
 
   const [buildSessionsCount, setBuildSessionsCount] = useState<number>(0);

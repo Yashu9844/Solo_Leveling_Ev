@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { arcDay, isDayClosed, localDate } from '../../engine/time';
 import { levelFor, type LevelState } from '../../engine/level';
 import type { CoreQuestKey, QuestInstance, QuestRecoveredPayload, QuestTemplate } from '../../engine/types';
@@ -37,8 +37,6 @@ import { useSystemVoice } from '../speech/useSystemVoice';
 import { recordReflectionShown } from '../../store/reflections';
 import { getActiveArc } from '../../store/arc';
 
-const CONFIG = DEFAULT_CONFIG;
-
 // final/01 §6.3 — "one optional diagnostic tap, no free text." 3x
 // "wrong time" in 14 days feeds engine/rules.ts's WRONG_TIME_PATTERN.
 const RECOVERY_REASONS: NonNullable<QuestRecoveredPayload['reason']>[] = [
@@ -55,7 +53,7 @@ const RECOVERY_REASON_LABELS: Record<NonNullable<QuestRecoveredPayload['reason']
 };
 
 function currentLocalDate(): string {
-  return localDate(realDeps.now(), CONFIG.arc.timezone, CONFIG.arc.dayBoundaryHour);
+  return localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 }
 
 function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
@@ -100,7 +98,7 @@ export function Today() {
   const [templates, setTemplates] = useState<QuestTemplate[]>([]);
   const [instances, setInstances] = useState<QuestInstance[]>([]);
   const [dayXp, setDayXp] = useState<Record<string, { amount: number; cappedFrom?: number }>>({});
-  const [levelState, setLevelState] = useState<LevelState>(() => levelFor(0, CONFIG));
+  const [levelState, setLevelState] = useState<LevelState>(() => levelFor(0, getEngineConfig()));
   const [openInstanceId, setOpenInstanceId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [moment, setMoment] = useState<LevelUpEvent | null>(null);
@@ -141,17 +139,17 @@ export function Today() {
     fingerprint: transmission?.fingerprint ?? null,
   });
 
-  const dayClosed = isDayClosed(realDeps.now(), CONFIG);
+  const dayClosed = isDayClosed(realDeps.now(), getEngineConfig());
 
   // The pressure gradient the screen never had. The app has always known
   // when the day closes — it gates logging on it and prints a banner
   // afterwards — but it only ever said so once it was too late to act,
   // which is why 9am and 9pm looked identical.
-  const countdown = useCountdown(CONFIG.arc.dayCloseHour, CONFIG.arc.timezone);
+  const countdown = useCountdown(getEngineConfig().arc.dayCloseHour, getEngineConfig().arc.timezone);
 
   const refreshXp = useCallback(async (date: string) => {
     const [totalXp, xpByInstance] = await Promise.all([getTotalXp(), getDayXpByInstance(date)]);
-    setLevelState(levelFor(totalXp, CONFIG));
+    setLevelState(levelFor(totalXp, getEngineConfig()));
     setDayXp(xpByInstance);
   }, []);
 
@@ -168,7 +166,7 @@ export function Today() {
     const arcRow = await getActiveArc();
     if (!arcRow) return;
     const dayNumber = arcDay(realDeps.now(), arcRow.start_date, arcRow.timezone, arcRow.day_boundary_hour);
-    setTransmission(await resolveTransmission(date, dayNumber, CONFIG, realDeps));
+    setTransmission(await resolveTransmission(date, dayNumber, getEngineConfig(), realDeps));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -179,18 +177,18 @@ export function Today() {
 
     const date = currentLocalDate();
     setToday(date);
-    const { templates: t, instances: i } = await loadTodayQuests(date, CONFIG, realDeps);
+    const { templates: t, instances: i } = await loadTodayQuests(date, getEngineConfig(), realDeps);
     setTemplates(t);
     setInstances(i);
     await refreshXp(date);
 
     const [streakState, recoverableDay, alreadyReviewed, dueRevisits, currentRank, activeWeeklyQuest] = await Promise.all([
-      getStreakState(date, CONFIG),
-      getRecoverableDay(date, CONFIG),
+      getStreakState(date, getEngineConfig()),
+      getRecoverableDay(date, getEngineConfig()),
       hasReviewedToday(date),
-      getRevisitsDue(date, CONFIG),
+      getRevisitsDue(date, getEngineConfig()),
       getCurrentRank(),
-      getActiveWeeklyQuest(date, arcRow.id, CONFIG, realDeps),
+      getActiveWeeklyQuest(date, arcRow.id, getEngineConfig(), realDeps),
     ]);
     setStreak(streakState);
     setRecoverable(recoverableDay);
@@ -204,7 +202,7 @@ export function Today() {
     // A missed day surfacing a recovery card IS the post-lapse moment
     // final/05 §1.2 means — the reflection pool narrows to setbacks/
     // calm/reflective for exactly as long as that card is showing.
-    const line = await getTodaySystemLine(date, arcDay(realDeps.now(), arcRow.start_date, arcRow.timezone, arcRow.day_boundary_hour), recoverableDay !== null, recoverableDay !== null ? 'POST_LAPSE' : 'MORNING', CONFIG);
+    const line = await getTodaySystemLine(date, arcDay(realDeps.now(), arcRow.start_date, arcRow.timezone, arcRow.day_boundary_hour), recoverableDay !== null, recoverableDay !== null ? 'POST_LAPSE' : 'MORNING', getEngineConfig());
     setSystemLine(line.text);
     if (line.source === 'reflection' && line.reflectionId) {
       await recordReflectionShown(line.reflectionId, date);
@@ -258,9 +256,9 @@ export function Today() {
 
     try {
       if (wasComplete) {
-        await undoQuest(instance, arc.id, CONFIG, realDeps);
+        await undoQuest(instance, arc.id, getEngineConfig(), realDeps);
       } else {
-        await completeQuest(instance, template.key, arc.id, CONFIG, realDeps);
+        await completeQuest(instance, template.key, arc.id, getEngineConfig(), realDeps);
       }
       await refreshXp(today);
       await refreshTransmission(today);
@@ -275,7 +273,7 @@ export function Today() {
         if (nowComplete && instances.length > 0) {
           const xpByInstance = await getDayXpByInstance(today);
           const xpToday = Object.values(xpByInstance).reduce((sum, x) => sum + x.amount, 0);
-          const streakState = await getStreakState(today, CONFIG);
+          const streakState = await getStreakState(today, getEngineConfig());
           setDayComplete({
             xp: xpToday,
             streak: streakState.arc_streak,
@@ -284,7 +282,7 @@ export function Today() {
         }
 
         const afterXp = await getTotalXp();
-        const afterLevel = levelFor(afterXp, CONFIG).level;
+        const afterLevel = levelFor(afterXp, getEngineConfig()).level;
         if (afterLevel > beforeLevel) {
           const event: LevelUpEvent = { fromLevel: beforeLevel, toLevel: afterLevel };
           if (levelUpDeservesFullScreen(afterLevel)) {
@@ -307,7 +305,7 @@ export function Today() {
     if (!arc || !recoverable || claimingRecovery) return;
     setClaimingRecovery(true);
     try {
-      await claimRecovery(recoverable.localDate, today, arc.id, CONFIG, realDeps, recoveryReason ?? undefined);
+      await claimRecovery(recoverable.localDate, today, arc.id, getEngineConfig(), realDeps, recoveryReason ?? undefined);
       setRecoverable(null);
       setRecoveryReason(null);
       await refreshXp(today);
@@ -324,7 +322,7 @@ export function Today() {
     if (!arc || revisitingId) return;
     setRevisitingId(problemId);
     try {
-      await logRevisit(today, arc.id, problemId, outcome, 10, CONFIG, realDeps);
+      await logRevisit(today, arc.id, problemId, outcome, 10, getEngineConfig(), realDeps);
       setRevisitsDue((prev) => prev.filter((r) => r.problemId !== problemId));
       await refreshXp(today);
     } catch {
@@ -538,7 +536,7 @@ export function Today() {
             className="cut-sm mt-3 min-h-tap w-full text-sm disabled:opacity-40"
             style={{ border: '1px solid var(--state-recover)', color: 'var(--state-recover)' }}
           >
-            Recovery quest · +{CONFIG.recoveryXp} XP
+            Recovery quest · +{getEngineConfig().recoveryXp} XP
           </button>
         </div>
       )}
@@ -644,7 +642,7 @@ export function Today() {
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs font-semibold text-accent-mid">
-            +{CONFIG.learningBlockXp} XP
+            +{getEngineConfig().learningBlockXp} XP
           </span>
           <span className="text-ink-700">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -698,7 +696,7 @@ export function Today() {
       {revisitsDue.length > 0 && (
         <div className="mt-3" data-testid="revisits-due">
           <SectionLabel rule className="mb-1">
-            Revisit · +{CONFIG.revisitXp} XP each
+            Revisit · +{getEngineConfig().revisitXp} XP each
           </SectionLabel>
           {revisitsDue.map((r) => (
             <div

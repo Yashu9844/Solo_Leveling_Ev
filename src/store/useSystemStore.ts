@@ -3,7 +3,8 @@
 // derived EngineState for the UI to read. No domain logic lives here;
 // it only wires db <-> engine <-> React.
 import { create } from 'zustand';
-import { applyEvents, DEFAULT_CONFIG, type EngineDeps, type EngineState } from '../engine';
+import { applyEvents, type EngineDeps, type EngineState } from '../engine';
+import { getEngineConfig } from './engineConfig';
 import { getAllEvents } from '../db/events';
 import { realDeps } from './deps';
 
@@ -24,7 +25,7 @@ export const useSystemStore = create<SystemStore>((set) => ({
     // (Slice 1: anything past ARC_STARTED) — Today doesn't read `state`
     // until Slice 2, so the store stays un-hydrated rather than crashing.
     try {
-      const state = applyEvents(events, DEFAULT_CONFIG);
+      const state = applyEvents(events, getEngineConfig());
       set({ state, hydrated: true });
     } catch {
       set({ hydrated: false });

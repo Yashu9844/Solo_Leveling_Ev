@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { getTodayMaintenance, logMaintenance } from '../../store/lifestyle';
 
@@ -26,7 +26,7 @@ export function MaintenanceCard({ today, arcId, arcStartDate, onChanged }: Maint
 
   useEffect(() => {
     void (async () => {
-      const { row, laundryDue: due } = await getTodayMaintenance(today, arcStartDate, DEFAULT_CONFIG.maintenanceLaundryEveryDays);
+      const { row, laundryDue: due } = await getTodayMaintenance(today, arcStartDate, getEngineConfig().maintenanceLaundryEveryDays);
       setState({ bath: row?.bath ?? false, fuel: row?.fuel ?? false, laundry: row?.laundry ?? false });
       setLaundryDue(due);
     })();
@@ -37,7 +37,7 @@ export function MaintenanceCard({ today, arcId, arcStartDate, onChanged }: Maint
     setState(next);
     setSaving(true);
     try {
-      await logMaintenance(today, arcId, next, DEFAULT_CONFIG, realDeps);
+      await logMaintenance(today, arcId, next, getEngineConfig(), realDeps);
       onChanged();
     } finally {
       setSaving(false);

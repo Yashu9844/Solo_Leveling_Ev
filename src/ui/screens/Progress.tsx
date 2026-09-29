@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CaretRight, ChartBar, Flame, Shield } from '@phosphor-icons/react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { arcDay, localDate } from '../../engine/time';
 import { levelFor } from '../../engine/level';
 import { realDeps } from '../../store/deps';
@@ -96,13 +96,13 @@ function SystemTab() {
   const [rank, setRank] = useState<string | null>(null);
   const [streak, setStreak] = useState<LiveStreakState | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+  const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   useEffect(() => {
     void (async () => {
       const [xp, streakState, currentRank] = await Promise.all([
         getTotalXp(),
-        getStreakState(today, DEFAULT_CONFIG),
+        getStreakState(today, getEngineConfig()),
         getCurrentRank(),
       ]);
       setTotalXp(xp);
@@ -112,7 +112,7 @@ function SystemTab() {
   }, [today]);
 
   if (totalXp === null || rank === null) return null;
-  const level = levelFor(totalXp, DEFAULT_CONFIG);
+  const level = levelFor(totalXp, getEngineConfig());
   const pct = level.xpForNext > 0 ? Math.min(100, (level.xpIntoLevel / level.xpForNext) * 100) : 0;
 
   return (
@@ -263,7 +263,7 @@ function RealityTab() {
 
   useEffect(() => {
     void (async () => {
-      const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+      const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
       setSummary(await getRealitySummary(today));
     })();
   }, []);

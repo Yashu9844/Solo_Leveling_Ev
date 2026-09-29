@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { verdictTextFor, type Checkpoint, type ComparisonRow, type GateCondition } from '../../engine/rank';
 import {
   getCheckpointReport,
@@ -56,7 +56,7 @@ export function CheckpointScreen({ day, today, onClose }: CheckpointScreenProps)
   >(null);
 
   async function refresh() {
-    setReport(await getCheckpointReport(day, today, DEFAULT_CONFIG));
+    setReport(await getCheckpointReport(day, today, getEngineConfig()));
   }
 
   useEffect(() => {
@@ -81,9 +81,9 @@ export function CheckpointScreen({ day, today, onClose }: CheckpointScreenProps)
     setError(null);
     try {
       const rankBefore = await getCurrentRank();
-      const result = await sealCheckpoint(day, today, DEFAULT_CONFIG, realDeps);
+      const result = await sealCheckpoint(day, today, getEngineConfig(), realDeps);
       const rankAdvanced = result.rank === result.targetRank && result.rank !== rankBefore;
-      const comparison = await getCheckpointComparison(day, today, DEFAULT_CONFIG);
+      const comparison = await getCheckpointComparison(day, today, getEngineConfig());
       const pending: PendingCheckpointMoment | null = comparison.improved
         ? { rows: comparison.rows, conditions: result.conditions, verdictText: verdictTextFor(result) }
         : null;

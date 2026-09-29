@@ -8,7 +8,7 @@ import {
   Quotes,
 } from '@phosphor-icons/react';
 import type { CoreQuestKey, ReviewBlocker } from '../../engine/types';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { db } from '../../db/db';
 import { completeEveningReview, getDailyReport, type DailyReport } from '../../store/review';
@@ -72,10 +72,10 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
       today,
       arcId,
       { energy, focus, blocker, tomorrowPriority: priority ?? undefined, sleptAt },
-      DEFAULT_CONFIG,
+      getEngineConfig(),
       realDeps
     );
-    const result = await getDailyReport(today, DEFAULT_CONFIG);
+    const result = await getDailyReport(today, getEngineConfig());
     setReport(result);
     setSubmitting(false);
   }

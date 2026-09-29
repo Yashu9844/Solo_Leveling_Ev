@@ -61,3 +61,40 @@ export const DEFAULT_CONFIG: EngineConfig = {
     retainedMinGapDays: 21,
   },
 };
+
+/** The arc-row fields that vary per arc — a structural subset of
+ * db/schema.ts's ArcRow (engine/ may not import from db/). */
+export interface ArcConfigSource {
+  timezone: string;
+  day_boundary_hour: number;
+  day_close_hour: number;
+  start_date: string;
+  end_date: string;
+}
+
+/**
+ * Pure. The engine config for a specific arc: every gameplay constant
+ * from `base`, with the arc section (timezone, day boundary, day close,
+ * dates) taken from the arc itself rather than from the owner's
+ * hard-coded defaults (platform/05 loop 1.3). For the owner's arc these
+ * values are identical to DEFAULT_CONFIG.arc, so nothing changes for
+ * them; for anyone else it is the difference between their own day
+ * boundaries and Asia/Kolkata's.
+ *
+ * Deliberately arc fields only. Onboarding's rhythm answers (wake target,
+ * screen cap, steps target) stay unwired: the owner's System is the
+ * golden master and honouring them is an owner opt-in (platform/02
+ * §22.1, §22.4), not a side effect of this seam.
+ */
+export function engineConfigFor(arc: ArcConfigSource, base: EngineConfig = DEFAULT_CONFIG): EngineConfig {
+  return {
+    ...base,
+    arc: {
+      timezone: arc.timezone,
+      dayBoundaryHour: arc.day_boundary_hour,
+      dayCloseHour: arc.day_close_hour,
+      startDate: arc.start_date,
+      endDate: arc.end_date,
+    },
+  };
+}

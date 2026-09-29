@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { arcDay, localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { getBossStatus, clearBoss } from '../../store/boss';
@@ -19,7 +19,7 @@ export function BossList() {
   const [day, setDay] = useState<number | null>(null);
   const [clearingId, setClearingId] = useState<BossId | null>(null);
   const [clearedMoment, setClearedMoment] = useState<{ id: BossId; title: string } | null>(null);
-  const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+  const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   async function refresh() {
     const [results, arc] = await Promise.all([
@@ -40,7 +40,7 @@ export function BossList() {
     if (!arc || clearingId) return;
     setClearingId(bossId);
     try {
-      const result = await clearBoss(bossId, arc.id, today, DEFAULT_CONFIG, realDeps);
+      const result = await clearBoss(bossId, arc.id, today, getEngineConfig(), realDeps);
       if (result.cleared) setClearedMoment({ id: bossId, title: result.boss.title });
       await refresh();
     } finally {
@@ -128,7 +128,7 @@ export function BossList() {
                   >
                     {clearingId === status.boss.id
                       ? 'Clearing…'
-                      : `Clear boss · +${DEFAULT_CONFIG.bossXp} XP`}
+                      : `Clear boss · +${getEngineConfig().bossXp} XP`}
                   </PrimaryButton>
                 </div>
               </>

@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { parseDailyLog, parseDsaLog, type DailyLogEntry, type DsaLogEntry } from '../../engine/paperImport';
 import { importDailyLog, importDsaLog, type ImportSummary } from '../../store/paperImport';
@@ -53,12 +53,12 @@ export function PaperImportCard() {
     setImporting(true);
     try {
       if (pending.kind === 'daily') {
-        const result: ImportSummary = await importDailyLog(pending.entries, arc.id, DEFAULT_CONFIG, realDeps);
+        const result: ImportSummary = await importDailyLog(pending.entries, arc.id, getEngineConfig(), realDeps);
         const parts = [`${result.daysImported} days imported`, `${result.questsCompleted} quests completed`];
         if (result.skippedDayClosed > 0) parts.push(`${result.skippedDayClosed} skipped (day closed right now — try again outside 03:00-04:00)`);
         setSummary(parts.join(', ') + '.');
       } else {
-        const count = await importDsaLog(pending.entries, arc.id, DEFAULT_CONFIG, realDeps);
+        const count = await importDsaLog(pending.entries, arc.id, getEngineConfig(), realDeps);
         setSummary(`${count} problems imported.`);
       }
       setPending(null);

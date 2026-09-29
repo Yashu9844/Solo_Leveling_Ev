@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Flame, CheckCircle, Warning, CalendarCheck, Sparkle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseISO, format, addDays } from 'date-fns';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { db } from '../../db/db';
 import { localDate } from '../../engine/time';
@@ -38,7 +38,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
   const [stats, setStats] = useState({ streak: 0, fullDays: 0, partialDays: 0, totalOpened: 0 });
   const [loading, setLoading] = useState(true);
 
-  const todayStr = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+  const todayStr = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   const loadData = useCallback(async () => {
     try {
@@ -49,7 +49,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
       }
 
       const events = await getAllEvents();
-      const state = applyEvents(events, DEFAULT_CONFIG);
+      const state = applyEvents(events, getEngineConfig());
 
       // Count core quest completions per date from state.quests
       const coreCompletionsByDate = new Map<string, Set<string>>();
@@ -65,7 +65,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
       // Build live streak outcomes
       const pausedDates = state.arc?.paused_dates ?? [];
       const dayOutcomes = buildDayOutcomes(events, state.quests, arc.start_date, pausedDates, todayStr);
-      const streakResult = streakFrom(dayOutcomes, DEFAULT_CONFIG.streak);
+      const streakResult = streakFrom(dayOutcomes, getEngineConfig().streak);
 
       let fullCount = 0;
       let partialCount = 0;

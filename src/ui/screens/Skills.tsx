@@ -14,7 +14,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import {
@@ -655,8 +655,8 @@ function InterviewBenchmarkCard() {
     if (!arcId || submitting) return;
     setSubmitting(true);
     try {
-      const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
-      await logInterviewBenchmark(today, arcId, didPass, DEFAULT_CONFIG, realDeps);
+      const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
+      await logInterviewBenchmark(today, arcId, didPass, getEngineConfig(), realDeps);
       await refresh();
     } finally {
       setSubmitting(false);
@@ -753,8 +753,8 @@ function QuickPracticeModal({
     if (submitting) return;
     setSubmitting(true);
     try {
-      const todayStr = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
-      await logQuickSkillPractice(todayStr, arcId, topic, minutes, DEFAULT_CONFIG, realDeps, note || undefined);
+      const todayStr = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
+      await logQuickSkillPractice(todayStr, arcId, topic, minutes, getEngineConfig(), realDeps, note || undefined);
       onSaved();
     } catch {
       alert('Could not save practice trial.');

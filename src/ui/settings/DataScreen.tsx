@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { verifyIntegrity, type IntegrityReport } from '../../db/projections';
 import { BackupCard } from '../components/BackupCard';
@@ -99,7 +99,7 @@ function IntegrityGroup() {
   async function handleVerify() {
     setRunning(true);
     try {
-      setReport(await verifyIntegrity(DEFAULT_CONFIG, realDeps));
+      setReport(await verifyIntegrity(getEngineConfig(), realDeps));
     } finally {
       setRunning(false);
     }

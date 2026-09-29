@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logTrainingSession, logSteps } from '../../store/training';
 import { SingleChipSelect } from '../components/SingleChipSelect';
@@ -33,9 +33,9 @@ export function LogTrainingSheet({ today, arcId, onClose }: LogTrainingSheetProp
     setSubmitting(true);
     try {
       if (mode === 'Session') {
-        await logTrainingSession(today, arcId, { type: type!, minutes, rpe }, DEFAULT_CONFIG, realDeps);
+        await logTrainingSession(today, arcId, { type: type!, minutes, rpe }, getEngineConfig(), realDeps);
       } else {
-        await logSteps(today, arcId, steps, DEFAULT_CONFIG, realDeps);
+        await logSteps(today, arcId, steps, getEngineConfig(), realDeps);
       }
       onClose();
     } finally {

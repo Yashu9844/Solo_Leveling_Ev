@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logScreentime } from '../../store/lifestyle';
 import { Stepper } from '../components/Stepper';
@@ -21,7 +21,7 @@ export function LogAttentionSheet({ today, arcId, onClose }: LogAttentionSheetPr
     if (submitting) return;
     setSubmitting(true);
     try {
-      await logScreentime(today, arcId, minutes, DEFAULT_CONFIG, realDeps);
+      await logScreentime(today, arcId, minutes, getEngineConfig(), realDeps);
       onClose();
     } finally {
       setSubmitting(false);

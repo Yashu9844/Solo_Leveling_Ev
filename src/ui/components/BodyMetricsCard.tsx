@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { logBodyMetric } from '../../store/training';
@@ -45,8 +45,8 @@ export function BodyMetricsCard() {
     if (!arcId || submitting) return;
     setSubmitting(true);
     try {
-      const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
-      await logBodyMetric(today, arcId, kind, value, KIND_UNITS[kind], DEFAULT_CONFIG, realDeps);
+      const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
+      await logBodyMetric(today, arcId, kind, value, KIND_UNITS[kind], getEngineConfig(), realDeps);
       setSavedAt(Date.now());
     } finally {
       setSubmitting(false);

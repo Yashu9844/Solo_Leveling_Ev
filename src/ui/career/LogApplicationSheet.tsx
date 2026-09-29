@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logApplication, logSubstituteWork, createResumeVersion, getResumeVersions } from '../../store/career';
 import type { ResumeVersionRow } from '../../db/schema';
@@ -88,7 +88,7 @@ export function LogApplicationSheet({ today, arcId, onClose }: LogApplicationShe
           resumeVersionId,
           whyLine: whyLine.trim(),
         },
-        DEFAULT_CONFIG,
+        getEngineConfig(),
         realDeps
       );
       setResult(qualityPass ? 'pass' : 'fail');
@@ -106,7 +106,7 @@ export function LogApplicationSheet({ today, arcId, onClose }: LogApplicationShe
     if (submitting) return;
     setSubmitting(true);
     try {
-      await logSubstituteWork(today, arcId, substituteMinutes, substituteKind, DEFAULT_CONFIG, realDeps);
+      await logSubstituteWork(today, arcId, substituteMinutes, substituteKind, getEngineConfig(), realDeps);
       onClose();
     } finally {
       setSubmitting(false);

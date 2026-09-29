@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logBuildSession } from '../../store/build';
 import { SingleChipSelect } from '../components/SingleChipSelect';
@@ -53,7 +53,7 @@ export function LogBuildSessionSheet({ today, arcId, onClose }: LogBuildSessionS
               costPerTaskStated: shippedKind === 'project' ? costPerTaskStated : undefined,
             }
           : undefined;
-      await logBuildSession(today, arcId, { mode: mode!, minutes, projectKey: projectKey.trim(), shippedArtifact }, DEFAULT_CONFIG, realDeps);
+      await logBuildSession(today, arcId, { mode: mode!, minutes, projectKey: projectKey.trim(), shippedArtifact }, getEngineConfig(), realDeps);
       // final/05 §2.1's EVIDENCE ACCEPTED Moment — fires only when a
       // public artefact was actually logged this session, not on every
       // BUILD log.
@@ -95,7 +95,7 @@ export function LogBuildSessionSheet({ today, arcId, onClose }: LogBuildSessionS
         <DeepWorkTimer onStop={setMinutes} />
 
         {mode === 'SHIP' && (
-          <Field label={`Shipped this session? (optional — +${DEFAULT_CONFIG.shipBonusXp} XP)`}>
+          <Field label={`Shipped this session? (optional — +${getEngineConfig().shipBonusXp} XP)`}>
             <TextInput
               type="text"
               value={shippedTitle}

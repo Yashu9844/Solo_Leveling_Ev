@@ -10,7 +10,7 @@ import {
   TreeStructure,
   type Icon,
 } from '@phosphor-icons/react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { logLearningBlock, logSystemDesignStudy } from '../../store/build';
 import { getFoundationTopicMastery } from '../../store/mastery';
@@ -74,13 +74,13 @@ export function LearningBlockSheet({ today, arcId, onClose }: LearningBlockSheet
           system.trim(),
           mode!,
           minutes,
-          DEFAULT_CONFIG,
+          getEngineConfig(),
           realDeps,
           artifactUrl.trim() || undefined,
           note.trim() || undefined
         );
       } else {
-        await logLearningBlock(today, arcId, topic, minutes, DEFAULT_CONFIG, realDeps, note.trim() || undefined);
+        await logLearningBlock(today, arcId, topic, minutes, getEngineConfig(), realDeps, note.trim() || undefined);
       }
       const after = await getFoundationTopicMastery(topic);
       if (MASTERY_ORDER.indexOf(after) > MASTERY_ORDER.indexOf(before) && after !== 'unseen') {
@@ -115,7 +115,7 @@ export function LearningBlockSheet({ today, arcId, onClose }: LearningBlockSheet
               }}
             >
               <span className="flex-1 text-center pl-4">
-                {submitting ? 'LOGGING…' : `LOG BLOCK · +${DEFAULT_CONFIG.learningBlockXp} XP`}
+                {submitting ? 'LOGGING…' : `LOG BLOCK · +${getEngineConfig().learningBlockXp} XP`}
               </span>
               <ArrowRight size={18} weight="bold" color="#ffffff" />
             </button>
@@ -148,7 +148,7 @@ export function LearningBlockSheet({ today, arcId, onClose }: LearningBlockSheet
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-[10px] text-accent-mid font-semibold">
-                  +{DEFAULT_CONFIG.learningBlockXp} XP
+                  +{getEngineConfig().learningBlockXp} XP
                 </span>
                 <button
                   type="button"

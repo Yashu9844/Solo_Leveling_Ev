@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GearSix, Sparkle } from '@phosphor-icons/react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { levelFor } from '../../engine/level';
 import { arcDay, localDate } from '../../engine/time';
 import { applyEvents } from '../../engine/reduce';
@@ -116,7 +116,7 @@ function LevelSummary() {
   }, []);
 
   if (totalXp === null || rank === null) return null;
-  const level = levelFor(totalXp, DEFAULT_CONFIG);
+  const level = levelFor(totalXp, getEngineConfig());
   const pct = level.xpForNext > 0 ? (level.xpIntoLevel / level.xpForNext) * 100 : 0;
 
   return (
@@ -207,7 +207,7 @@ function CheckpointRow() {
   const [day, setDay] = useState<number | null>(null);
   const [nextCheckpointDay, setNextCheckpointDay] = useState<Checkpoint['day'] | null>(null);
   const [open, setOpen] = useState(false);
-  const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+  const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   const refresh = useCallback(async () => {
     const arc = await getActiveArc();
@@ -292,14 +292,14 @@ function ArcPauseControl() {
   const [arcId, setArcId] = useState<string | null>(null);
   const [pausedToday, setPausedToday] = useState(false);
   const [busy, setBusy] = useState(false);
-  const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+  const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   const refresh = useCallback(async () => {
     const arc = await getActiveArc();
     if (!arc) return;
     setArcId(arc.id);
     const events = await getAllEvents();
-    const state = applyEvents(events, DEFAULT_CONFIG);
+    const state = applyEvents(events, getEngineConfig());
     setPausedToday(state.arc?.paused_dates.includes(today) ?? false);
   }, [today]);
 
@@ -310,7 +310,7 @@ function ArcPauseControl() {
   async function handlePause(days: number) {
     if (!arcId || busy) return;
     setBusy(true);
-    await pauseArc(today, days, arcId, DEFAULT_CONFIG, realDeps);
+    await pauseArc(today, days, arcId, getEngineConfig(), realDeps);
     await refresh();
     setBusy(false);
   }
@@ -318,7 +318,7 @@ function ArcPauseControl() {
   async function handleResume() {
     if (!arcId || busy) return;
     setBusy(true);
-    await resumeArc(today, arcId, DEFAULT_CONFIG, realDeps);
+    await resumeArc(today, arcId, getEngineConfig(), realDeps);
     await refresh();
     setBusy(false);
   }

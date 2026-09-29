@@ -20,7 +20,7 @@ import {
   type WorkoutLogEntry,
 } from '../../store/workoutStore';
 import { localDate } from '../../engine/time';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 
 const DAYS_OF_WEEK = [
@@ -37,8 +37,8 @@ export function BodyDetailScreen() {
   const navigate = useNavigate();
   const todayStr = localDate(
     realDeps.now(),
-    DEFAULT_CONFIG.arc.timezone,
-    DEFAULT_CONFIG.arc.dayBoundaryHour
+    getEngineConfig().arc.timezone,
+    getEngineConfig().arc.dayBoundaryHour
   );
   const currentDayIndex = new Date().getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
   const todayDayName = DAYS_OF_WEEK[currentDayIndex] || 'Sunday';

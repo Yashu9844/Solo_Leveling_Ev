@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { getAchievementsReport, type AchievementsReport } from '../../store/achievements';
@@ -13,8 +13,8 @@ export function AchievementsList() {
   const [report, setReport] = useState<AchievementsReport | null>(null);
 
   useEffect(() => {
-    const today = localDate(realDeps.now(), DEFAULT_CONFIG.arc.timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
-    void getAchievementsReport(today, DEFAULT_CONFIG).then(setReport);
+    const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
+    void getAchievementsReport(today, getEngineConfig()).then(setReport);
   }, []);
 
   if (!report) return null;

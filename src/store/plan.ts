@@ -6,7 +6,7 @@ import type {
   PlanAmendedPayload,
 } from '../engine/types';
 import { applyEvents } from '../engine/reduce';
-import { DEFAULT_CONFIG } from '../engine/config';
+import { getEngineConfig } from './engineConfig';
 import { appendEvent, getAllEvents } from '../db/events';
 import { rebuildProjections } from '../db/projections';
 import { db } from '../db/db';
@@ -46,7 +46,7 @@ export async function getIntentions(): Promise<
   const events = await getAllEvents();
   // The config only shapes XP and streak derivation here; intentions
   // come straight off PLAN_AMENDED, so the default is fine to read with.
-  return applyEvents(events, DEFAULT_CONFIG).intentions;
+  return applyEvents(events, getEngineConfig()).intentions;
 }
 
 /**

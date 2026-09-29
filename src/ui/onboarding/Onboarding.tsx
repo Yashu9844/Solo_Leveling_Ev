@@ -173,7 +173,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
     try {
       await initialiseArc(input, DEFAULT_CONFIG, realDeps);
-      markArcCreated();
+      // Awaited: resolves once the new arc's own engine config is
+      // installed, so Today never renders against the defaults.
+      await markArcCreated();
       onComplete();
       navigate('/today', { replace: true });
     } catch {

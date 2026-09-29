@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { DEFAULT_CONFIG } from '../../engine/config';
+import { getEngineConfig } from '../../store/engineConfig';
 import { getWeeklyReview, recordWeekReviewed, type WeeklyReviewReport } from '../../store/weeklyReview';
 import { acceptWeeklyQuest } from '../../store/weeklyQuest';
 import { exportSnapshotJson, getBackupStatus, type BackupStatus } from '../../store/checkpoint';
@@ -75,7 +75,7 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    void getWeeklyReview(today, DEFAULT_CONFIG, realDeps).then((r) => {
+    void getWeeklyReview(today, getEngineConfig(), realDeps).then((r) => {
       if (!cancelled) setReport(r);
     });
     void getBackupStatus(realDeps).then((s) => {
@@ -279,7 +279,7 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
                     ) : (
                       <div className="mt-4">
                         <SecondaryButton onClick={() => void handleAcceptWeeklyQuest()}>
-                          Accept weekly quest · +{DEFAULT_CONFIG.weeklyQuestXp} XP
+                          Accept weekly quest · +{getEngineConfig().weeklyQuestXp} XP
                         </SecondaryButton>
                       </div>
                     )}
