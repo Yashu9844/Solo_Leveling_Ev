@@ -20,10 +20,10 @@ function omit<T extends object>(value: T, keys: readonly string[]): Record<strin
  * makes the cosmetic-version invariant testable before an engine consumes it.
  */
 export function partitionBlueprint(blueprint: SystemBlueprint): BlueprintPartitions {
-  const { identity, arc, domains, instruments, quests, metrics, skills, attributes, milestones, gates, bosses, checkpoints, achievements, reviews, rules, messaging, vocabulary, ...metadata } = blueprint;
+  const { identity, arc, domains, instruments, quests, metrics, skills, attributes, milestones, gates, bosses, checkpoints, achievements, reviews, rules, messaging, vocabulary } = blueprint;
   return {
     computational: {
-      ...metadata,
+      schema: blueprint.schema, lineageId: blueprint.lineageId, arcId: blueprint.arcId,
       arc: { lengthDays: arc.lengthDays, startDate: arc.startDate, endDate: arc.endDate, timezone: arc.timezone, dayBoundaryHour: arc.dayBoundaryHour, dayCloseHour: arc.dayCloseHour, wakeTime: arc.wakeTime, sleepTime: arc.sleepTime },
       progression: blueprint.progression,
       domains: domains.map((domain) => omit(domain, ['name', 'designation', 'description', 'presentation', 'evidenceSurface'])),

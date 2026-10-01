@@ -1,7 +1,7 @@
 import { addDays, compareAsc, differenceInCalendarDays, parseISO } from 'date-fns';
 import { INSTRUMENT_CATALOGUE, isKnownInstrumentSignal } from '../instruments/catalog';
 import { isValidTimeZone } from '../engine/time';
-import { canonicalJson } from './hash';
+import { canonicalJson, hashesFor, partitionBlueprint } from './hash';
 import type { Criterion, SignalRef, SystemBlueprint } from './schema';
 
 export interface Issue {
@@ -13,6 +13,7 @@ export interface Issue {
 }
 
 export interface ValidationContext { today: string }
+export interface TransitionContext extends ValidationContext { arcDay: number; nextCheckpointDay: number }
 
 const LEXICON = new Set(['QUEST', 'LEVEL', 'RANK', 'GATE', 'BOSS', 'CHECKPOINT', 'EVIDENCE', 'MASTERY', 'TRANSMISSION', 'ARC', 'RECOVERY', 'REDUCED MODE']);
 const issue = (code: string, severity: Issue['severity'], path: string, system: string, plain: string): Issue => ({ code, severity, path, system, plain });
@@ -133,5 +134,42 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   if (blueprint.attributes.defs.length && (blueprint.attributes.defs.length < 3 || blueprint.attributes.defs.length > 6 || !blueprint.attributes.defs.some((attribute) => attribute.id === 'DISCIPLINE') || blueprint.attributes.groups.length > 4)) add('V-ATT-03', 'error', 'attributes', 'THE ATTRIBUTE SET IS INCOMPLETE.', 'Use 3–6 attributes including DISCIPLINE and no more than four groups.');
   if (blueprint.skills.length > 5 || blueprint.skills.some((skill) => skill.nodes.length > 30 || skill.nodes.some((node) => node.dependsOn?.some((id) => !skill.nodes.some((candidate) => candidate.id === id))))) add('V-SKL-01', 'error', 'skills', 'A SKILL TREE HAS A BROKEN DEPENDENCY.', 'Nodes must depend only on nodes in their tree; keep trees within the size limit.');
   if (blueprint.messaging.evidenceTemplates.some((template) => template.signal !== undefined && unsafeSignal(template.signal))) add('V-MSG-01', 'error', 'messaging', 'A MESSAGE WOULD SCORE UNCONTROLLED EVIDENCE.', 'Evidence messages may only use eligible effort or performance signals.');
+  return issues;
+}
+
+export type ComputedChangeClass = 'cosmetic' | 'operational' | 'structural';
+
+/** Classifications are derived from the documents, never trusted from input. */
+export async function computeChangeClass(previous: SystemBlueprint, next: SystemBlueprint): Promise<ComputedChangeClass> {
+  const previousParts = partitionBlueprint(previous); const nextParts = partitionBlueprint(next);
+  if (canonicalJson(previousParts.computational) === canonicalJson(nextParts.computational)) return 'cosmetic';
+  const structural = previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression)
+    || previous.domains.some((domain) => !next.domains.some((candidate) => candidate.id === domain.id))
+    || next.domains.some((domain) => !previous.domains.some((candidate) => candidate.id === domain.id))
+    || previous.instruments.some((instrument) => next.instruments.find((candidate) => candidate.id === instrument.id)?.type !== instrument.type);
+  return structural ? 'structural' : 'operational';
+}
+
+export async function validateTransition(previous: SystemBlueprint, next: SystemBlueprint, context: TransitionContext): Promise<Issue[]> {
+  const issues: Issue[] = [];
+  const add = (...args: Parameters<typeof issue>) => issues.push(issue(...args));
+  const computed = await computeChangeClass(previous, next);
+  const nextIsToday = next.activeFrom === context.today;
+  if (next.activeFrom < context.today || (computed !== 'cosmetic' && nextIsToday)) add('V-TRN-01', 'error', 'activeFrom', 'THE SYSTEM CANNOT REWRITE HISTORY.', 'Activate cosmetic edits today; schedule other edits after today.');
+  if (next.changeClass !== computed) add('V-TRN-02', 'error', 'changeClass', 'THE CHANGE CLASS DOES NOT MATCH THE SYSTEM DIFF.', `This change is ${computed}.`);
+  if (computed === 'structural' && context.arcDay > 7 && differenceInCalendarDays(parseISO(next.activeFrom), parseISO(context.today)) !== context.nextCheckpointDay - context.arcDay) add('V-TRN-03', 'error', 'activeFrom', 'STRUCTURAL CHANGE MUST WAIT FOR A CHECKPOINT.', 'Activate the change on the day after the next checkpoint seal.');
+  if (context.arcDay > 1 && (previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression))) add('V-TRN-04', 'error', 'arc', 'A PINNED ARC SETTING CHANGED.', 'Progression, start date, and timezone are fixed after day 1.');
+  for (const oldDomain of previous.domains) {
+    const continued = next.domains.find((domain) => domain.id === oldDomain.id);
+    if (continued && oldDomain.instrumentIds.some((id) => {
+      const oldType = previous.instruments.find((instrument) => instrument.id === id)?.type;
+      const newType = next.instruments.find((instrument) => instrument.id === id)?.type;
+      return oldType !== newType;
+    })) add('V-TRN-05', 'error', `domains.${oldDomain.id}`, 'A DOMAIN CHANGED ITS INSTRUMENT TYPE.', 'Retire it and create a new domain id instead.');
+  }
+  // Hash calculation is deliberately exercised at the transition boundary:
+  // cosmetic documents must retain their computational fingerprint.
+  const hashes = await Promise.all([hashesFor(previous), hashesFor(next)]);
+  if (computed === 'cosmetic' && hashes[0].computationalHash !== hashes[1].computationalHash) add('V-TRN-02', 'error', 'changeClass', 'COSMETIC CHANGE ALTERED COMPUTATION.', 'Restore the previous computational configuration.');
   return issues;
 }
