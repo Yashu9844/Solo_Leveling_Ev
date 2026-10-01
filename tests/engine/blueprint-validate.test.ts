@@ -18,7 +18,7 @@ function fixture(): SystemBlueprint {
       { id: 'sleep.log', domainId: 'sleep', type: 'time_window', label: 'Sleep', logVerb: 'Log', params: { targetTime: '08:30', toleranceMinutes: 30 }, controllability: 'effort', eventBinding: { kind: 'generic' } },
       { id: 'care.log', domainId: 'care', type: 'checklist', label: 'Care', logVerb: 'Log', params: { items: [] }, controllability: 'effort', eventBinding: { kind: 'generic' } },
     ],
-    quests: domains.filter(([, role]) => role !== 'support').map(([id]) => ({ id: `${id}.quest`, domainId: id, type: 'core', designation: id.toUpperCase(), objective: 'Do the work.', criterion: { kind: 'signal', instrumentId: `${id}.log`, signal: id === 'sleep' ? 'hit' : id === 'logic' ? 'count' : id === 'forge' ? 'count' : 'minutes', comparator: '>=', target: 1 }, floor: { kind: 'signal', instrumentId: `${id}.log`, signal: id === 'sleep' ? 'hit' : id === 'logic' ? 'count' : id === 'forge' ? 'count' : 'minutes', comparator: '>=', target: 1 }, xp: 100, bonus: [], schedule: { kind: 'daily' }, evidenceMode: 'logged_only', recoverable: false, intentionAllowed: true })),
+    quests: domains.filter(([, role]) => role !== 'support').map(([id]) => ({ id: `${id}.quest`, domainId: id, type: 'core', designation: id.toUpperCase(), objective: 'Do the work.', criterion: { kind: 'signal', instrumentId: `${id}.log`, signal: id === 'sleep' ? 'hit' : id === 'logic' ? 'count' : id === 'forge' ? 'count' : 'minutes', comparator: '>=', target: 1 }, floor: { kind: 'signal', instrumentId: `${id}.log`, signal: id === 'sleep' ? 'hit' : id === 'logic' ? 'count' : id === 'forge' ? 'count' : 'minutes', comparator: '>=', target: 1 }, xp: 125, bonus: [], schedule: { kind: 'daily' }, evidenceMode: 'logged_only', recoverable: false, intentionAllowed: true })),
     metrics: [], skills: [], attributes: { groups: [], defs: [] }, milestones: [], gates: [], bosses: [], checkpoints: { selfEfficacy: [], automaticity: [], enjoyment: [] }, achievements: [], reviews: { domainPrompts: [] }, rules: [], messaging: { evidenceTemplates: [] }, vocabulary: {},
   };
 }
@@ -47,5 +47,12 @@ describe('Blueprint validator part 1 (loop 2.3)', () => {
   it('reports dangling references', () => {
     const bad = fixture(); bad.quests[0]!.criterion = { kind: 'signal', instrumentId: 'gone', signal: 'minutes', comparator: '>=', target: 1 };
     expect(codes(bad)).toContain('V-REF-01');
+  });
+  it('reports evaluator, economy, and evidence violations', () => {
+    const quest = fixture(); (quest.quests[0]!.criterion as { target: number }).target = 0; expect(codes(quest)).toContain('V-QST-02');
+    const economy = fixture(); economy.quests[0]!.xp = 200; expect(codes(economy)).toContain('V-XP-02');
+    const gate = fixture(); gate.gates = [{ rank: 'C', day: 30, conditions: [] }]; expect(codes(gate)).toContain('V-GATE-01');
+    const boss = fixture(); boss.bosses = [{ id: 'I', title: 'TEST', anchorMilestoneId: 'gone', windowStartDay: 1, windowEndDay: 14, conditions: [] }]; expect(codes(boss)).toContain('V-BOSS-01');
+    const message = fixture(); message.metrics = [{ id: 'weight', label: 'Weight', unit: 'kg', kind: 'body', source: { manual: true, cadence: 'any' }, direction: 'neutral' }]; message.messaging.evidenceTemplates = [{ id: 'bad', tier: 'P1', signal: { source: 'metric', metricId: 'weight', aggregate: 'latest' }, template: 'x' }]; expect(codes(message)).toContain('V-MSG-01');
   });
 });

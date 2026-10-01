@@ -30,6 +30,9 @@ function criterionInstrumentIds(criterion: Criterion): string[] {
 function signalReferences(signal: SignalRef): string[] {
   return signal.source === 'instrument' ? [signal.instrumentId] : signal.source === 'metric' ? [signal.metricId] : [];
 }
+function criterionLeaves(criterion: Criterion): Extract<Criterion, { kind: 'signal' }>[] {
+  return criterion.kind === 'signal' ? [criterion] : criterion.of.flatMap(criterionLeaves);
+}
 
 /** Pure validation at the configuration boundary. Errors block activation. */
 export function validateBlueprint(blueprint: SystemBlueprint, context: ValidationContext): Issue[] {
@@ -94,5 +97,41 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
     const instrument = blueprint.instruments.find((item) => item.id === id);
     if (instrument && criterion.kind === 'signal' && !isKnownInstrumentSignal(instrument.type, criterion.signal)) bad(true, `quests.${quest.id}.criterion.signal`);
   }
+
+  // Part 2: rules that depend on the linked graph, after V-REF has made
+  // missing ids explicit. Each check remains defensive for malformed imports.
+  for (const quest of blueprint.quests) {
+    const leaves = criterionLeaves(quest.criterion);
+    const floorLeaves = criterionLeaves(quest.floor);
+    const invalidLeaf = leaves.some((leaf) => {
+      const instrument = blueprint.instruments.find((item) => item.id === leaf.instrumentId);
+      return !instrument || !isKnownInstrumentSignal(instrument.type, leaf.signal) || leaf.target < 0;
+    });
+    if (invalidLeaf) add('V-QST-01', 'error', `quests.${quest.id}.criterion`, 'A QUEST READS AN UNKNOWN SIGNAL.', 'Reference a signal supplied by its instrument.');
+    if (leaves.some((leaf) => leaf.target < 1 && leaf.comparator === '>=')) add('V-QST-02', 'error', `quests.${quest.id}.criterion`, 'THE QUEST FLOOR IS TRIVIAL.', 'Set a meaningful minimum for each leaf target.');
+    if (floorLeaves.some((floor) => !leaves.some((full) => full.instrumentId === floor.instrumentId && full.signal === floor.signal && floor.target <= full.target))) add('V-QST-03', 'error', `quests.${quest.id}.floor`, 'THE FLOOR EXCEEDS THE TARGET.', 'Make each floor leaf no harder than the matching full criterion.');
+    if (quest.schedule.kind === 'weekdays' && quest.schedule.days.length < 3) add('V-QST-04', 'error', `quests.${quest.id}.schedule.days`, 'THE WEEKLY RHYTHM IS TOO SPARSE.', 'Schedule a weekday quest on at least three days.');
+    if (quest.timeWindow && [quest.timeWindow.notBefore, quest.timeWindow.notAfter].some((time) => time !== undefined && timeHours(time) === undefined)) add('V-QST-05', 'error', `quests.${quest.id}.timeWindow`, 'THE QUEST WINDOW CANNOT BE READ.', 'Use valid HH:mm times outside the closed hours.');
+  }
+  const coreQuests = blueprint.quests.filter((quest) => quest.type === 'core');
+  const coreXp = coreQuests.reduce((sum, quest) => sum + quest.xp, 0);
+  if (coreXp !== blueprint.progression.dailyCoreBudget) add('V-XP-01', 'error', 'quests', 'THE CORE ECONOMY DOES NOT BALANCE.', 'Core quest XP must equal the daily core budget.');
+  if (coreQuests.some((quest) => quest.xp < 30 || quest.xp > 150)) add('V-XP-02', 'error', 'quests', 'A CORE QUEST IS OUTSIDE THE SAFE XP BAND.', 'Keep core XP between 30 and 150.');
+  const smallestEngineXp = Math.min(...coreQuests.filter((quest) => blueprint.domains.find((domain) => domain.id === quest.domainId)?.role === 'engine').map((quest) => quest.xp));
+  if (blueprint.domains.some((domain) => domain.channel.cap < 0 || domain.channel.cap - (blueprint.quests.find((quest) => quest.id === domain.coreQuestId)?.xp ?? 0) > smallestEngineXp)) add('V-XP-03', 'error', 'domains', 'CHANNEL HEADROOM EXCEEDS THE SYSTEM LIMIT.', 'Reduce channel headroom to no more than the smallest engine core quest.');
+  if (coreQuests.some((quest) => quest.bonus.some((bonus) => bonus.amount > quest.xp * .4))) add('V-XP-04', 'error', 'quests', 'A BONUS OVERSHADOWS THE FIRST MOVE.', 'Keep each bonus at or below 40% of core XP.');
+  if (blueprint.progression.dailyCap !== blueprint.progression.dailyCoreBudget * 1.4) add('V-XP-05', 'error', 'progression.dailyCap', 'THE DAILY CAP IS MISALIGNED.', 'Set the daily cap to 1.4× the core budget.');
+  const unsafeSignal = (signal: SignalRef): boolean => signal.source === 'metric' && ['external', 'body'].includes(blueprint.metrics.find((metric) => metric.id === signal.metricId)?.kind ?? '');
+  if (blueprint.attributes.defs.some((attribute) => attribute.terms.some((term) => unsafeSignal(term.signal))) || blueprint.gates.some((gate) => gate.conditions.some((condition) => unsafeSignal(condition.signal)))) add('V-MET-01', 'error', 'metrics', 'UNCONTROLLED EVIDENCE ENTERED A SCORE.', 'External and body metrics cannot drive XP, gates, or attributes.');
+  for (const gate of blueprint.gates) {
+    if (['C', 'B', 'A', 'S'].includes(gate.rank) && !gate.conditions.some((condition) => condition.verifiability === 'public_url' || condition.verifiability === 'recorded')) add('V-GATE-01', 'error', `gates.${gate.rank}`, 'THE GATE LACKS VERIFIABLE EVIDENCE.', 'Add a public URL or recorded evidence condition.');
+  }
+  for (const boss of blueprint.bosses) if (!boss.anchorMilestoneId || !milestoneIds.has(boss.anchorMilestoneId)) add('V-BOSS-01', 'error', `bosses.${boss.id}`, 'A BOSS HAS NO REAL-WORLD ANCHOR.', 'Anchor every boss to a milestone.');
+  if (blueprint.attributes.defs.some((attribute) => attribute.combine === 'sum' && Math.abs(attribute.terms.reduce((sum, term) => sum + term.weight, 0) - 1) > .001 || attribute.combine === 'product' && attribute.terms.length > 3)) add('V-ATT-01', 'error', 'attributes', 'THE ATTRIBUTE FORMULA IS UNBALANCED.', 'Sum weights must total 1; product formulas may have at most three factors.');
+  const signalUse = blueprint.attributes.defs.flatMap((attribute) => attribute.terms.map((term) => canonicalJson(term.signal)));
+  if (signalUse.some((signal, index) => signalUse.indexOf(signal) !== index && signalUse.lastIndexOf(signal) !== index)) add('V-ATT-02', 'error', 'attributes', 'ONE SIGNAL IS COUNTED TOO MANY TIMES.', 'Use a signal in at most two attributes.');
+  if (blueprint.attributes.defs.length && (blueprint.attributes.defs.length < 3 || blueprint.attributes.defs.length > 6 || !blueprint.attributes.defs.some((attribute) => attribute.id === 'DISCIPLINE') || blueprint.attributes.groups.length > 4)) add('V-ATT-03', 'error', 'attributes', 'THE ATTRIBUTE SET IS INCOMPLETE.', 'Use 3–6 attributes including DISCIPLINE and no more than four groups.');
+  if (blueprint.skills.length > 5 || blueprint.skills.some((skill) => skill.nodes.length > 30 || skill.nodes.some((node) => node.dependsOn?.some((id) => !skill.nodes.some((candidate) => candidate.id === id))))) add('V-SKL-01', 'error', 'skills', 'A SKILL TREE HAS A BROKEN DEPENDENCY.', 'Nodes must depend only on nodes in their tree; keep trees within the size limit.');
+  if (blueprint.messaging.evidenceTemplates.some((template) => template.signal !== undefined && unsafeSignal(template.signal))) add('V-MSG-01', 'error', 'messaging', 'A MESSAGE WOULD SCORE UNCONTROLLED EVIDENCE.', 'Evidence messages may only use eligible effort or performance signals.');
   return issues;
 }
