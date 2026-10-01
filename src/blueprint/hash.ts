@@ -10,6 +10,10 @@ export function canonicalJson(value: unknown): string {
 
 export interface BlueprintPartitions { computational: unknown; presentation: unknown }
 
+function omit<T extends object>(value: T, keys: readonly string[]): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => !keys.includes(key)));
+}
+
 /**
  * Explicit partition: all engine-readable definitions are computational;
  * wording and visual affordances are presentation. Keeping this in one place
@@ -22,14 +26,15 @@ export function partitionBlueprint(blueprint: SystemBlueprint): BlueprintPartiti
       ...metadata,
       arc: { lengthDays: arc.lengthDays, startDate: arc.startDate, endDate: arc.endDate, timezone: arc.timezone, dayBoundaryHour: arc.dayBoundaryHour, dayCloseHour: arc.dayCloseHour, wakeTime: arc.wakeTime, sleepTime: arc.sleepTime },
       progression: blueprint.progression,
-      domains: domains.map(({ name, designation, description, presentation, evidenceSurface, ...domain }) => domain),
-      instruments: instruments.map(({ label, logVerb, ...instrument }) => instrument),
-      quests: quests.map(({ designation, realityLabel, objective, ...quest }) => quest), metrics, skills: skills.map(({ name, designation, nodes, ...skill }) => ({ ...skill, nodes: nodes.map(({ name: _name, tier: _tier, ...node }) => node) })),
-      attributes: { groups: attributes.groups.map(({ heading, tagline, icon, ...group }) => group), defs: attributes.defs.map(({ name, description, terms, ...definition }) => ({ ...definition, terms: terms.map(({ label, ...term }) => term) })) },
-      milestones: milestones.map(({ label, condition }) => ({ condition })), gates: gates.map(({ conditions, rank, day }) => ({ rank, day, conditions: conditions.map(({ label, ...condition }) => condition) })),
-      bosses: bosses.map(({ title, ...boss }) => boss), checkpoints: { selfEfficacy: checkpoints.selfEfficacy.map(({ id }) => ({ id })), automaticity: checkpoints.automaticity.map(({ id }) => ({ id })), enjoyment: checkpoints.enjoyment.map(({ id, domainId }) => ({ id, domainId })) },
-      achievements: achievements.map(({ label, ...achievement }) => achievement), reviews: { domainPrompts: reviews.domainPrompts.map(({ prompt, options, ...review }) => review) }, rules,
-      messaging: { evidenceTemplates: messaging.evidenceTemplates.map(({ template, ...message }) => message) },
+      domains: domains.map((domain) => omit(domain, ['name', 'designation', 'description', 'presentation', 'evidenceSurface'])),
+      instruments: instruments.map((instrument) => omit(instrument, ['label', 'logVerb'])),
+      quests: quests.map((quest) => omit(quest, ['designation', 'realityLabel', 'objective'])), metrics,
+      skills: skills.map((skill) => ({ ...omit(skill, ['name', 'designation', 'nodes']), nodes: skill.nodes.map((node) => omit(node, ['name', 'tier'])) })),
+      attributes: { groups: attributes.groups.map((group) => omit(group, ['heading', 'tagline', 'icon'])), defs: attributes.defs.map((definition) => ({ ...omit(definition, ['name', 'description', 'terms']), terms: definition.terms.map((term) => omit(term, ['label'])) })) },
+      milestones: milestones.map((milestone) => ({ condition: milestone.condition })), gates: gates.map(({ conditions, rank, day }) => ({ rank, day, conditions: conditions.map((condition) => omit(condition, ['label'])) })),
+      bosses: bosses.map((boss) => omit(boss, ['title'])), checkpoints: { selfEfficacy: checkpoints.selfEfficacy.map(({ id }) => ({ id })), automaticity: checkpoints.automaticity.map(({ id }) => ({ id })), enjoyment: checkpoints.enjoyment.map(({ id, domainId }) => ({ id, domainId })) },
+      achievements: achievements.map((achievement) => omit(achievement, ['label'])), reviews: { domainPrompts: reviews.domainPrompts.map((review) => omit(review, ['prompt', 'options'])) }, rules,
+      messaging: { evidenceTemplates: messaging.evidenceTemplates.map((message) => omit(message, ['template'])) },
     },
     presentation: { identity, domains: domains.map(({ id, name, designation, description, presentation, evidenceSurface }) => ({ id, name, designation, description, presentation, evidenceSurface })), instruments: instruments.map(({ id, label, logVerb }) => ({ id, label, logVerb })), quests: quests.map(({ id, designation, realityLabel, objective }) => ({ id, designation, realityLabel, objective })), skills: skills.map(({ id, name, designation, nodes }) => ({ id, name, designation, nodes })), attributes, milestones: milestones.map(({ id, label }) => ({ id, label })), gates: gates.map(({ rank, day, conditions }) => ({ rank, day, conditions: conditions.map(({ id, label }) => ({ id, label })) })), bosses: bosses.map(({ id, title }) => ({ id, title })), checkpoints, achievements: achievements.map(({ id, label }) => ({ id, label })), reviews, messaging, vocabulary },
   };
