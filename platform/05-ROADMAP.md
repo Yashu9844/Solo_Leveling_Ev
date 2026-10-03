@@ -122,7 +122,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 
 | Loop | Instrument(s) | Characterized against | Acceptance |
 |---|---|---|---|
-| ☐ 3.1 | framework + `SignalSnapshot` builder (global signals: MVD days, core completion, bosses, checkpoints) | `db/projections.ts#buildDayOutcomes`, `consistencyOver` | identical outputs |
+| ☑ 3.1 | framework + `SignalSnapshot` builder (global signals: MVD days, core completion, bosses, checkpoints) | `db/projections.ts#buildDayOutcomes`, `consistencyOver` | identical outputs |
 | ☐ 3.2 | `practice_item` (+ SRS, `practice_rate` mastery, weighted volume, first-attempt rate) | `engine/dsa.ts`, `engine/srs.ts`, `store/mastery.ts` | 10k-case equality |
 | ☐ 3.3 | `pipeline` (quality gate, funnel, follow-through, substitute share, stage mapping) | `engine/career.ts` | equality |
 | ☐ 3.4 | `duration` (modes, ratio rule) + `artifact` (kinds, flags, verifiability) | `engine/build.ts`, `engine/rules.ts` LEARN_SHIP, artifact queries in `store/checkpoint.ts` | equality |
