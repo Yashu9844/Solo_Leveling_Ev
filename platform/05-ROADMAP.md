@@ -111,9 +111,9 @@ COMMIT    One commit per loop: "platform(<phase>.<loop>): <objective>". Include 
 |---|---|---|---|---|
 | ☑ 2.1 | Schema + hashing | `src/blueprint/schema.ts` (02 §7–18 types); `src/blueprint/hash.ts` (canonical JSON; computational vs presentation field partition) | property: key order doesn't change the hash; I13 on random mutations | types compile; hashes stable |
 | ☑ 2.2 | Instrument catalogue (declarative) | `src/instruments/catalog.ts`: per type — params bounds, record schema, signal names and kinds (effort/performance), minimums | unit | every legacy signal referenced by later loops exists |
-| ☐ 2.3 | Validator part 1 | `src/blueprint/validate.ts`: V-ARC, V-DOM, V-REF, V-VOC, V-INS | a failing + passing fixture per code | catalogue codes implemented |
-| ☐ 2.4 | Validator part 2 | V-QST, V-XP, V-MET, V-GATE, V-BOSS, V-ATT, V-SKL, V-MSG | same | same |
-| ☐ 2.5 | Transition validator | `validateTransition` (V-TRN-01…05); change-class computation from hashes + field diff | unit + property | class computed, never declared |
+| ☑ 2.3 | Validator part 1 | `src/blueprint/validate.ts`: V-ARC, V-DOM, V-REF, V-VOC, V-INS | a failing + passing fixture per code | catalogue codes implemented |
+| ☑ 2.4 | Validator part 2 | V-QST, V-XP, V-MET, V-GATE, V-BOSS, V-ATT, V-SKL, V-MSG | same | same |
+| ☑ 2.5 | Transition validator | `validateTransition` (V-TRN-01…05); change-class computation from hashes + field diff | unit + property | class computed, never declared |
 | ☐ 2.6 | LEGACY_BLUEPRINT_V1 | `src/blueprint/legacy/legacyV1.ts`, transcribing config.ts, quests.ts titles and criteria, criterionText, QuestRow icons and themes, rank gates (exact labels), bosses, attributes, achievements, identities, topic lists, checkpoint rows and instruments, rules, reflections filter, voice literals, and the 02 §22.1 deviations | **fidelity test** cross-checks every value against the live constants; validator clean (legacy-only exemptions allowed only when `provenance.generator === 'legacy'` and each is listed with a reason) | legacy v1 = the owner's System, as data |
 
 ### Phase 3 — Instrument layer
