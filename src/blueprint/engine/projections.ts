@@ -12,8 +12,7 @@
 // it (H2) and, once a log has explicit versions, records which one (H6). The
 // progression section (level curve, streak rules, window) is pinned at genesis
 // (V-TRN-04), so those are read from the first version.
-import type { BuiltProjections } from '../../db/projections';
-import { buildDayOutcomes, consistencyOver, coreTotalOn, emptyDayRollup } from '../../db/projections';
+import { buildDayOutcomes, consistencyOver, coreTotalOn, emptyDayRollup, type BuiltProjections } from '../../db/projectionParts';
 import type { DayRollupRow, PlayerStateRow, QuestInstanceRow, QuestTemplateRow } from '../../db/schema';
 import { levelFor } from '../../engine/level';
 import { generateQuests } from '../../engine/quests';

@@ -9,9 +9,11 @@ import { resolveBlueprints } from '../blueprint/resolve';
 import type { SystemBlueprint } from '../blueprint/schema';
 import { blueprintVersionRows, replaceBlueprintVersions } from '../db/blueprintProjection';
 import { db } from '../db/db';
+import { rebuildProjections } from '../db/projections';
 import { appendEvent, getAllEvents } from '../db/events';
 import type { EngineDeps } from '../engine/types';
 import { getActiveArc } from './arc';
+import { getEngineConfig } from './engineConfig';
 
 /** The versions in force for the active arc, plus any activations the log carries that were ignored. */
 export async function getBlueprintVersions() {
@@ -48,4 +50,7 @@ export async function activateBlueprint(next: SystemBlueprint, today: string, de
     await appendEvent(event);
     await replaceBlueprintVersions(rows);
   });
+  // Under ENGINE_V2 every projection depends on the versions in force, so a new version re-derives them
+  // (days before its start date come out identical - H2; the legacy engine ignores versions, so there it is a no-op).
+  await rebuildProjections(getEngineConfig(), deps);
 }

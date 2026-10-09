@@ -9,6 +9,8 @@ import type { EngineConfig, EngineDeps } from '../engine/types';
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { completeQuest } from './quests';
+import { engineV2Enabled } from '../flags';
+import { autoCompleteQuest } from './completion';
 import { rebuildProjections } from '../db/projections';
 import type { MaintenanceLogRow, MetricSampleRow } from '../db/schema';
 import { getActiveArc } from './arc';
@@ -83,6 +85,7 @@ export async function logSleep(
     }
   });
 
+  if (engineV2Enabled()) return autoCompleteQuest('sleep', today, arcId, config, deps, { instrumentId: 'sleep.wake' });
   const instance = await findCoreInstance(today, 'sleep');
   if (instance && withinWakeWindow(wakeTime, config.wakeTargetTime, SLEEP_TOLERANCE_MINUTES)) {
     await completeQuest(instance, 'sleep', arcId, config, deps);
@@ -118,6 +121,7 @@ export async function logScreentime(
     await db.metric_sample.add(row);
   });
 
+  if (engineV2Enabled()) return autoCompleteQuest('attention', today, arcId, config, deps, { instrumentId: 'attention.screen' });
   const instance = await findCoreInstance(today, 'attention');
   if (instance && minutes <= ATTENTION_LIMIT_MINUTES) {
     await completeQuest(instance, 'attention', arcId, config, deps);

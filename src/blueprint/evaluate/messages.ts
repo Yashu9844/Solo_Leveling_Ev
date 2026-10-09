@@ -5,8 +5,8 @@
 // checkpoint schedule, and by the V2 projections (day rollups, ledger, streak).
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import type { BuiltProjections } from '../../db/projections';
-import { buildDayOutcomes, consistencyOver } from '../../db/projections';
+import type { BuiltProjections } from '../../db/projectionParts';
+import { buildDayOutcomes, consistencyOver } from '../../db/projectionParts';
 import type { DayFacts, MessageContext } from '../../engine/messages';
 import { applyEvents } from '../../engine/reduce';
 import { streakFrom } from '../../engine/streak';

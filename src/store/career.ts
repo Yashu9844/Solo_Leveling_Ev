@@ -19,6 +19,8 @@ import { passesQualityGate, careerEventKindToStatus, type ApplicationFixture } f
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { completeQuest } from './quests';
+import { engineV2Enabled } from '../flags';
+import { autoCompleteQuest } from './completion';
 import type { ApplicationRow, CareerEventRow, ResumeVersionRow } from '../db/schema';
 
 const REBUILD_ADJACENT_TABLES = [
@@ -40,6 +42,7 @@ async function maybeCompleteCareerQuest(
   config: EngineConfig,
   deps: EngineDeps
 ): Promise<void> {
+  if (engineV2Enabled()) return autoCompleteQuest('career', today, arcId, config, deps);
   const templates = await db.quest_template.toArray();
   const careerTemplate = templates.find((t) => t.key === 'career' && t.type === 'core');
   if (!careerTemplate) return;

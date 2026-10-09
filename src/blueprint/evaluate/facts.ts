@@ -4,7 +4,7 @@
 // complete", boss and checkpoint status — in one place, as a pure function of
 // the event log, the sealed-checkpoint rows and the quest instances.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { buildDayOutcomes, consistencyOver } from '../../db/projections';
+import { buildDayOutcomes, consistencyOver } from '../../db/projectionParts';
 import type { QuestInstanceRow } from '../../db/schema';
 import { ifThenFiringRate } from '../../engine/ifThen';
 import { applyEvents } from '../../engine/reduce';

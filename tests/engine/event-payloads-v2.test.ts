@@ -20,7 +20,9 @@ import { applyEvents } from '../../src/engine/reduce';
 import type { QuestCompletedPayload, SystemEvent } from '../../src/engine/types';
 import { allRecords } from '../../src/instruments/records';
 import { activateBlueprint } from '../../src/store/blueprint';
+import { setEngineV2Override } from '../../src/flags';
 import { InstrumentRecordError, recordInstrument } from '../../src/store/instruments';
+import { loadTodayQuests } from '../../src/store/quests';
 import { dateAt, LEGACY_ARC_ID, legacyActivityLog } from './support/legacyActivityLog';
 import { loadLegacyDb, prefixOf } from './support/legacyDb';
 import { fuzzDeps } from './support/randomEventLog';
@@ -105,6 +107,35 @@ describe('INSTRUMENT_RECORDED (loop 5.3)', () => {
     const pages = ledger.filter((row) => row.reason === 'pages');
     expect(pages).toHaveLength(1);
     expect(pages[0]).toMatchObject({ amount: 10, category: 'LEARN', event_id: first, local_date: tomorrow });
+  }, 60_000);
+
+  it('under ENGINE_V2 a record that satisfies a quest criterion completes the quest, once, and not when it falls short', async () => {
+    setEngineV2Override(true);
+    try {
+      const harness = await loadLegacyDb(prefixOf(log, today), today);
+      const next = withReading(LEGACY_ARC_ID, tomorrow);
+      // Training is now also completed by reading 20+ pages.
+      const training = next.quests.find((quest) => quest.id === 'training')!;
+      training.criterion = { kind: 'any', of: [training.criterion, { kind: 'signal', instrumentId: 'foundations.pages', signal: 'hit', comparator: '>=', target: 1 }] };
+      training.floor = training.criterion;
+      await activateBlueprint(next, today, deps(harness.now()));
+      const writer = deps(`${tomorrow}T09:00:00.000Z`);
+      await loadTodayQuests(tomorrow, DEFAULT_CONFIG, writer);
+      const completed = async () => (await db.quest_instance.where('local_date').equals(tomorrow).toArray()).find((instance) => instance.template_id.endsWith('::training'))!.state;
+      expect(await completed()).toBe('available');
+      await recordInstrument('foundations.pages', { value: 5 }, tomorrow, writer); // under the 20-page target
+      expect(await completed()).toBe('available');
+      await recordInstrument('foundations.pages', { value: 25 }, tomorrow, writer);
+      expect(await completed()).toBe('complete');
+      const completions = (await getAllEvents()).filter((e) => e.type === 'QUEST_COMPLETED' && e.local_date === tomorrow);
+      expect(completions).toHaveLength(1);
+      // The arc has explicit versions, so the completion carries the v2 payload.
+      expect(completions[0]).toMatchObject({ schema_v: 2, payload: { questKey: 'training', questDefId: 'training', domainId: 'training', blueprintVersion: 2 } });
+      await recordInstrument('foundations.pages', { value: 40 }, tomorrow, writer);
+      expect((await getAllEvents()).filter((e) => e.type === 'QUEST_COMPLETED' && e.local_date === tomorrow)).toHaveLength(1);
+    } finally {
+      setEngineV2Override(undefined);
+    }
   }, 60_000);
 
   it('an older build skips INSTRUMENT_RECORDED and BLUEPRINT_ACTIVATED without changing a single projection (rollback safety)', () => {

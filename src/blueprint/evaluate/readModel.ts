@@ -2,7 +2,7 @@
 // "as of this date, under this Blueprint, given this log". One env per read,
 // so attributes, gates, bosses and messages all see the same numbers
 // (platform/04 §33.3: one SignalSnapshot per read).
-import type { BuiltProjections } from '../../db/projections';
+import type { BuiltProjections } from '../../db/projectionParts';
 import type { QuestInstanceRow } from '../../db/schema';
 import type { SystemEvent } from '../../engine/types';
 import { engineConfigFromBlueprint } from '../engineConfig';

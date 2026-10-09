@@ -10,9 +10,17 @@ import { resolveBlueprints, versionFor } from '../blueprint/resolve';
 import { db } from '../db/db';
 import { appendEvent, getAllEvents } from '../db/events';
 import { instrumentRecordRows } from '../db/instrumentProjection';
+import { engineV2Enabled } from '../flags';
+import { rebuildProjections } from '../db/projections';
+import type { Criterion } from '../blueprint/schema';
 import type { EngineDeps, SystemEvent } from '../engine/types';
 import { INSTRUMENT_DEFINITIONS } from '../instruments/registry';
 import { getActiveArc } from './arc';
+import { autoCompleteQuest } from './completion';
+import { getEngineConfig } from './engineConfig';
+
+const readsInstrument = (criterion: Criterion, instrumentId: string): boolean =>
+  criterion.kind === 'signal' ? criterion.instrumentId === instrumentId : criterion.of.some((child) => readsInstrument(child, instrumentId));
 
 export class InstrumentRecordError extends Error {
   readonly codes: string[];
@@ -47,5 +55,13 @@ export async function recordInstrument(instrumentId: string, record: Record<stri
     const [row] = instrumentRecordRows([event]);
     if (row) await db.instrument_record.put(row);
   });
+  // The record may earn XP and complete a quest: re-derive the projections (a no-op for the legacy engine).
+  await rebuildProjections(getEngineConfig(), deps);
+  // And it may be what completes a core quest (platform/02 §9.2): evaluate every quest whose criterion reads it.
+  if (engineV2Enabled()) {
+    for (const quest of version.quests.filter((candidate) => candidate.type === 'core' && readsInstrument(candidate.criterion, instrumentId))) {
+      await autoCompleteQuest(quest.id, today, arc.id, getEngineConfig(), deps);
+    }
+  }
   return id;
 }

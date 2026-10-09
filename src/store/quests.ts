@@ -21,7 +21,11 @@ import type {
 } from '../engine/types';
 import { isDayClosed } from '../engine/time';
 import { db } from '../db/db';
-import { appendEvent } from '../db/events';
+import { appendEvent, getAllEvents } from '../db/events';
+import { engineV2Enabled } from '../flags';
+import { questCompletedPayloadV2 } from '../blueprint/events';
+import { stampsVersions } from '../blueprint/engine/projections';
+import { resolveBlueprints, versionFor } from '../blueprint/resolve';
 import { rebuildProjections } from '../db/projections';
 import { getActiveArc } from './arc';
 
@@ -108,12 +112,25 @@ export async function completeQuest(
 
   await db.transaction('rw', REBUILD_TABLES, async () => {
     const seq = await toggleSequence(instance.id);
-    const payload: QuestCompletedPayload = {
+    let payload: QuestCompletedPayload = {
       instanceId: instance.id,
       templateId: instance.template_id,
       questKey: templateKey as QuestCompletedPayload['questKey'],
       localDate: instance.local_date,
     };
+    // An arc with explicit Blueprint versions writes the v2 payload (domain, definition, version) so an
+    // export alone says what the day meant. The owner's implicit-legacy arc keeps writing v1: their log
+    // gains no new shape, and any older build reads it (platform/02 §21.2).
+    let schemaV = 1;
+    if (engineV2Enabled()) {
+      const { versions } = resolveBlueprints(await getAllEvents());
+      const version = stampsVersions(versions) ? versionFor(versions, instance.local_date) : undefined;
+      const quest = version?.quests.find((candidate) => candidate.id === templateKey);
+      if (version && quest) {
+        payload = questCompletedPayloadV2(payload, { id: quest.id, domainId: quest.domainId }, version.version);
+        schemaV = 2;
+      }
+    }
     await appendEvent({
       id: deps.newId(),
       type: 'QUEST_COMPLETED',
@@ -123,7 +140,7 @@ export async function completeQuest(
       payload: payload as unknown as Record<string, unknown>,
       source: 'user',
       idem_key: `quest-complete:${instance.id}:${seq}`,
-      schema_v: 1,
+      schema_v: schemaV,
     });
     await rebuildProjections(config, deps);
   });

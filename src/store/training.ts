@@ -12,6 +12,8 @@ import type { EngineConfig, EngineDeps } from '../engine/types';
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { completeQuest } from './quests';
+import { engineV2Enabled } from '../flags';
+import { autoCompleteQuest } from './completion';
 import { rebuildProjections } from '../db/projections';
 import type { MetricSampleRow, TrainingSessionRow } from '../db/schema';
 
@@ -39,6 +41,7 @@ async function maybeCompleteTrainingQuest(
   config: EngineConfig,
   deps: EngineDeps
 ): Promise<void> {
+  if (engineV2Enabled()) return autoCompleteQuest('training', today, arcId, config, deps);
   const templates = await db.quest_template.toArray();
   const trainingTemplate = templates.find((t) => t.key === 'training' && t.type === 'core');
   if (!trainingTemplate) return;

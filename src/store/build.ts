@@ -14,6 +14,8 @@ import type {
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import { completeQuest } from './quests';
+import { engineV2Enabled } from '../flags';
+import { autoCompleteQuest } from './completion';
 import { rebuildProjections } from '../db/projections';
 import type { ArtifactRow, BuildSessionRow, LearningBlockRow, SystemDesignStudyRow } from '../db/schema';
 
@@ -32,6 +34,7 @@ const REBUILD_ADJACENT_TABLES = [
 ];
 
 async function maybeCompleteBuildQuest(today: string, arcId: string, config: EngineConfig, deps: EngineDeps): Promise<void> {
+  if (engineV2Enabled()) return autoCompleteQuest('build', today, arcId, config, deps);
   const templates = await db.quest_template.toArray();
   const buildTemplate = templates.find((t) => t.key === 'build' && t.type === 'core');
   if (!buildTemplate) return;
