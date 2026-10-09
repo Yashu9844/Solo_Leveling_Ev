@@ -45,7 +45,10 @@ export type EventType =
   // category table row) — the 31st type, beyond the spec's original
   // 30-type catalogue, added the same way BOSS_CLEARED's handling was
   // added in Slice 13: a new domain capability needs a new event.
-  | 'WEEKLY_QUEST_COMPLETED';
+  | 'WEEKLY_QUEST_COMPLETED'
+  // Platform (platform/02 §19, §43.2): a System Blueprint version takes effect.
+  // The payload carries the full document; see blueprint/events.ts.
+  | 'BLUEPRINT_ACTIVATED';
 
 export type EventSource = 'user' | 'system' | 'import' | 'rule';
 

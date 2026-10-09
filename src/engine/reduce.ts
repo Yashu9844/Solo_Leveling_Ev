@@ -56,6 +56,7 @@ const KNOWN_EVENT_TYPE_MAP: Record<EventType, true> = {
   PLAN_AMENDED: true,
   APP_OPENED: true,
   WEEKLY_QUEST_COMPLETED: true,
+  BLUEPRINT_ACTIVATED: true,
 };
 
 export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set(Object.keys(KNOWN_EVENT_TYPE_MAP));
@@ -297,6 +298,13 @@ function applyOne(state: EngineState, event: SystemEvent): EngineState {
     // from the direct-write weekly_quest table, not folded here.
     case 'WEEK_REVIEWED':
     case 'WEEKLY_QUEST_COMPLETED':
+      return state;
+
+    // Platform (loop 5.2). A Blueprint version is resolved - validated, ordered
+    // and applied per date - by blueprint/resolve.ts, which reads the raw log
+    // (H9 re-validation needs the whole document, not a fold). The reducer's
+    // own state has nothing to hold, so this is a deliberate, inert case.
+    case 'BLUEPRINT_ACTIVATED':
       return state;
 
     default:

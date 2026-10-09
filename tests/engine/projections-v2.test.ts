@@ -3,7 +3,8 @@
 // Blueprint-as-EngineConfig bridge and the resolver's implicit-legacy rule.
 import { describe, expect, it } from 'vitest';
 import { engineConfigFromBlueprint } from '../../src/blueprint/engineConfig';
-import { buildProjectionsV2, implicitLegacyVersions } from '../../src/blueprint/engine/projections';
+import { buildProjectionsV2 } from '../../src/blueprint/engine/projections';
+import { resolveBlueprints } from '../../src/blueprint/resolve';
 import { LEGACY_BLUEPRINT_V1, legacyBlueprintFor, OWNER_ARC_DEFAULTS } from '../../src/blueprint/legacy/legacyV1';
 import { buildProjections } from '../../src/db/projections';
 import { DEFAULT_CONFIG, engineConfigFor } from '../../src/engine/config';
@@ -94,9 +95,10 @@ describe('Blueprint as EngineConfig (loop 4.3)', () => {
 
 describe('implicit legacy resolution (loop 4.3, formalised in 5.2)', () => {
   it('a log with an arc resolves to one legacy version for that arc; without an arc, none', () => {
-    const versions = implicitLegacyVersions(legacyActivityLog({ seed: 1, days: 3 }));
+    const { versions, implicitGenesis } = resolveBlueprints(legacyActivityLog({ seed: 1, days: 3 }));
+    expect(implicitGenesis).toBe(true);
     expect(versions).toHaveLength(1);
     expect(versions[0]).toMatchObject({ version: 1, changeClass: 'genesis', provenance: { generator: 'legacy' }, arcId: 'legacy-arc', activeFrom: '2026-09-01' });
-    expect(implicitLegacyVersions([])).toEqual([]);
+    expect(resolveBlueprints([]).versions).toEqual([]);
   });
 });

@@ -56,7 +56,8 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   if (!lengthMatches) add('V-ARC-02', 'error', 'arc', 'THE ARC LENGTH IS INVALID.', 'Length must be 60–365 days and end on its calculated final day.');
   const earliest = addDays(parseISO(context.today), -14); const latest = addDays(parseISO(context.today), 30);
   const start = parseISO(arc.startDate);
-  if (Number.isNaN(start.getTime()) || compareAsc(start, earliest) < 0 || compareAsc(start, latest) > 0) add('V-ARC-03', 'error', 'arc.startDate', 'THE ARC START IS OUTSIDE THE ACTIVATION WINDOW.', 'Start between 14 days ago and 30 days from today.');
+  // The activation window applies to a genesis document only: once an arc has started its start date is pinned (V-TRN-04), and later versions are validated long after it.
+  if (blueprint.changeClass === 'genesis' && (Number.isNaN(start.getTime()) || compareAsc(start, earliest) < 0 || compareAsc(start, latest) > 0)) add('V-ARC-03', 'error', 'arc.startDate', 'THE ARC START IS OUTSIDE THE ACTIVATION WINDOW.', 'Start between 14 days ago and 30 days from today.');
   const sleep = timeHours(arc.sleepTime); const expectedBoundary = sleep === undefined ? undefined : (Math.floor(sleep + 2) % 24);
   const closeGap = (arc.dayBoundaryHour - arc.dayCloseHour + 24) % 24;
   if (!Number.isInteger(arc.dayBoundaryHour) || !Number.isInteger(arc.dayCloseHour) || expectedBoundary !== arc.dayBoundaryHour || closeGap > 3) add('V-ARC-04', 'error', 'arc', 'THE DAY BOUNDARY DOES NOT FIT THE SLEEP RHYTHM.', 'Set the boundary two hours after sleep and close it 0–3 hours earlier.');

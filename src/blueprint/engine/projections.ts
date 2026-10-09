@@ -10,7 +10,6 @@
 import type { BuiltProjections } from '../../db/projections';
 import { buildDayOutcomes, consistencyOver, coreTotalOn, emptyDayRollup } from '../../db/projections';
 import type { DayRollupRow, PlayerStateRow, QuestInstanceRow, QuestTemplateRow } from '../../db/schema';
-import { DEFAULT_CONFIG } from '../../engine/config';
 import { levelFor } from '../../engine/level';
 import { generateQuests } from '../../engine/quests';
 import { applyEvents } from '../../engine/reduce';
@@ -19,24 +18,10 @@ import type { EngineDeps, QuestInstance, QuestTemplate, SystemEvent } from '../.
 import { engineConfigFromBlueprint } from '../engineConfig';
 import { recordsFromEvents } from '../evaluate/env';
 import { ledgerRowsV2 } from '../evaluate/ledger';
-import { legacyBlueprintFor } from '../legacy/legacyV1';
+import { resolveBlueprints } from '../resolve';
 import type { SystemBlueprint } from '../schema';
 
-/**
- * The Blueprint versions in force for a log. A log with no BLUEPRINT_ACTIVATED
- * event is the owner's: implicit LEGACY_BLUEPRINT_V1 over the arc it recorded
- * (platform/02 §21.1) — no rows written, nothing to roll back.
- */
-export function implicitLegacyVersions(events: SystemEvent[]): SystemBlueprint[] {
-  const arc = applyEvents(events, DEFAULT_CONFIG).arc // the reducer ignores its config; a Blueprint config only exists once an arc does;
-  if (!arc) return [];
-  return [legacyBlueprintFor({
-    id: arc.id, start_date: arc.start_date, end_date: arc.end_date, timezone: arc.timezone,
-    day_boundary_hour: arc.day_boundary_hour, day_close_hour: arc.day_close_hour, main_quest_text: arc.main_quest_text, stake_text: arc.stake_text,
-  })];
-}
-
-export function buildProjectionsV2(events: SystemEvent[], deps: EngineDeps, versions: SystemBlueprint[] = implicitLegacyVersions(events)): BuiltProjections {
+export function buildProjectionsV2(events: SystemEvent[], deps: EngineDeps, versions: SystemBlueprint[] = resolveBlueprints(events).versions): BuiltProjections {
   const blueprint = versions[0];
   if (!blueprint) return { templates: [], instances: [], ledger: [], dayRollups: [], playerState: null };
   const config = engineConfigFromBlueprint(blueprint);

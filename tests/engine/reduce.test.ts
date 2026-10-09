@@ -365,9 +365,9 @@ describe('applyEvents — forward compatibility', () => {
   }
 
   it('skips an unknown event type instead of throwing, and counts it', () => {
-    const log = [...onboardingEventLog(), futureEvent('BLUEPRINT_ACTIVATED', 'f1'), futureEvent('BLUEPRINT_ACTIVATED', 'f2'), futureEvent('INSTRUMENT_RECORDED', 'f3')];
+    const log = [...onboardingEventLog(), futureEvent('NEXT_GEN_EVENT', 'f1'), futureEvent('NEXT_GEN_EVENT', 'f2'), futureEvent('ANOTHER_NEW_EVENT', 'f3')];
     const state = applyEvents(log, DEFAULT_CONFIG);
-    expect(state.skipped).toEqual({ BLUEPRINT_ACTIVATED: 2, INSTRUMENT_RECORDED: 1 });
+    expect(state.skipped).toEqual({ NEXT_GEN_EVENT: 2, ANOTHER_NEW_EVENT: 1 });
   });
 
   it('state is otherwise identical to the same log without the unknown events', () => {
@@ -386,14 +386,15 @@ describe('applyEvents — forward compatibility', () => {
   });
 
   it('every EventType member is known — only genuinely foreign types are skipped', () => {
-    expect(KNOWN_EVENT_TYPES.size).toBe(31);
+    expect(KNOWN_EVENT_TYPES.size).toBe(32); // 31 legacy types + BLUEPRINT_ACTIVATED (platform loop 5.2)
     expect(KNOWN_EVENT_TYPES.has('CHECKPOINT_SEALED')).toBe(true);
-    expect(KNOWN_EVENT_TYPES.has('BLUEPRINT_ACTIVATED')).toBe(false);
+    expect(KNOWN_EVENT_TYPES.has('BLUEPRINT_ACTIVATED')).toBe(true);
+    expect(KNOWN_EVENT_TYPES.has('NEXT_GEN_EVENT')).toBe(false);
   });
 
   it('the full projection and domain folds are unchanged by unknown events (rollback safety)', () => {
     const base = legacyActivityLog({ seed: 7, days: 30 });
-    const future = base.flatMap((e, i) => (i % 50 === 25 ? [e, futureEvent('INSTRUMENT_RECORDED', `future-${i}`)] : [e]));
+    const future = base.flatMap((e, i) => (i % 50 === 25 ? [e, futureEvent('NEXT_GEN_EVENT', `future-${i}`)] : [e]));
     const deps = { now: () => '2026-10-01T00:00:00Z', newId: () => 'x' };
     expect(buildProjections(future, DEFAULT_CONFIG, deps)).toEqual(buildProjections(base, DEFAULT_CONFIG, deps));
     expect(buildDomainTables(future, DEFAULT_CONFIG)).toEqual(buildDomainTables(base, DEFAULT_CONFIG));
