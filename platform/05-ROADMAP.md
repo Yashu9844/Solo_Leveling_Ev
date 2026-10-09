@@ -137,7 +137,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | ☑ 4.1 | `evaluateCriterion` + `explainCriterion` | on every day of every corpus, `met` ⇔ the legacy `maybeComplete*` firing condition | 100% agreement |
 | ☑ 4.2 | Grant resolution + channel caps → `computeDayLedgerV2` | `computeDayLedger` rows (amount, category, reason, capped_from) | E1 on the ledger |
 | ☑ 4.3 | `buildProjectionsV2(events, versions, deps)` | all 5 cache tables | E1 deep-equal |
-| ☐ 4.4 | Attribute DSL evaluator | `attributesFrom` + `store/attributes.ts` inputs | E2 |
+| ☑ 4.4 | Attribute DSL evaluator | `attributesFrom` + `store/attributes.ts` inputs | E2 |
 | ☐ 4.5 | Gate evaluator | `evaluateGates` labels, values and met for days 14/30/60/90/120 | E2 |
 | ☐ 4.6 | Boss, achievement and identity evaluators | `evaluateBoss`, `achievementsFrom`, `identitiesFrom` | E2 |
 | ☐ 4.7 | Checkpoint comparison, reality summary, weekly review, message context | `checkpointComparison`, `getRealitySummary`, `getWeeklyReview`, `computeMessageContext`, `buildSystemMessageContext` | E2 |
