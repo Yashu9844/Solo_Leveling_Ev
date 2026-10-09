@@ -45,9 +45,17 @@ export function evaluateCondition(condition: GateCondition, env: SignalEnv): Con
   const values = clauses.map((clause) => resolveSignal(clause.signal, env));
   const results = clauses.map((clause, index) => compareTo(values[index]!, clause.comparator, clause.threshold));
   const met = condition.clauseMode === 'any' ? results.some(Boolean) : results.every(Boolean);
-  const label = condition.label.replace(/\{(\d+)\}/g, (_slot, index: string) => {
-    const at = Number(index);
-    return formatValue(values[at] ?? 0, clauses[at]?.format);
-  });
+  // {n} is the live value of clause n and {tn} its threshold, both in the
+  // clause's format, so amending a threshold amends the words: "need 55" is
+  // never typed twice.
+  const label = condition.label
+    .replace(/\{t(\d+)\}/g, (_slot, index: string) => {
+      const clause = clauses[Number(index)];
+      return typeof clause?.threshold === 'number' ? formatValue(clause.threshold, clause.format) : '';
+    })
+    .replace(/\{(\d+)\}/g, (_slot, index: string) => {
+      const at = Number(index);
+      return formatValue(values[at] ?? 0, clauses[at]?.format);
+    });
   return { label, met, values };
 }

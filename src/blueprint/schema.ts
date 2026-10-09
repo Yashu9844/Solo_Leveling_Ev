@@ -97,7 +97,7 @@ export type Comparator = '>=' | '<=' | '<' | '>' | 'between';
 /** One test inside a compound condition; `format` renders its value into the label's {n} slot. */
 export interface GateClause { signal: SignalRef; comparator: Comparator; threshold: number | [number, number]; format?: ConditionFormat }
 /**
- * `label` is a template: {0}, {1}… take the formatted value of each clause.
+ * `label` is a template: {0}, {1}… take the formatted LIVE value of each clause and {t0}, {t1}… its threshold, so a threshold is never typed twice.
  * Without `clauses`, the condition is its own single clause. `clauseMode`
  * defaults to 'all'; an empty `clauses` list is always met.
  */

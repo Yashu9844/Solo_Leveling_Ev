@@ -151,7 +151,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | ☑ 5.2 | `BLUEPRINT_ACTIVATED` + resolver | event type + payload; reducer folds versions with H9 re-validation; `versionFor(date)`; implicit legacy | unit + property | no events → legacy v1 everywhere |
 | ☑ 5.3 | New event payloads | `QUEST_COMPLETED` schema_v 2 (domainId, questDefId, blueprintVersion; questKey kept); `INSTRUMENT_RECORDED`; read-side upcast of v1 | unit | mixed v1/v2 logs fold identically |
 | ☑ 5.4 | Multi-version projections | `buildProjectionsV2` resolves per date; ledger `blueprint_version` | H2, H3, H6 property tests with random version histories | invariants hold over 1,000 histories |
-| ☐ 5.5 | Integrity suite | I3, I4, I7, I8, I13, I16, I18 | property | all green |
+| ☑ 5.5 | Integrity suite | I3, I4, I7, I8, I13, I16, I18 | property | all green |
 | ☐ 5.6 | Export / import v2 | export `schema_v: 2` (events already carry versions; add `blueprint_versions` for readability); import accepts v1 and v2 | round trip | an export of a multi-version log reproduces all tables |
 
 ### Phase 6 — Owner engine cutover (flag `ENGINE_V2`)

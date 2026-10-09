@@ -25,3 +25,17 @@ export function evaluateGate(gate: RankGateDef, previousRank: Rank, env: SignalE
   });
   return { rank: conditions.every((condition) => condition.met) ? gate.rank : previousRank, targetRank: gate.rank, conditions };
 }
+
+/** What sealing froze into a checkpoint row's `gates` column. */
+export interface SealedGateSnapshot { conditions: { label: string; met: boolean }[]; targetRank: Rank }
+
+/**
+ * A past checkpoint is shown from the snapshot taken when it was sealed, never
+ * re-evaluated (invariant H5/I16): amending the gates afterwards cannot change
+ * what a sealed Day-30 said. An unsealed checkpoint is shown live.
+ */
+export function gateAsDisplayed(row: { sealed_at?: string; rank_after?: string; gates: Record<string, unknown> }, live: () => GateResult): GateResult {
+  const snapshot = row.gates as Partial<SealedGateSnapshot>;
+  if (row.sealed_at === undefined || !snapshot.conditions || !snapshot.targetRank) return live();
+  return { rank: (row.rank_after ?? snapshot.targetRank) as Rank, targetRank: snapshot.targetRank, conditions: snapshot.conditions };
+}

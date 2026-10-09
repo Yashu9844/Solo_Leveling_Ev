@@ -101,13 +101,13 @@ const CORE_COMPLETION_28 = glob('consistency_28');
 const BOSS_CLEARED = (id: string) => glob('boss_cleared', id);
 
 // Frequently repeated condition shapes (labels are the owner's exact words).
-const need = (id: string, noun: string, signal: SignalRef, n: number) => condition(id, `{0} ${noun} (need ${n})`, 'count', [clause(signal, '>=', n, 'int')]);
-const coreCompletion = (id: string, floor: number) => condition(id, `Core completion {0} (need ${floor}%)`, 'count', [clause(CORE_COMPLETION_28, '>=', floor / 100, 'percent')]);
+const need = (id: string, noun: string, signal: SignalRef, n: number) => condition(id, `{0} ${noun} (need {t0})`, 'count', [clause(signal, '>=', n, 'int')]);
+const coreCompletion = (id: string, floor: number) => condition(id, `Core completion {0} (need {t0})`, 'count', [clause(CORE_COMPLETION_28, '>=', floor / 100, 'percent')]);
 const flag = (id: string, label: string, verifiability: GateCondition['verifiability'], signal: SignalRef, n = 1) => condition(id, label, verifiability, [clause(signal, '>=', n)]);
-const firstAttempt = (id: string, floor: number, signal: SignalRef = FIRST_ATTEMPT_M_28) => condition(id, `First-attempt M {0} (need ${floor}%)`, 'count', [clause(signal, '>=', floor / 100, 'percent')]);
-const SYSTEM_DESIGNS_120 = condition('designs', '{0} designs studied (need 12), {1} written (need 4), {2} explained (need 2)', 'count', [clause(DESIGNS, '>=', 12, 'int'), clause(DESIGNS_WRITTEN, '>=', 4, 'int'), clause(DESIGNS_EXPLAINED, '>=', 2, 'int')]);
+const firstAttempt = (id: string, floor: number, signal: SignalRef = FIRST_ATTEMPT_M_28) => condition(id, `First-attempt M {0} (need {t0})`, 'count', [clause(signal, '>=', floor / 100, 'percent')]);
+const SYSTEM_DESIGNS_120 = condition('designs', '{0} designs studied (need {t0}), {1} written (need {t1}), {2} explained (need {t2})', 'count', [clause(DESIGNS, '>=', 12, 'int'), clause(DESIGNS_WRITTEN, '>=', 4, 'int'), clause(DESIGNS_EXPLAINED, '>=', 2, 'int')]);
 const RESUME_V3 = condition('resume-v3', 'Resume v3 with an external review', 'recorded', [clause(RESUMES, '>=', 3), clause(RESUMES_REVIEWED, '>=', 1)]);
-const FOUNDATIONS_90 = condition('foundations-90', '{0} Fluent (need 5), {1} Retained (need 2)', 'count', [clause(MASTERY('fluent'), '>=', 5, 'int'), clause(MASTERY('retained'), '>=', 2, 'int')]);
+const FOUNDATIONS_90 = condition('foundations-90', '{0} Fluent (need {t0}), {1} Retained (need {t1})', 'count', [clause(MASTERY('fluent'), '>=', 5, 'int'), clause(MASTERY('retained'), '>=', 2, 'int')]);
 
 
 // ── What a sealed checkpoint freezes (engine/rank.ts GateEvidence, field for field) ──
@@ -188,7 +188,7 @@ const WEEKLY_METRICS: RealityRowDef[] = [
 function gates(): RankGateDef[] {
   return [
     { rank: 'E', day: 0, conditions: [condition('start', 'Start', 'structural', [])] },
-    { rank: 'D', day: 14, conditions: [condition('mvd-14', 'MVD consistency {0} (need 70%)', 'count', [clause(glob('consistency_14'), '>=', 0.7, 'percent')])] },
+    { rank: 'D', day: 14, conditions: [condition('mvd-14', 'MVD consistency {0} (need {t0})', 'count', [clause(glob('consistency_14'), '>=', 0.7, 'percent')])] },
     {
       rank: 'C', day: 30,
       conditions: [
@@ -197,7 +197,7 @@ function gates(): RankGateDef[] {
         need('training', 'training sessions', SESSIONS_TOTAL, 12),
         flag('ai-feature', 'AI feature committed to a public repo', 'public_url', AI_FEATURE),
         need('quality-apps', 'quality applications', QUALITY_APPS, 70),
-        condition('foundations-introduced', '{0} foundation topics at Introduced (need 3)', 'count', [clause(MASTERY('introduced'), '>=', 3, 'int')]),
+        condition('foundations-introduced', '{0} foundation topics at Introduced (need {t0})', 'count', [clause(MASTERY('introduced'), '>=', 3, 'int')]),
       ],
     },
     {
@@ -210,7 +210,7 @@ function gates(): RankGateDef[] {
         flag('project-eval', 'Public project with README + eval suite', 'public_url', PROJECTS_WITH_EVAL),
         need('quality-apps', 'quality applications', QUALITY_APPS, 150),
         condition('resume-v2', 'Resume v2 with an external review', 'recorded', [clause(RESUMES, '>=', 2), clause(RESUMES_REVIEWED, '>=', 1)]),
-        condition('foundations-fluent', '{0} foundation topics at Fluent (need 3)', 'count', [clause(MASTERY('fluent'), '>=', 3, 'int')]),
+        condition('foundations-fluent', '{0} foundation topics at Fluent (need {t0})', 'count', [clause(MASTERY('fluent'), '>=', 3, 'int')]),
         flag('boss-i', 'Boss I cleared', 'structural', BOSS_CLEARED('I')),
       ],
     },
@@ -221,13 +221,13 @@ function gates(): RankGateDef[] {
         need('problems', 'problems', PROBLEMS_TOTAL, 200),
         firstAttempt('first-attempt-m', 60),
         need('training', 'training sessions', SESSIONS_TOTAL, 42),
-        condition('projects-deployed', '{0} public projects, >= 1 deployed (need 2)', 'public_url', [clause(PROJECTS_TOTAL, '>=', 2, 'int'), clause(DEPLOYED, '>=', 1)]),
+        condition('projects-deployed', '{0} public projects, >= 1 deployed (need {t0})', 'public_url', [clause(PROJECTS_TOTAL, '>=', 2, 'int'), clause(DEPLOYED, '>=', 1)]),
         flag('writeup', 'Published technical write-up', 'public_url', WRITEUPS),
         need('quality-apps', 'quality applications', QUALITY_APPS, 230),
-        condition('follow-through', 'Follow-through {0} (need 70%)', 'count', [clause(FOLLOW_THROUGH, '>=', 0.7, 'percent')]),
+        condition('follow-through', 'Follow-through {0} (need {t0})', 'count', [clause(FOLLOW_THROUGH, '>=', 0.7, 'percent')]),
         need('networking', 'networking conversations', NETWORKING, 8),
         need('mocks', 'recorded mocks', MOCKS, 2),
-        condition('wake-sd', 'Wake SD {0}min (need < 60)', 'recorded', [clause(WAKE_SD, '<', 60, 'round')]),
+        condition('wake-sd', 'Wake SD {0}min (need < {t0})', 'recorded', [clause(WAKE_SD, '<', 60, 'round')]),
         FOUNDATIONS_90,
         condition('bosses-i-ii', 'Bosses I-II cleared', 'structural', [clause(BOSS_CLEARED('I'), '>=', 1), clause(BOSS_CLEARED('II'), '>=', 1)]),
       ],
@@ -238,23 +238,23 @@ function gates(): RankGateDef[] {
         need('problems', 'problems', PROBLEMS_TOTAL, 240),
         firstAttempt('first-attempt-m', 60),
         flag('benchmark', 'Interview-readiness benchmark passed', 'self_cert', BENCHMARK),
-        condition('foundations-120', '{0}/9 foundations >= Applied, {1} Fluent (need 8), {2} Retained (need 3)', 'count', [clause(MASTERY('introduced'), '>=', 9, 'int'), clause(MASTERY('fluent'), '>=', 8, 'int'), clause(MASTERY('retained'), '>=', 3, 'int')]),
+        condition('foundations-120', '{0}/{t0} foundations >= Applied, {1} Fluent (need {t1}), {2} Retained (need {t2})', 'count', [clause(MASTERY('introduced'), '>=', 9, 'int'), clause(MASTERY('fluent'), '>=', 8, 'int'), clause(MASTERY('retained'), '>=', 3, 'int')]),
         SYSTEM_DESIGNS_120,
-        condition('projects-eval', '{0} public projects with evals (need 3)', 'public_url', [clause(PROJECTS_WITH_EVAL, '>=', 3, 'int')]),
+        condition('projects-eval', '{0} public projects with evals (need {t0})', 'public_url', [clause(PROJECTS_WITH_EVAL, '>=', 3, 'int')]),
         flag('deployed', '>= 1 project deployed and reachable', 'public_url', DEPLOYED),
         flag('cost-per-task', 'Cost-per-task measured on >= 1 project', 'self_cert', COST_MEASURED),
         flag('writeup', 'Published technical write-up', 'public_url', WRITEUPS),
         RESUME_V3,
         need('quality-apps', 'quality applications', QUALITY_APPS, 280),
-        condition('follow-through', 'Follow-through {0} (need 70%)', 'count', [clause(FOLLOW_THROUGH, '>=', 0.7, 'percent')]),
+        condition('follow-through', 'Follow-through {0} (need {t0})', 'count', [clause(FOLLOW_THROUGH, '>=', 0.7, 'percent')]),
         need('networking', 'networking conversations', NETWORKING, 8),
         need('mocks', 'recorded mocks', MOCKS, 4),
         need('training', 'training sessions', SESSIONS_TOTAL, 55),
-        condition('est-1rm', 'Est. 1RM aggregate {0} (need +12%)', 'recorded', [clause(EST_1RM_GAIN, '>=', 0.12, 'percent')]),
-        condition('mean-steps', 'Mean steps {0} (need >= 8,000)', 'recorded', [clause(MEAN_STEPS, '>=', 8000, 'locale')]),
+        condition('est-1rm', 'Est. 1RM aggregate {0} (need +{t0})', 'recorded', [clause(EST_1RM_GAIN, '>=', 0.12, 'percent')]),
+        condition('mean-steps', 'Mean steps {0} (need >= {t0})', 'recorded', [clause(MEAN_STEPS, '>=', 8000, 'locale')]),
         condition('core-band', 'Core completion {0} (need 60-85%)', 'count', [clause(CORE_COMPLETION_28, 'between', [0.6, 0.85], 'percent')]),
-        condition('wake-sd', 'Wake SD {0}min (need < 45)', 'recorded', [clause(WAKE_SD, '<', 45, 'round')]),
-        condition('screen', 'Screen time {0}min/day (need <= 60)', 'recorded', [clause(SCREEN_AVG, '<=', 60, 'round')]),
+        condition('wake-sd', 'Wake SD {0}min (need < {t0})', 'recorded', [clause(WAKE_SD, '<', 45, 'round')]),
+        condition('screen', 'Screen time {0}min/day (need <= {t0})', 'recorded', [clause(SCREEN_AVG, '<=', 60, 'round')]),
         condition('bosses-all', 'Bosses I-IV cleared', 'structural', ['I', 'II', 'III', 'IV'].map((id) => clause(BOSS_CLEARED(id), '>=', 1))),
         flag('arc-sealed', 'Arc data sealed and exported', 'structural', glob('prior_checkpoints_sealed'), 4),
       ],
@@ -277,8 +277,8 @@ function bosses(): { bosses: BossDef[]; milestones: MilestoneDef[] } {
     {
       id: 'II', title: 'STRONG ENGINEERING BASE', anchorMilestoneId: 'm-engineering-base', windowStartDay: 50, windowEndDay: 70, gatesRank: 'A',
       conditions: [
-        condition('applied', '{0}/6 of OS/networking/databases/distributed/concurrency/backend at >= Applied', 'count', [clause(MASTERY('applied', { tree: 'foundations', topics: BOSS_II_TOPICS.join('|') }), '>=', BOSS_II_TOPICS.length, 'int')]),
-        condition('fluent', '{0} of those six at Fluent (need 3)', 'count', [clause(MASTERY('fluent', { tree: 'foundations', topics: BOSS_II_TOPICS.join('|') }), '>=', 3, 'int')]),
+        condition('applied', '{0}/{t0} of OS/networking/databases/distributed/concurrency/backend at >= Applied', 'count', [clause(MASTERY('applied', { tree: 'foundations', topics: BOSS_II_TOPICS.join('|') }), '>=', BOSS_II_TOPICS.length, 'int')]),
+        condition('fluent', '{0} of those six at Fluent (need {t0})', 'count', [clause(MASTERY('fluent', { tree: 'foundations', topics: BOSS_II_TOPICS.join('|') }), '>=', 3, 'int')]),
         need('designs', 'system designs studied', DESIGNS, 6),
         need('designs-written', 'written up', DESIGNS_WRITTEN, 2),
       ],
@@ -297,7 +297,7 @@ function bosses(): { bosses: BossDef[]; milestones: MilestoneDef[] } {
       conditions: [
         need('problems', 'problems', PROBLEMS_TOTAL, 200),
         firstAttempt('first-attempt-m', 60, FIRST_ATTEMPT_M_ALL),
-        condition('foundations', '{0} topics Fluent (need 8), {1} Retained (need 3)', 'count', [clause(MASTERY('fluent'), '>=', 8, 'int'), clause(MASTERY('retained'), '>=', 3, 'int')]),
+        condition('foundations', '{0} topics Fluent (need {t0}), {1} Retained (need {t1})', 'count', [clause(MASTERY('fluent'), '>=', 8, 'int'), clause(MASTERY('retained'), '>=', 3, 'int')]),
         SYSTEM_DESIGNS_120,
         RESUME_V3,
         need('mocks', 'recorded mocks', MOCKS, 4),
