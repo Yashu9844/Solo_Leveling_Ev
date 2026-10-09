@@ -4,10 +4,15 @@
 // For LEGACY_BLUEPRINT_V1 this reproduces engine/xp.ts's computeDayLedger row
 // for row (amount, category, reason, capped_from); it is the V2 half of the
 // E1 equivalence (platform/02 §22.2).
+//
+// Versioned (platform/02 §19, H2): every intent is priced by the Blueprint
+// version in force on the DAY it lands, so activating a new version can never
+// re-price a day that has already happened.
+import type { XpLedgerRow } from '../../db/schema';
 import type { DayLedgerEntry } from '../../engine/xp';
 import type { QuestCompletionRecord, SystemEvent } from '../../engine/types';
-import type { XpLedgerRow } from '../../db/schema';
 import type { InstrumentRecord } from '../../instruments/framework';
+import { versionFor } from '../resolve';
 import type { InstrumentConfig, SystemBlueprint } from '../schema';
 
 /** XP that is frequency-limited rather than volume-limited, so it bypasses every cap (final/01 §2.1.1). */
@@ -53,6 +58,9 @@ const LEDGER_EVENT_TYPES: ReadonlySet<SystemEvent['type']> = new Set([
 
 export interface DayGrants { localDate: string; intents: GrantIntentV2[] }
 
+type Versions = SystemBlueprint | readonly SystemBlueprint[];
+const asList = (versions: Versions): readonly SystemBlueprint[] => (Array.isArray(versions) ? (versions as readonly SystemBlueprint[]) : [versions as SystemBlueprint]);
+
 /**
  * Every day that has an XP-bearing event, in the order the legacy rebuild
  * visits them (completions first, then the other events in log order), each
@@ -60,44 +68,44 @@ export interface DayGrants { localDate: string; intents: GrantIntentV2[] }
  * grant arrives second.
  */
 export function collectGrantIntents(
-  blueprint: SystemBlueprint,
+  versions: Versions,
   events: readonly SystemEvent[],
   completions: Readonly<Record<string, QuestCompletionRecord>>,
   recordsByInstrument: ReadonlyMap<string, readonly InstrumentRecord[]>
 ): DayGrants[] {
+  const list = asList(versions);
+  const at = (localDate: string): SystemBlueprint | undefined => versionFor(list, localDate) ?? list[0];
   const days = new Map<string, GrantIntentV2[]>();
   const add = (localDate: string, intent?: GrantIntentV2) => {
-    const list = days.get(localDate) ?? [];
-    if (intent) list.push(intent);
-    days.set(localDate, list);
-  };
-
-  const channelOfQuest = (questId: string) => {
-    const quest = blueprint.quests.find((candidate) => candidate.id === questId);
-    const domain = quest && blueprint.domains.find((candidate) => candidate.id === quest.domainId);
-    return quest && domain ? { quest, channel: domain.channel.id } : undefined;
+    const bucket = days.get(localDate) ?? [];
+    if (intent) bucket.push(intent);
+    days.set(localDate, bucket);
   };
 
   for (const completion of Object.values(completions)) {
-    const found = channelOfQuest(completion.quest_key);
-    add(completion.local_date, found && {
+    const blueprint = at(completion.local_date);
+    const quest = blueprint?.quests.find((candidate) => candidate.id === completion.quest_key);
+    const domain = quest && blueprint?.domains.find((candidate) => candidate.id === quest.domainId);
+    add(completion.local_date, quest && domain ? {
       eventId: completion.event_id, instanceId: completion.instance_id, occurredAt: completion.completed_at, localDate: completion.local_date,
-      channel: found.channel, amount: found.quest.xp, reason: `core:${found.quest.id}`,
-    });
+      channel: domain.channel.id, amount: quest.xp, reason: `core:${quest.id}`,
+    } : undefined);
   }
 
-  const recordsByEvent = new Map<string, { instrument: InstrumentConfig; record: InstrumentRecord }[]>();
-  for (const instrument of blueprint.instruments) {
-    for (const record of recordsByInstrument.get(instrument.id) ?? []) {
-      const list = recordsByEvent.get(record.eventId) ?? [];
-      list.push({ instrument, record });
-      recordsByEvent.set(record.eventId, list);
+  // Index every record by its event; the instrument's CONFIG is looked up per day, under the version in force.
+  const recordsByEvent = new Map<string, InstrumentRecord[]>();
+  for (const records of recordsByInstrument.values()) {
+    for (const record of records) {
+      const bucket = recordsByEvent.get(record.eventId) ?? [];
+      bucket.push(record);
+      recordsByEvent.set(record.eventId, bucket);
     }
   }
-  const channelOfInstrument = (instrument: InstrumentConfig) => blueprint.domains.find((domain) => domain.id === instrument.domainId)?.channel.id;
 
   for (const event of events) {
     if (!LEDGER_EVENT_TYPES.has(event.type)) continue;
+    const blueprint = at(event.local_date);
+    if (!blueprint) { add(event.local_date); continue; }
     const intent = (channel: string, amount: number, reason: string): GrantIntentV2 => ({
       eventId: event.id, occurredAt: event.occurred_at, localDate: event.local_date, channel, amount, reason,
     });
@@ -109,9 +117,11 @@ export function collectGrantIntents(
         // An instrument-recorded event: it may earn nothing (steps under the
         // bonus line, an unfinished maintenance row) but its day is still visited.
         add(event.local_date);
-        for (const { instrument, record } of recordsByEvent.get(event.id) ?? []) {
+        for (const record of recordsByEvent.get(event.id) ?? []) {
+          const instrument = blueprint.instruments.find((candidate) => candidate.id === record.instrumentId);
+          if (!instrument) continue; // the instrument was retired before this day: it earns nothing under that version
           const grant = grantForRecord(instrument, record);
-          const channel = channelOfInstrument(instrument);
+          const channel = blueprint.domains.find((domain) => domain.id === instrument.domainId)?.channel.id;
           if (grant && channel) add(event.local_date, intent(channel, grant.amount, grant.reason));
         }
       }
@@ -120,18 +130,13 @@ export function collectGrantIntents(
   return [...days].map(([localDate, intents]) => ({ localDate, intents }));
 }
 
-/** A channel's cap: undefined means the channel is uncapped. */
-function capsOf(blueprint: SystemBlueprint): Map<string, number> {
-  return new Map(blueprint.domains.map((domain) => [domain.channel.id, domain.channel.cap]));
-}
-
 /**
  * Pure. One day's ledger: intents in chronological order, each trimmed first
  * by its channel's remaining headroom and then by the daily cap. BONUS/BOSS
  * grants are exempt and never accumulate (final/01 §2.1.1).
  */
 export function computeDayLedgerV2(blueprint: SystemBlueprint, intents: readonly GrantIntentV2[]): DayLedgerEntry[] {
-  const caps = capsOf(blueprint);
+  const caps = new Map(blueprint.domains.map((domain) => [domain.channel.id, domain.channel.cap]));
   const dailyCap = blueprint.progression.dailyCap;
   const sorted = [...intents].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
   const channelTotals = new Map<string, number>();
@@ -157,15 +162,24 @@ export function computeDayLedgerV2(blueprint: SystemBlueprint, intents: readonly
   return entries;
 }
 
-/** The xp_ledger rows for a whole log — the V2 counterpart of buildProjections' ledger step. */
+/**
+ * The xp_ledger rows for a whole log - the V2 counterpart of buildProjections'
+ * ledger step. With `stamp`, each row records the Blueprint version that
+ * priced it (H6: every XP grant is explainable); the owner's implicit legacy
+ * rows are never stamped, so they stay byte-identical to the legacy engine's.
+ */
 export function ledgerRowsV2(
-  blueprint: SystemBlueprint,
+  versions: Versions,
   events: readonly SystemEvent[],
   completions: Readonly<Record<string, QuestCompletionRecord>>,
-  recordsByInstrument: ReadonlyMap<string, readonly InstrumentRecord[]>
+  recordsByInstrument: ReadonlyMap<string, readonly InstrumentRecord[]>,
+  stamp = false
 ): XpLedgerRow[] {
+  const list = asList(versions);
   const rows: XpLedgerRow[] = [];
-  for (const { localDate, intents } of collectGrantIntents(blueprint, events, completions, recordsByInstrument)) {
+  for (const { localDate, intents } of collectGrantIntents(list, events, completions, recordsByInstrument)) {
+    const blueprint = versionFor(list, localDate) ?? list[0];
+    if (!blueprint) continue;
     for (const entry of computeDayLedgerV2(blueprint, intents)) {
       rows.push({
         id: entry.instanceId ? `${entry.instanceId}::xp` : `${entry.eventId}::xp`,
@@ -176,6 +190,7 @@ export function ledgerRowsV2(
         category: entry.category,
         reason: entry.reason,
         capped_from: entry.cappedFrom,
+        ...(stamp ? { blueprint_version: blueprint.version } : {}),
       });
     }
   }

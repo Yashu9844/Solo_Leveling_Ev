@@ -1,12 +1,17 @@
 // The V2 counterpart of db/projections.ts#buildProjections: the five cache
 // tables (quest_template, quest_instance, xp_ledger, day_rollup,
-// player_state) derived from the event log AND a Blueprint, instead of from
-// engine constants. For the owner's implicit LEGACY_BLUEPRINT_V1 the result is
-// deep-equal to buildProjections (E1, platform/02 §22.2) — that equality is
-// what lets the owner's engine be swapped without re-pricing a single day.
+// player_state) derived from the event log AND the Blueprint versions in force,
+// instead of from engine constants. For the owner's implicit LEGACY_BLUEPRINT_V1
+// the result is deep-equal to buildProjections (E1, platform/02 §22.2) - that
+// equality is what lets the owner's engine be swapped without re-pricing a day.
 //
-// Single-version for now: Phase 5 resolves `versionFor(date)` per day. The
-// version list is already an argument so that change adds no new signature.
+// Versioned (platform/02 §19-20): every date is computed under versionFor(date).
+// A quest that continues across versions keeps its id and so its instance ids
+// (H3); a quest a later version drops stops generating instances from that
+// version's start date; the ledger prices each day by the version in force on
+// it (H2) and, once a log has explicit versions, records which one (H6). The
+// progression section (level curve, streak rules, window) is pinned at genesis
+// (V-TRN-04), so those are read from the first version.
 import type { BuiltProjections } from '../../db/projections';
 import { buildDayOutcomes, consistencyOver, coreTotalOn, emptyDayRollup } from '../../db/projections';
 import type { DayRollupRow, PlayerStateRow, QuestInstanceRow, QuestTemplateRow } from '../../db/schema';
@@ -18,32 +23,69 @@ import type { EngineDeps, QuestInstance, QuestTemplate, SystemEvent } from '../.
 import { engineConfigFromBlueprint } from '../engineConfig';
 import { recordsFromEvents } from '../evaluate/env';
 import { ledgerRowsV2 } from '../evaluate/ledger';
-import { resolveBlueprints } from '../resolve';
-import type { SystemBlueprint } from '../schema';
+import { resolveBlueprints, versionFor } from '../resolve';
+import type { QuestTemplateDef, SystemBlueprint } from '../schema';
+
+const NOTHING: BuiltProjections = { templates: [], instances: [], ledger: [], dayRollups: [], playerState: null };
+
+/** Whether rows should record the Blueprint version that produced them: only for logs with explicit versions. */
+export function stampsVersions(versions: readonly SystemBlueprint[]): boolean {
+  return versions.length > 1 || versions[0]?.provenance.generator !== 'legacy';
+}
+
+interface QuestRun {
+  quest: QuestTemplateDef;
+  version: SystemBlueprint;
+  from: string;
+  /** Index of the last version containing the quest. */
+  last: number;
+}
+
+/**
+ * One template row per quest id. It spans the quest's first contiguous run of
+ * versions: active from the first version that has it, until the first later
+ * version that does not. The row's wording and XP are the latest version's.
+ */
+function questTemplates(versions: readonly SystemBlueprint[], arcId: string, intentions: Record<string, QuestTemplate['implementation_intention']>): QuestTemplateRow[] {
+  const runs = new Map<string, QuestRun>();
+  versions.forEach((version, index) => {
+    for (const quest of version.quests.filter((candidate) => candidate.type === 'core')) {
+      const run = runs.get(quest.id);
+      if (!run) runs.set(quest.id, { quest, version, from: version.activeFrom, last: index });
+      else if (run.last === index - 1) Object.assign(run, { quest, version, last: index });
+      // A quest that returns after a gap does not reopen its old row: ids are stable, history is not rewritten.
+    }
+  });
+  return [...runs].map(([questId, run]): QuestTemplate => {
+    const nextVersion = versions[run.last + 1];
+    const domain = run.version.domains.find((candidate) => candidate.id === run.quest.domainId)!;
+    return {
+      id: `${arcId}::${questId}`,
+      arc_id: arcId,
+      type: 'core',
+      key: questId as QuestTemplate['key'],
+      title: run.quest.designation,
+      category: domain.channel.id as QuestTemplate['category'],
+      xp: run.quest.xp,
+      criterion: run.quest.rowCriterion ?? { kind: 'blueprint', criterion: run.quest.criterion },
+      implementation_intention: intentions[questId],
+      active_from: run.from,
+      active_to: nextVersion ? nextVersion.activeFrom : null,
+      locked_until_checkpoint: true,
+    };
+  });
+}
 
 export function buildProjectionsV2(events: SystemEvent[], deps: EngineDeps, versions: SystemBlueprint[] = resolveBlueprints(events).versions): BuiltProjections {
-  const blueprint = versions[0];
-  if (!blueprint) return { templates: [], instances: [], ledger: [], dayRollups: [], playerState: null };
-  const config = engineConfigFromBlueprint(blueprint);
+  const genesis = versions[0];
+  if (!genesis) return NOTHING;
+  const config = engineConfigFromBlueprint(genesis);
   const state = applyEvents(events, config);
   const arc = state.arc;
-  if (!arc) return { templates: [], instances: [], ledger: [], dayRollups: [], playerState: null };
+  if (!arc) return NOTHING;
+  const stamp = stampsVersions(versions);
 
-  const channelOf = (domainId: string) => blueprint.domains.find((domain) => domain.id === domainId)!.channel.id;
-  const templates: QuestTemplateRow[] = blueprint.quests.filter((quest) => quest.type === 'core').map((quest): QuestTemplate => ({
-    id: `${arc.id}::${quest.id}`,
-    arc_id: arc.id,
-    type: 'core',
-    key: quest.id as QuestTemplate['key'],
-    title: quest.designation,
-    category: channelOf(quest.domainId) as QuestTemplate['category'],
-    xp: quest.xp,
-    criterion: quest.rowCriterion ?? { kind: 'blueprint', criterion: quest.criterion },
-    implementation_intention: state.intentions[quest.id as keyof typeof state.intentions],
-    active_from: blueprint.activeFrom,
-    active_to: null,
-    locked_until_checkpoint: true,
-  }));
+  const templates: QuestTemplateRow[] = questTemplates(versions, arc.id, state.intentions as Record<string, QuestTemplate['implementation_intention']>);
 
   const appOpenedDates = new Set<string>();
   for (const event of events) {
@@ -58,7 +100,7 @@ export function buildProjectionsV2(events: SystemEvent[], deps: EngineDeps, vers
     return record ? { ...instance, state: 'complete' as const, completed_at: record.completed_at } : instance;
   });
 
-  const ledger = ledgerRowsV2(blueprint, events, state.quests, recordsFromEvents(events));
+  const ledger = ledgerRowsV2(versions, events, state.quests, recordsFromEvents(events), stamp);
 
   const openedDatesSorted = [...appOpenedDates].sort();
   const lastKnown = openedDatesSorted[openedDatesSorted.length - 1];
@@ -87,6 +129,7 @@ export function buildProjectionsV2(events: SystemEvent[], deps: EngineDeps, vers
       energy: review?.energy,
       focus: review?.focus,
       blocker: review?.blocker,
+      ...(stamp ? { blueprint_version: (versionFor(versions, localDate) ?? genesis).version } : {}),
     };
   });
 
