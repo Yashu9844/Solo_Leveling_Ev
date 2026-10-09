@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "typecheck": "tsc -b",
+    "shadow": "vite-node scripts/shadow-equivalence.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "art": "node scripts/import-art.mjs",
     "voice": "node scripts/generate-voice-pack.mjs"

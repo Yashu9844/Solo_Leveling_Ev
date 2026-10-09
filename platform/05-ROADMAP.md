@@ -141,7 +141,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | ☑ 4.5 | Gate evaluator | `evaluateGates` labels, values and met for days 14/30/60/90/120 | E2 |
 | ☑ 4.6 | Boss, achievement and identity evaluators | `evaluateBoss`, `achievementsFrom`, `identitiesFrom` | E2 |
 | ☑ 4.7 | Checkpoint comparison, reality summary, weekly review, message context | `checkpointComparison`, `getRealitySummary`, `getWeeklyReview`, `computeMessageContext`, `buildSystemMessageContext` | E2 |
-| ☐ 4.8 | Shadow harness | `scripts/shadow-equivalence.mjs` / `npm run shadow`: E1+E2 over golden, a 1,000-seed fuzz sample, the owner fixture; a readable report | clean report, committed as a CI job (owner part local) |
+| ☑ 4.8 | Shadow harness | `scripts/shadow-equivalence.mjs` / `npm run shadow`: E1+E2 over golden, a 1,000-seed fuzz sample, the owner fixture; a readable report | clean report, committed as a CI job (owner part local) |
 
 ### Phase 5 — Versioning + historical integrity
 
