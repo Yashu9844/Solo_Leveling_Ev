@@ -30,6 +30,9 @@ import { followThroughRate, type ApplicationFixture, type ApplicationStatus } fr
 import { getStreakState } from './streak';
 import { getBossStatus } from './boss';
 import { getAllEvents } from '../db/events';
+import { blueprintVersionRows } from '../db/blueprintProjection';
+import { instrumentRecordRows } from '../db/instrumentProjection';
+import { resolveBlueprints } from '../blueprint/resolve';
 import { rebuildProjections } from '../db/projections';
 import { buildDomainTables } from '../db/domainProjections';
 import { db } from '../db/db';
@@ -431,8 +434,13 @@ export async function exportSnapshotJson(deps: { now(): string }): Promise<strin
   }
   const profile = profileBefore ? { ...profileBefore, last_export_at: now } : undefined;
 
+  // `blueprint_versions` is informational: the versions are IN `events` (BLUEPRINT_ACTIVATED carries
+  // the whole document), so an importer that ignores the field - an older build - loses nothing.
+  // The owner's implicit legacy v1 is not a logged version and is not listed.
+  const resolved = resolveBlueprints(events);
+  const blueprintVersions = resolved.implicitGenesis ? resolved.versions.slice(1) : resolved.versions;
   return JSON.stringify(
-    { exported_at: now, schema_v: 1, events, arc: arc ?? null, profile: profile ?? null, checkpoints },
+    { exported_at: now, schema_v: EXPORT_SCHEMA_V, events, arc: arc ?? null, profile: profile ?? null, checkpoints, blueprint_versions: blueprintVersions },
     null,
     2
   );
@@ -462,9 +470,13 @@ export async function getBackupStatus(deps: { now(): string }): Promise<BackupSt
   return { lastExportAt, daysSince };
 }
 
+/** The export format this build writes (platform/02 §43.4): v2 adds `blueprint_versions`. Imports accept v1 and v2. */
+export const EXPORT_SCHEMA_V = 2;
+
 export class ImportValidationError extends Error {}
 
 interface SnapshotShape {
+  schema_v?: number;
   events: unknown[];
   arc?: unknown;
   profile?: unknown;
@@ -481,6 +493,10 @@ function validateSnapshot(json: string): SnapshotShape {
   if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { events?: unknown }).events)) {
     throw new ImportValidationError('Not a Solo Leveling export — missing an events array.');
   }
+  const version = (parsed as SnapshotShape).schema_v;
+  if (version !== undefined && (!Number.isInteger(version) || version < 1 || version > EXPORT_SCHEMA_V)) {
+    throw new ImportValidationError('This export was made by a newer version of the app. Update the app, then import it again.');
+  }
   return parsed as SnapshotShape;
 }
 
@@ -496,6 +512,11 @@ function validateSnapshot(json: string): SnapshotShape {
  */
 export async function importSnapshotJson(json: string, config: EngineConfig, deps: EngineDeps): Promise<void> {
   const snapshot = validateSnapshot(json);
+  // Both new projections are rebuilt from the events, never trusted from the file. Hashing happens
+  // before the transaction: awaiting WebCrypto inside one would commit it early.
+  const importedLog = snapshot.events as SystemEvent[];
+  const versionRows = await blueprintVersionRows(importedLog);
+  const recordRows = instrumentRecordRows(importedLog);
 
   await db.transaction(
     'rw',
@@ -521,6 +542,8 @@ export async function importSnapshotJson(json: string, config: EngineConfig, dep
       db.training_session,
       db.metric_sample,
       db.maintenance_log,
+      db.blueprint_version,
+      db.instrument_record,
     ],
     async () => {
       await Promise.all([
@@ -545,6 +568,8 @@ export async function importSnapshotJson(json: string, config: EngineConfig, dep
         db.training_session.clear(),
         db.metric_sample.clear(),
         db.maintenance_log.clear(),
+        db.blueprint_version.clear(),
+        db.instrument_record.clear(),
       ]);
 
       const importedEvents = snapshot.events as SystemEvent[];
@@ -568,6 +593,8 @@ export async function importSnapshotJson(json: string, config: EngineConfig, dep
       if (domain.trainingSessions.length > 0) await db.training_session.bulkAdd(domain.trainingSessions);
       if (domain.metricSamples.length > 0) await db.metric_sample.bulkAdd(domain.metricSamples);
       if (domain.maintenanceLogs.length > 0) await db.maintenance_log.bulkAdd(domain.maintenanceLogs);
+      if (versionRows.length > 0) await db.blueprint_version.bulkAdd(versionRows);
+      if (recordRows.length > 0) await db.instrument_record.bulkAdd(recordRows);
     }
   );
 

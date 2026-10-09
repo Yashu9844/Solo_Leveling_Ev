@@ -27,6 +27,8 @@ import { streakFrom, type DayOutcome, type DayStreakOutcome } from '../engine/st
 import { db } from './db';
 import { getAllEvents } from './events';
 import { buildDomainTables } from './domainProjections';
+import { blueprintVersionRows } from './blueprintProjection';
+import { instrumentRecordRows } from './instrumentProjection';
 import type { DayRollupRow, PlayerStateRow, QuestInstanceRow, QuestTemplateRow, XpLedgerRow } from './schema';
 
 function shiftDate(dateStr: string, days: number): string {
@@ -419,6 +421,10 @@ export async function verifyIntegrity(config: EngineConfig, deps: EngineDeps): P
     domain.maintenanceLogs.map((r) => ({ ...r, id: r.local_date })),
     discrepancies
   );
+
+  // The platform's two projections (platform/05 loop 5.1): empty for the owner's implicit-legacy arc.
+  diffById('blueprint_version', await db.blueprint_version.toArray(), await blueprintVersionRows(events), discrepancies);
+  diffById('instrument_record', await db.instrument_record.toArray(), instrumentRecordRows(events), discrepancies);
 
   return { clean: discrepancies.length === 0, discrepancies, skipped: applyEvents(events, config).skipped };
 }
