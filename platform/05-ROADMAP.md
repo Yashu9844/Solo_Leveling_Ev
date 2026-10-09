@@ -138,7 +138,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | ☑ 4.2 | Grant resolution + channel caps → `computeDayLedgerV2` | `computeDayLedger` rows (amount, category, reason, capped_from) | E1 on the ledger |
 | ☑ 4.3 | `buildProjectionsV2(events, versions, deps)` | all 5 cache tables | E1 deep-equal |
 | ☑ 4.4 | Attribute DSL evaluator | `attributesFrom` + `store/attributes.ts` inputs | E2 |
-| ☐ 4.5 | Gate evaluator | `evaluateGates` labels, values and met for days 14/30/60/90/120 | E2 |
+| ☑ 4.5 | Gate evaluator | `evaluateGates` labels, values and met for days 14/30/60/90/120 | E2 |
 | ☐ 4.6 | Boss, achievement and identity evaluators | `evaluateBoss`, `achievementsFrom`, `identitiesFrom` | E2 |
 | ☐ 4.7 | Checkpoint comparison, reality summary, weekly review, message context | `checkpointComparison`, `getRealitySummary`, `getWeeklyReview`, `computeMessageContext`, `buildSystemMessageContext` | E2 |
 | ☐ 4.8 | Shadow harness | `scripts/shadow-equivalence.mjs` / `npm run shadow`: E1+E2 over golden, a 1,000-seed fuzz sample, the owner fixture; a readable report | clean report, committed as a CI job (owner part local) |

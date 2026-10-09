@@ -15,7 +15,7 @@ import type { Aggregate, GlobalSignalName, SystemBlueprint } from '../schema';
 import type { SignalFacts } from './signals';
 
 /** The part of a checkpoint row the facts need. */
-export interface CheckpointFact { day: number; sealed_at?: string }
+export interface CheckpointFact { day: number; sealed_at?: string; rank_after?: string }
 
 export interface FactsInput {
   blueprint: SystemBlueprint;

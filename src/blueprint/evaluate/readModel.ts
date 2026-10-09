@@ -7,8 +7,9 @@ import type { SystemEvent } from '../../engine/types';
 import { engineConfigFromBlueprint } from '../engineConfig';
 import { buildProjectionsV2 } from '../engine/projections';
 import type { SystemBlueprint } from '../schema';
+import { evaluateBoss } from './boss';
 import { recordsFromEvents } from './env';
-import { buildFacts, type CheckpointFact, type FactsHooks } from './facts';
+import { buildFacts, type CheckpointFact } from './facts';
 import type { SignalEnv } from './signals';
 
 export interface ReadModelInput {
@@ -18,18 +19,20 @@ export interface ReadModelInput {
   asOf: string;
   /** Quest instances, if the caller already has them; otherwise the V2 projections supply them. */
   instances?: readonly Pick<QuestInstanceRow, 'template_id' | 'local_date' | 'state' | 'recovered'>[];
-  hooks?: Partial<FactsHooks>;
 }
 
 export function readModelEnv(input: ReadModelInput): SignalEnv {
   const { blueprint, events, checkpoints, asOf } = input;
   const config = engineConfigFromBlueprint(blueprint);
   const instances = input.instances ?? buildProjectionsV2([...events], { now: () => '', newId: () => '' }, [blueprint]).instances;
+  // The facts need a boss's live status for gate conditions, and a boss's
+  // status needs the facts: they share one env, resolved lazily.
+  const env: SignalEnv = { blueprint, asOf, arcStartDate: blueprint.arc.startDate, recordsByInstrument: recordsFromEvents(events) };
   const { facts, eligibleDates } = buildFacts(
     { blueprint, config, events, checkpoints, instances, asOf },
-    { bossCleared: input.hooks?.bossCleared ?? (() => false) }
+    { bossCleared: (id) => { const def = blueprint.bosses.find((boss) => boss.id === id); return def ? evaluateBoss(def, env, events).cleared : false; } }
   );
-  return {
-    blueprint, asOf, arcStartDate: blueprint.arc.startDate, recordsByInstrument: recordsFromEvents(events), eligibleDates, facts,
-  };
+  env.facts = facts;
+  env.eligibleDates = eligibleDates;
+  return env;
 }
