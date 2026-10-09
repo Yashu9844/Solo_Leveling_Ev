@@ -21,30 +21,30 @@ export const INSTRUMENT_CATALOGUE: Readonly<Record<InstrumentType, InstrumentCat
   },
   duration: {
     type: 'duration', requiredParams: [], numericBounds: { minBlockMinutes: { min: 1, max: 480 } },
-    signals: { minutes: 'effort', mean_daily_minutes: 'effort', mean_block_len: 'effort', longest_block: 'effort', mode_counts: 'effort', input_output_ratio: 'performance' },
+    signals: { minutes: 'effort', records: 'effort', mean_daily_minutes: 'effort', mean_block_len: 'effort', longest_block: 'effort', mode_counts: 'effort', input_output_ratio: 'performance' },
   },
   session: {
     type: 'session', requiredParams: ['sessionTypes'], numericBounds: { minMinutes: { min: 1, max: 480 } },
     signals: { count: 'effort', minutes: 'effort', strength_gain_pct: 'performance' },
   },
   threshold: {
-    type: 'threshold', requiredParams: ['unit', 'comparator', 'target'], numericBounds: { target: { min: 0, max: 1_000_000 }, bonusAt: { min: 0, max: 1_000_000 } },
-    signals: { hit: 'effort', hit_days: 'effort', mean_value: 'effort', days_logged: 'effort' },
+    type: 'threshold', requiredParams: ['unit', 'comparator', 'target'], numericBounds: { target: { min: 0, max: 1_000_000 }, bonusAt: { min: 0, max: 1_000_000 }, bonusXp: { min: 0, max: 60 } },
+    signals: { hit: 'effort', hit_days: 'effort', mean_value: 'effort', days_logged: 'effort', total_value: 'effort', mean_value_failsafe: 'effort' },
   },
   time_window: {
     type: 'time_window', requiredParams: ['targetTime', 'toleranceMinutes'], numericBounds: { toleranceMinutes: { min: 0, max: 240 } },
-    signals: { hit: 'effort', hit_days: 'effort', sd_minutes: 'performance', mean_minutes: 'effort' },
+    signals: { hit: 'effort', hit_days: 'effort', sd_minutes: 'performance', sd_minutes_failsafe: 'performance', sd_minutes_neutral: 'performance', mean_minutes: 'effort' },
   },
   artifact: {
     type: 'artifact', requiredParams: ['kinds'], numericBounds: { bonusXp: { min: 0, max: 100 } },
-    signals: { count: 'effort', projects_with: 'effort', first_of_kind: 'performance' },
+    signals: { count: 'effort', projects_with: 'effort', projects_with_all_kinds: 'effort', first_of_kind: 'performance' },
   },
   study_block: {
     type: 'study_block', requiredParams: ['topics'], numericBounds: { blockXp: { min: 0, max: 100 }, maxPerDay: { min: 1, max: 10 } },
     signals: { blocks: 'effort', minutes: 'effort', mode_counts: 'effort', topic_mastery: 'performance', mastery_points: 'performance' },
   },
   checklist: {
-    type: 'checklist', requiredParams: ['items'], numericBounds: {}, signals: { all_done_days: 'effort' },
+    type: 'checklist', requiredParams: ['items'], numericBounds: { xp: { min: 0, max: 100 } }, signals: { all_done_days: 'effort' },
   },
 };
 

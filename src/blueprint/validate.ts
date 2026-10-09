@@ -2,7 +2,7 @@ import { addDays, compareAsc, differenceInCalendarDays, parseISO } from 'date-fn
 import { INSTRUMENT_CATALOGUE, isKnownInstrumentSignal } from '../instruments/catalog';
 import { isValidTimeZone } from '../engine/time';
 import { canonicalJson, hashesFor, partitionBlueprint } from './hash';
-import type { Criterion, SignalRef, SystemBlueprint } from './schema';
+import type { Criterion, GateCondition, SignalRef, SystemBlueprint } from './schema';
 
 export interface Issue {
   code: string;
@@ -29,7 +29,17 @@ function criterionInstrumentIds(criterion: Criterion): string[] {
   return criterion.kind === 'signal' ? [criterion.instrumentId] : criterion.of.flatMap(criterionInstrumentIds);
 }
 function signalReferences(signal: SignalRef): string[] {
-  return signal.source === 'instrument' ? [signal.instrumentId] : signal.source === 'metric' ? [signal.metricId] : [];
+  switch (signal.source) {
+    case 'instrument': return [signal.instrumentId];
+    case 'metric': return [signal.metricId];
+    case 'sum': return signal.of.flatMap(signalReferences);
+    case 'ratio': return [...signalReferences(signal.num), ...signalReferences(signal.den)];
+    default: return [];
+  }
+}
+/** Every signal a condition reads: its own, or its clauses' when it is compound. */
+function conditionSignals(condition: GateCondition): SignalRef[] {
+  return condition.clauses ? condition.clauses.map((clause) => clause.signal) : [condition.signal];
 }
 function criterionLeaves(criterion: Criterion): Extract<Criterion, { kind: 'signal' }>[] {
   return criterion.kind === 'signal' ? [criterion] : criterion.of.flatMap(criterionLeaves);
@@ -87,7 +97,7 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   for (const quest of blueprint.quests) { bad(!domainIds.has(quest.domainId) || criterionInstrumentIds(quest.criterion).concat(criterionInstrumentIds(quest.floor), quest.bonus.map((bonus) => bonus.instrumentId)).some((id) => !instrumentIds.has(id)), `quests.${quest.id}`); }
   for (const skill of blueprint.skills) bad(!domainIds.has(skill.domainId) || !instrumentIds.has(skill.instrumentId), `skills.${skill.id}`);
   for (const metric of blueprint.metrics) bad((metric.domainId !== undefined && !domainIds.has(metric.domainId)) || ('instrumentId' in metric.source && !instrumentIds.has(metric.source.instrumentId)), `metrics.${metric.id}`);
-  for (const milestone of blueprint.milestones) bad(!domainIds.has(milestone.domainId) || signalReferences(milestone.condition.signal).some((id) => !instrumentIds.has(id) && !metricIds.has(id)), `milestones.${milestone.id}`);
+  for (const milestone of blueprint.milestones) bad(!domainIds.has(milestone.domainId) || conditionSignals(milestone.condition).flatMap(signalReferences).some((id) => !instrumentIds.has(id) && !metricIds.has(id)), `milestones.${milestone.id}`);
   for (const boss of blueprint.bosses) bad(!milestoneIds.has(boss.anchorMilestoneId), `bosses.${boss.id}.anchorMilestoneId`);
   for (const prompt of blueprint.reviews.domainPrompts) bad(!domainIds.has(prompt.domainId), `reviews.domainPrompts.${prompt.id}`);
   for (const domain of blueprint.domains) if (domain.designation && !domain.name) add('V-VOC-01', 'warning', `domains.${domain.id}.name`, 'A DESIGNATION HAS NO REALITY LABEL.', 'Add a plain-language domain name alongside the designation.');
@@ -122,8 +132,8 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   if (blueprint.domains.some((domain) => domain.channel.cap < 0 || domain.channel.cap - (blueprint.quests.find((quest) => quest.id === domain.coreQuestId)?.xp ?? 0) > smallestEngineXp)) add('V-XP-03', 'error', 'domains', 'CHANNEL HEADROOM EXCEEDS THE SYSTEM LIMIT.', 'Reduce channel headroom to no more than the smallest engine core quest.');
   if (coreQuests.some((quest) => quest.bonus.some((bonus) => bonus.amount > quest.xp * .4))) add('V-XP-04', 'error', 'quests', 'A BONUS OVERSHADOWS THE FIRST MOVE.', 'Keep each bonus at or below 40% of core XP.');
   if (blueprint.progression.dailyCap !== blueprint.progression.dailyCoreBudget * 1.4) add('V-XP-05', 'error', 'progression.dailyCap', 'THE DAILY CAP IS MISALIGNED.', 'Set the daily cap to 1.4× the core budget.');
-  const unsafeSignal = (signal: SignalRef): boolean => signal.source === 'metric' && ['external', 'body'].includes(blueprint.metrics.find((metric) => metric.id === signal.metricId)?.kind ?? '');
-  if (blueprint.attributes.defs.some((attribute) => attribute.terms.some((term) => unsafeSignal(term.signal))) || blueprint.gates.some((gate) => gate.conditions.some((condition) => unsafeSignal(condition.signal)))) add('V-MET-01', 'error', 'metrics', 'UNCONTROLLED EVIDENCE ENTERED A SCORE.', 'External and body metrics cannot drive XP, gates, or attributes.');
+  const unsafeSignal = (signal: SignalRef): boolean => signal.source === 'metric' ? ['external', 'body'].includes(blueprint.metrics.find((metric) => metric.id === signal.metricId)?.kind ?? '') : signal.source === 'sum' ? signal.of.some(unsafeSignal) : signal.source === 'ratio' ? unsafeSignal(signal.num) || unsafeSignal(signal.den) : false;
+  if (blueprint.attributes.defs.some((attribute) => attribute.terms.some((term) => unsafeSignal(term.signal))) || blueprint.gates.some((gate) => gate.conditions.some((condition) => conditionSignals(condition).some(unsafeSignal))) || blueprint.bosses.some((boss) => boss.conditions.some((condition) => conditionSignals(condition).some(unsafeSignal)))) add('V-MET-01', 'error', 'metrics', 'UNCONTROLLED EVIDENCE ENTERED A SCORE.', 'External and body metrics cannot drive XP, gates, or attributes.');
   for (const gate of blueprint.gates) {
     if (['C', 'B', 'A', 'S'].includes(gate.rank) && !gate.conditions.some((condition) => condition.verifiability === 'public_url' || condition.verifiability === 'recorded')) add('V-GATE-01', 'error', `gates.${gate.rank}`, 'THE GATE LACKS VERIFIABLE EVIDENCE.', 'Add a public URL or recorded evidence condition.');
   }

@@ -29,9 +29,12 @@ export function durationSignals(records: readonly InstrumentRecord<DurationRecor
   const dates = new Set(records.map((record) => record.localDate));
   const modes = sessions(records);
   const requestedMode = context.filter?.mode;
-  const modeCount = requestedMode ? modes.filter((session) => session.mode === requestedMode).length : modes.length;
+  // Any configured mode can be counted by name (the career substitute kinds
+  // are modes too); unfiltered, only LEARN/SHIP sessions count, as before.
+  const modeCount = requestedMode ? records.filter((record) => record.record.mode === requestedMode).length : modes.length;
   return {
     minutes: totalMinutes,
+    records: records.length,
     mean_daily_minutes: dates.size === 0 ? 0 : totalMinutes / dates.size,
     mean_block_len: records.length === 0 ? 0 : totalMinutes / records.length,
     longest_block: records.reduce((max, record) => Math.max(max, record.record.minutes), 0),

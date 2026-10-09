@@ -10,14 +10,27 @@ export type InstrumentType =
   | 'practice_item' | 'pipeline' | 'duration' | 'session' | 'threshold'
   | 'time_window' | 'artifact' | 'study_block' | 'checklist';
 export type Aggregate =
-  | 'day' | 'total' | 'window_14' | 'window_28' | 'rate_28' | 'mean_28'
-  | 'sd_28' | 'latest' | `mastery_count_at_least:${MasteryState}`;
+  | 'day' | 'total' | 'window_14' | 'window_28' | 'window_90' | 'eligible_28' | 'rate_28' | 'mean_28'
+  | 'sd_28' | 'latest' | 'max' | `mastery_count_at_least:${MasteryState}`;
 export type MasteryState = 'unseen' | 'introduced' | 'applied' | 'fluent' | 'retained';
 
 export type SignalRef =
   | { source: 'instrument'; instrumentId: string; signal: string; aggregate: Aggregate; filter?: Record<string, string> }
   | { source: 'metric'; metricId: string; aggregate: Aggregate }
-  | { source: 'global'; signal: 'mvd_days' | 'core_completion' | 'bosses_cleared' | 'checkpoints_sealed' | 'grace_used' };
+  | { source: 'global'; signal: GlobalSignalName; id?: string; aggregate?: Aggregate }
+  | { source: 'quest'; questId: string; signal: 'completed_days'; aggregate?: Aggregate }
+  | { source: 'sum'; of: SignalRef[] }
+  | { source: 'ratio'; num: SignalRef; den: SignalRef };
+
+/**
+ * Arc-wide facts no single instrument owns. `id` selects one boss, checkpoint
+ * day or the like. Anything that depends on a completed day (`mvd_days`,
+ * `consistency_*`) is computed up to YESTERDAY, as the live streak is.
+ */
+export type GlobalSignalName =
+  | 'mvd_days' | 'core_completion' | 'bosses_cleared' | 'checkpoints_sealed' | 'grace_used'
+  | 'consistency_14' | 'consistency_28' | 'completion_days' | 'window_days' | 'first_quest'
+  | 'recovered_after_gap' | 'if_then_rate' | 'boss_cleared' | 'checkpoint_sealed' | 'prior_checkpoints_sealed';
 
 export interface DomainDefinition {
   id: string; archetypeId?: string; role: 'engine' | 'guardrail' | 'support';
@@ -63,6 +76,8 @@ export interface SkillTreeDef {
 export interface AttributeGroupDef { id: string; heading: string; tagline: string; layout: 'body' | 'mind' | 'craft'; icon: IconToken }
 export interface AttributeDef {
   id: string; name: string; groupId: string; description: string; combine: 'sum' | 'product';
+  /** A product attribute reports ONE component (the product), under this key. */
+  productKey?: string;
   terms: { id: string; label: string; weight: number; signal: SignalRef; transform: { kind: 'ratio'; denominator: number } | { kind: 'rate' } | { kind: 'inverse_ratio'; denominator: number } }[];
 }
 export interface MetricDefinition {
@@ -70,11 +85,20 @@ export interface MetricDefinition {
   source: { instrumentId: string; signal: string } | { manual: true; cadence: 'checkpoint' | 'weekly' | 'any' };
   direction: 'higher' | 'lower' | 'neutral';
 }
-export interface GateCondition { id: string; label: string; signal: SignalRef; comparator: '>=' | '<=' | 'between'; threshold: number | [number, number]; verifiability: 'public_url' | 'recorded' | 'self_cert' | 'count' | 'structural' }
+export type ConditionFormat = 'int' | 'percent' | 'round' | 'locale';
+export type Comparator = '>=' | '<=' | '<' | '>' | 'between';
+/** One test inside a compound condition; `format` renders its value into the label's {n} slot. */
+export interface GateClause { signal: SignalRef; comparator: Comparator; threshold: number | [number, number]; format?: ConditionFormat }
+/**
+ * `label` is a template: {0}, {1}… take the formatted value of each clause.
+ * Without `clauses`, the condition is its own single clause. `clauseMode`
+ * defaults to 'all'; an empty `clauses` list is always met.
+ */
+export interface GateCondition { id: string; label: string; signal: SignalRef; comparator: Comparator; threshold: number | [number, number]; verifiability: 'public_url' | 'recorded' | 'self_cert' | 'count' | 'structural'; format?: ConditionFormat; clauses?: GateClause[]; clauseMode?: 'all' | 'any' }
 export interface MilestoneDef { id: string; domainId: string; label: string; condition: GateCondition; ladder?: { checkpointIndex: 1 | 2 | 3 | 4; threshold: number }[]; anchorsBoss?: string; declaredBy: 'user' | 'archetype' | 'legacy' }
 export interface RankGateDef { rank: Rank; day: number; conditions: GateCondition[] }
 export interface BossDef { id: string; title: string; anchorMilestoneId: string; windowStartDay: number; windowEndDay: number; conditions: GateCondition[]; gatesRank?: Rank }
-export interface AchievementDef { id: string; label: string; condition: GateCondition; domainId?: string }
+export interface AchievementDef { id: string; label: string; condition: GateCondition; domainId?: string; kind?: 'achievement' | 'identity' }
 export interface CheckpointDef { selfEfficacy: { id: string; prompt: string }[]; automaticity: { id: string; prompt: string }[]; enjoyment: { id: string; domainId: string; prompt: string }[] }
 export interface ReviewDef { domainPrompts: { id: string; domainId: string; prompt: string; options: string[] }[] }
 export interface RuleDef { id: string; kind: 'MODE_RATIO' | 'WRONG_TIME' | 'SUBSTITUTE_SHARE' | 'LOW_CONVERSION' | 'WEAKEST_TOPIC'; enabled: boolean; params?: Record<string, unknown> }

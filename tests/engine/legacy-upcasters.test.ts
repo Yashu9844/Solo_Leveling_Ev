@@ -53,6 +53,12 @@ describe('legacy upcasters (loop 3.7)', () => {
     for (let seed = 1; seed <= 300; seed++) assertEqualToRows(randomEventLog(seed));
   });
 
+  it('a re-logged problem keeps the topic and difficulty of its first log, as the dsa_problem row does', () => {
+    const base = { occurred_at: '2026-09-02T04:30:00Z', local_date: '2026-09-02', arc_id: 'a', source: 'user' as const, schema_v: 1 };
+    const log = (id: string, difficulty: 'E' | 'H', topic: string): SystemEvent => ({ ...base, id, type: 'PROBLEM_LOGGED', idem_key: id, payload: { problemId: 'p1', slug: 's', title: 'T', topic, difficulty, outcome: 'first_attempt', minutes: 10 } });
+    assertEqualToRows([log('e1', 'E', 'Arrays'), log('e2', 'H', 'Graphs')]);
+  });
+
   it('give every record a stable id, its source event and the legacy instrument binding', () => {
     const events = legacyActivityLog({ seed: 7, days: 30 });
     const ids = new Set(events.map((e) => e.id));

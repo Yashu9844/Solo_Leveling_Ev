@@ -32,6 +32,11 @@ export function recordsFromDomainTables(tables: DomainTables): NormalizedRecord[
   }
   for (const e of tables.careerEvents) push('career.applications', e.local_date, { kind: 'event', eventKind: e.kind, applicationId: e.application_id, stuckOn: e.stuck_on });
 
+  for (const v of tables.resumeVersions) {
+    // The row keeps the instant, not the local date; the fixtures write both on the same UTC day.
+    push('career.resumes', v.created_at.slice(0, 10), { kind: 'resume', title: v.label, projectKey: v.id, changedBecause: v.changed_because, externalReview: v.external_review });
+  }
+
   const problemsById = new Map(tables.dsaProblems.map((p) => [p.id, p]));
   for (const attempt of tables.dsaAttempts) {
     const problem = problemsById.get(attempt.problem_id);

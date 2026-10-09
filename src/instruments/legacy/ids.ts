@@ -8,6 +8,7 @@ import type { InstrumentType } from '../../blueprint/schema';
 export const LEGACY_INSTRUMENTS = {
   'career.applications': { type: 'pipeline', domainId: 'career' },
   'career.substitute': { type: 'duration', domainId: 'career' },
+  'career.resumes': { type: 'artifact', domainId: 'career' },
   'dsa.problems': { type: 'practice_item', domainId: 'dsa' },
   'build.sessions': { type: 'duration', domainId: 'build' },
   'build.artifacts': { type: 'artifact', domainId: 'build' },

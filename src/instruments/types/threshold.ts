@@ -17,6 +17,9 @@ export function thresholdSignals(records: readonly InstrumentRecord<ThresholdRec
     hit_days: new Set(hitRecords.map((record) => record.localDate)).size,
     mean_value: records.length === 0 ? 0 : records.reduce((sum, record) => sum + record.record.value, 0) / records.length,
     days_logged: new Set(records.map((record) => record.localDate)).size,
+    total_value: records.reduce((sum, record) => sum + record.record.value, 0),
+    // 999 stands for "no evidence", never "perfect" (engine/rank.ts's fail-safe).
+    mean_value_failsafe: records.length === 0 ? 999 : records.reduce((sum, record) => sum + record.record.value, 0) / records.length,
   };
 }
 export const thresholdInstrument = defineInstrument<ThresholdParams, ThresholdRecord>({

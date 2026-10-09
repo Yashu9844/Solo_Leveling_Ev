@@ -7,6 +7,7 @@ export type ArtifactRecord = Record<string, unknown> & {
   projectKey: string;
   url?: string;
   costPerTaskStated?: boolean;
+  externalReview?: boolean;
 };
 export type ArtifactParams = Record<string, unknown> & { kinds: readonly ArtifactKind[]; bonusXp?: number };
 export type ArtifactVerifiability = 'public_url' | 'recorded';
@@ -26,6 +27,19 @@ export function artifactVerifiability(record: ArtifactRecord): ArtifactVerifiabi
   return record.url?.trim() ? 'public_url' : 'recorded';
 }
 
+/** Distinct projects that have at least one record of EVERY listed kind (comma-separated). */
+function projectsWithAllKinds(records: readonly InstrumentRecord<ArtifactRecord>[], kinds: string | undefined): number {
+  const wanted = kinds ? kinds.split(',') : [];
+  if (wanted.length === 0) return 0;
+  const byProject = new Map<string, Set<string>>();
+  for (const record of records) {
+    const have = byProject.get(record.record.projectKey) ?? new Set<string>();
+    have.add(record.record.kind);
+    byProject.set(record.record.projectKey, have);
+  }
+  return [...byProject.values()].filter((have) => wanted.every((kind) => have.has(kind))).length;
+}
+
 /** Legacy-equivalent artifact counts, scoped by the optional kind/project filters. */
 export function artifactSignals(records: readonly InstrumentRecord<ArtifactRecord>[], context: InstrumentEvaluationContext): Readonly<Record<string, number>> {
   const kind = context.filter?.kind;
@@ -39,6 +53,7 @@ export function artifactSignals(records: readonly InstrumentRecord<ArtifactRecor
   return {
     count: matching.length,
     projects_with: projects.size,
+    projects_with_all_kinds: projectsWithAllKinds(records, context.filter?.kinds),
     first_of_kind: firstOfKind,
   };
 }

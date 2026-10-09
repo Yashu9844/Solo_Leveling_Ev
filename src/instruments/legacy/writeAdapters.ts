@@ -40,6 +40,8 @@ export function legacyEventFor(instrumentId: LegacyInstrumentId, item: Pick<Inst
       };
     case 'career.substitute':
       return { type: 'CAREER_SUBSTITUTE_LOGGED', payload: { minutes: r.minutes, kind: r.mode } };
+    case 'career.resumes':
+      return { type: 'RESUME_VERSION_CREATED', payload: clean({ resumeVersionId: r.projectKey, label: r.title, changedBecause: r.changedBecause, externalReview: r.externalReview }) };
     case 'dsa.problems':
       return r.isRevisit
         ? { type: 'PROBLEM_REVISITED', payload: { problemId: r.problemId, outcome: r.outcome, minutes: r.minutes } }

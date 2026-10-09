@@ -17,6 +17,7 @@ import type {
   CareerSubstituteLoggedPayload,
   LearningBlockLoggedPayload,
   MaintenanceLoggedPayload,
+  ResumeVersionCreatedPayload,
   ProblemLoggedPayload,
   ProblemRevisitedPayload,
   ScreentimeLoggedPayload,
@@ -98,6 +99,13 @@ export function upcastLegacyEvents(events: readonly SystemEvent[]): InstrumentRe
         }
         break;
       }
+      case 'RESUME_VERSION_CREATED': {
+        const p = payload<ResumeVersionCreatedPayload>(event);
+        // Resume versions are evidence of career work, not an XP source: an
+        // artifact-type record whose project is the version itself.
+        out.push(record('career.resumes', event, clean({ kind: 'resume', title: p.label, projectKey: p.resumeVersionId, changedBecause: p.changedBecause, externalReview: p.externalReview })));
+        break;
+      }
       case 'CAREER_SUBSTITUTE_LOGGED': {
         const p = payload<CareerSubstituteLoggedPayload>(event);
         out.push(record('career.substitute', event, { minutes: p.minutes, mode: p.kind }));
@@ -105,9 +113,12 @@ export function upcastLegacyEvents(events: readonly SystemEvent[]): InstrumentRe
       }
       case 'PROBLEM_LOGGED': {
         const p = payload<ProblemLoggedPayload>(event);
+        // The problem keeps the topic and difficulty of its FIRST log (the
+        // dsa_problem row is never updated), so a re-log inherits them.
         if (!problems.has(p.problemId)) problems.set(p.problemId, { slug: p.slug, title: p.title, topic: p.topic, difficulty: p.difficulty });
+        const first = problems.get(p.problemId)!;
         out.push(record('dsa.problems', event, clean({
-          problemId: p.problemId, slug: p.slug, title: p.title, topic: p.topic, difficulty: p.difficulty,
+          problemId: p.problemId, slug: first.slug, title: first.title, topic: first.topic, difficulty: first.difficulty,
           outcome: p.outcome, minutes: p.minutes, isRevisit: false,
         })));
         break;

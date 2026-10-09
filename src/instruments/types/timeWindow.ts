@@ -22,6 +22,11 @@ export function timeWindowSignals(records: readonly InstrumentRecord<TimeWindowR
     hit: hits.length,
     hit_days: new Set(hits.map((record) => record.localDate)).size,
     sd_minutes: stddev(values),
+    // One reading is no evidence of consistency: the checkpoint gates read
+    // that as the worst case (999), the attribute formula as its clamp
+    // ceiling (90) so that the term contributes nothing until there is data.
+    sd_minutes_failsafe: values.length < 2 ? 999 : stddev(values),
+    sd_minutes_neutral: values.length < 2 ? 90 : stddev(values),
     mean_minutes: values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length,
   };
 }
