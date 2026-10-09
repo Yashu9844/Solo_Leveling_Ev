@@ -1,5 +1,6 @@
 // Dexie table + index declarations only. No queries, no business logic.
 // Mirrors final/07-data-model-architecture.md §4. Version 1.
+import type { SystemBlueprint } from '../blueprint/schema';
 import type {
   EventSource,
   EventType,
@@ -32,6 +33,8 @@ export interface XpLedgerRow {
   category: XpCategory;
   reason: string;
   capped_from?: number;
+  /** Stamped only for arcs with explicit Blueprint versions; the owner's implicit legacy rows never carry it. */
+  blueprint_version?: number;
 }
 
 export interface ProfileRow {
@@ -235,6 +238,8 @@ export interface DayRollupRow {
   focus?: number;
   blocker?: string;
   app_seconds: number;
+  /** The Blueprint version in force that day; stamped only for explicit-version arcs. */
+  blueprint_version?: number;
 }
 
 export interface PlayerStateRow {
@@ -280,6 +285,8 @@ export interface CheckpointRow {
   external: Record<string, unknown>;
   verdict_text?: string;
   quest_templates_snapshot: Record<string, unknown>;
+  /** The Blueprint version the gates were evaluated under, frozen at seal. */
+  blueprint_version?: number;
 }
 
 export interface ReflectionStateRow {
@@ -386,6 +393,42 @@ export const SCHEMA_V4_ADDITIONS = {
   system_message_state: 'id, last_shown_date',
   system_transmission: 'local_date',
 } as const;
+
+/**
+ * platform/05 loop 5.1 — Dexie v5, ADDITIVE ONLY: two new object stores, nothing
+ * removed or re-indexed (rollback safety: an older build simply never opens
+ * them). Both are projections — rebuilt from the event log, like every cache
+ * table — so a rebuild or an import can always recreate them.
+ */
+export const SCHEMA_V5_ADDITIONS = {
+  // Cache of BLUEPRINT_ACTIVATED events.
+  blueprint_version: 'id, lineage_id, version, active_from, arc_id',
+  // Records of generic (non-legacy) instruments. Legacy instruments keep their 12 tables.
+  instrument_record: 'id, instrument_id, domain_id, local_date, event_id, [instrument_id+local_date]',
+} as const;
+
+export interface BlueprintVersionRow {
+  id: string; // `${lineageId}@${version}`
+  lineage_id: string;
+  arc_id: string;
+  version: number;
+  active_from: string;
+  change_class: SystemBlueprint['changeClass'];
+  computational_hash: string;
+  presentation_hash: string;
+  event_id: string;
+  blueprint: SystemBlueprint;
+}
+
+export interface InstrumentRecordRow {
+  id: string; // = the event id
+  instrument_id: string;
+  domain_id: string;
+  local_date: string;
+  event_id: string;
+  blueprint_version: number;
+  record: Record<string, unknown>;
+}
 
 export interface SystemMessageStateRow {
   id: string; // pk — the static id in engine/voicePack.ts

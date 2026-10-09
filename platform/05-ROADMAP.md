@@ -147,7 +147,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 
 | Loop | Objective | Changes | Tests | Acceptance |
 |---|---|---|---|---|
-| ☐ 5.1 | Dexie v5 (additive) + connection safety | `SCHEMA_V5_ADDITIONS` (§43); `db.on('versionchange')` close+reload; `blocked` copy | upgrade test v4 → v5 on fake-indexeddb with a seeded v4 DB | existing data intact; new tables empty |
+| ☑ 5.1 | Dexie v5 (additive) + connection safety | `SCHEMA_V5_ADDITIONS` (§43); `db.on('versionchange')` close+reload; `blocked` copy | upgrade test v4 → v5 on fake-indexeddb with a seeded v4 DB | existing data intact; new tables empty |
 | ☐ 5.2 | `BLUEPRINT_ACTIVATED` + resolver | event type + payload; reducer folds versions with H9 re-validation; `versionFor(date)`; implicit legacy | unit + property | no events → legacy v1 everywhere |
 | ☐ 5.3 | New event payloads | `QUEST_COMPLETED` schema_v 2 (domainId, questDefId, blueprintVersion; questKey kept); `INSTRUMENT_RECORDED`; read-side upcast of v1 | unit | mixed v1/v2 logs fold identically |
 | ☐ 5.4 | Multi-version projections | `buildProjectionsV2` resolves per date; ledger `blueprint_version` | H2, H3, H6 property tests with random version histories | invariants hold over 1,000 histories |

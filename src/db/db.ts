@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
-import { SCHEMA_V1, SCHEMA_V2_ADDITIONS, SCHEMA_V3_ADDITIONS, SCHEMA_V4_ADDITIONS } from './schema';
+import { SCHEMA_V1, SCHEMA_V2_ADDITIONS, SCHEMA_V3_ADDITIONS, SCHEMA_V4_ADDITIONS, SCHEMA_V5_ADDITIONS } from './schema';
+import { browserConnectionHooks, installConnectionSafety, type ConnectionHooks } from './connection';
 import type {
   EventRow,
   XpLedgerRow,
@@ -29,6 +30,8 @@ import type {
   WeeklyQuestRow,
   SystemMessageStateRow,
   SystemTransmissionRow,
+  BlueprintVersionRow,
+  InstrumentRecordRow,
 } from './schema';
 
 /**
@@ -69,8 +72,10 @@ export class SystemDb extends Dexie {
   weekly_quest!: Table<WeeklyQuestRow, string>;
   system_message_state!: Table<SystemMessageStateRow, string>;
   system_transmission!: Table<SystemTransmissionRow, string>;
+  blueprint_version!: Table<BlueprintVersionRow, string>;
+  instrument_record!: Table<InstrumentRecordRow, string>;
 
-  constructor() {
+  constructor(hooks: ConnectionHooks = browserConnectionHooks()) {
     super(DB_NAME);
     this.version(1).stores(SCHEMA_V1);
     // Additive only (a new object store, nothing removed or re-indexed
@@ -84,6 +89,17 @@ export class SystemDb extends Dexie {
       ...SCHEMA_V3_ADDITIONS,
       ...SCHEMA_V4_ADDITIONS,
     });
+    // v5 (platform/05 loop 5.1): additive again. No .upgrade() is needed - there
+    // are no data transforms, and the implicit-legacy rule means an existing
+    // arc has no rows to write.
+    this.version(5).stores({
+      ...SCHEMA_V1,
+      ...SCHEMA_V2_ADDITIONS,
+      ...SCHEMA_V3_ADDITIONS,
+      ...SCHEMA_V4_ADDITIONS,
+      ...SCHEMA_V5_ADDITIONS,
+    });
+    installConnectionSafety(this, hooks);
   }
 }
 

@@ -17,10 +17,22 @@ import '@fontsource/jetbrains-mono/latin-500.css';
 
 import './index.css';
 import { App } from './App';
+import { BLOCKED_NOTICE } from './db/connection';
 import { ArcStatusProvider } from './store/ArcStatusContext';
 import { SettingsProvider } from './store/SettingsContext';
 import { MotionRoot } from './ui/MotionRoot';
 import { OverlayStackProvider } from './ui/routing/OverlayStack';
+
+// An upgrade waiting on another open tab would otherwise look like a frozen app (src/db/connection.ts).
+window.addEventListener('system-db-blocked', () => {
+  if (document.getElementById('db-blocked')) return;
+  const notice = document.createElement('div');
+  notice.id = 'db-blocked';
+  notice.setAttribute('role', 'alert');
+  notice.textContent = BLOCKED_NOTICE;
+  notice.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:9999;padding:14px 16px;border-radius:8px;background:#111;color:#fff;font:14px/1.4 Inter,system-ui,sans-serif;text-align:center';
+  document.body.appendChild(notice);
+});
 
 if ('storage' in navigator && 'persist' in navigator.storage) {
   void navigator.storage.persist();
