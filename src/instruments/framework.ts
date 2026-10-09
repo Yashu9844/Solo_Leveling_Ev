@@ -32,6 +32,8 @@ export interface InstrumentEvaluationContext {
   /** The date range being read, inclusive. */
   from: string;
   to: string;
+  /** The arc's first day, for instruments with day-cadence rules (checklist everyNDays). */
+  arcStartDate?: string;
   /** Optional Blueprint-level selector, e.g. a pipeline stage. */
   filter?: Readonly<Record<string, string>>;
 }

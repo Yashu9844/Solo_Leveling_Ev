@@ -41,7 +41,7 @@ export const INSTRUMENT_CATALOGUE: Readonly<Record<InstrumentType, InstrumentCat
   },
   study_block: {
     type: 'study_block', requiredParams: ['topics'], numericBounds: { blockXp: { min: 0, max: 100 }, maxPerDay: { min: 1, max: 10 } },
-    signals: { blocks: 'effort', minutes: 'effort', mode_counts: 'effort', topic_mastery: 'performance' },
+    signals: { blocks: 'effort', minutes: 'effort', mode_counts: 'effort', topic_mastery: 'performance', mastery_points: 'performance' },
   },
   checklist: {
     type: 'checklist', requiredParams: ['items'], numericBounds: {}, signals: { all_done_days: 'effort' },

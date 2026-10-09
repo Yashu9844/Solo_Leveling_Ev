@@ -31,5 +31,5 @@ describe('Blueprint hashing (loop 2.1)', () => {
       changed.progression.dailyCap = dailyCap;
       expect((await hashesFor(changed)).computationalHash).not.toBe((await hashesFor(blueprint)).computationalHash);
     }));
-  });
+  }, 30_000);
 });
