@@ -113,7 +113,7 @@ export interface BuiltProjections {
   playerState: PlayerStateRow | null;
 }
 
-function emptyDayRollup(localDate: string, coreTotal: number): DayRollupRow {
+export function emptyDayRollup(localDate: string, coreTotal: number): DayRollupRow {
   return {
     local_date: localDate,
     xp_earned: 0,
@@ -135,13 +135,13 @@ function emptyDayRollup(localDate: string, coreTotal: number): DayRollupRow {
   };
 }
 
-function coreTotalOn(templates: QuestTemplate[], localDate: string): number {
+export function coreTotalOn(templates: QuestTemplate[], localDate: string): number {
   return templates.filter(
     (t) => t.type === 'core' && t.active_from <= localDate && (t.active_to === null || localDate < t.active_to)
   ).length;
 }
 
-function consistencyOver(history: DayStreakOutcome[], windowDays: number): number {
+export function consistencyOver(history: DayStreakOutcome[], windowDays: number): number {
   const window = history.slice(-windowDays);
   const eligible = window.filter((d) => !d.paused);
   if (eligible.length === 0) return 0;

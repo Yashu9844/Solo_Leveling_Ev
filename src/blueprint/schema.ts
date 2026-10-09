@@ -58,6 +58,13 @@ export interface QuestTemplateDef {
   schedule: { kind: 'daily' } | { kind: 'weekdays'; days: Weekday[] };
   timeWindow?: { notBefore?: string; notAfter?: string }; evidenceMode: 'self_report_allowed' | 'logged_only';
   recoverable: boolean; intentionAllowed: boolean;
+  /**
+   * Legacy only: the descriptor the quest_template cache row has always held
+   * (engine/quests.ts CORE_QUEST_CRITERIA). Kept so the V2 projections write
+   * byte-identical rows for the owner; a generated System leaves it unset and
+   * its row carries `criterion` itself. Goes away with the legacy paths (17.1).
+   */
+  rowCriterion?: Record<string, unknown>;
 }
 
 export interface ProgressionSection {

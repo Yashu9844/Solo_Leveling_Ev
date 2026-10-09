@@ -321,6 +321,15 @@ const CRITERIA: Record<string, Criterion> = {
   sleep: leaf('sleep.wake', 'hit', '>=', 1),
   attention: leaf('attention.screen', 'hit', '>=', 1),
 };
+/** engine/quests.ts CORE_QUEST_CRITERIA, the descriptor the quest_template cache row holds. */
+const ROW_CRITERIA: Record<string, Record<string, unknown>> = {
+  career: { kind: 'applications_or_substitute', applications: 3, substituteMinutes: 25 },
+  dsa: { kind: 'problems_or_minutes', problems: 1, minutes: 25 },
+  build: { kind: 'minutes_with_mode', minutes: 45, modes: ['LEARN', 'SHIP'] },
+  training: { kind: 'session_or_steps', steps: 8000 },
+  sleep: { kind: 'wake_window', toleranceMinutes: 30 },
+  attention: { kind: 'screen_time_under', minutes: 60 },
+};
 const QUESTS: { key: string; designation: string; label: string; objective: string; xp: number; intention: boolean }[] = [
   { key: 'career', designation: 'ASCENSION', label: '3 despatches / 25m focus', objective: '3 verified despatches, or 25 minutes of substitute ascension focus.', xp: 100, intention: true },
   { key: 'dsa', designation: 'LOGIC TRIAL', label: '1 logic problem / 25m', objective: '1 logic problem logged, or 25 minutes of algorithm analysis.', xp: 100, intention: true },
@@ -404,7 +413,7 @@ export function legacyBlueprintFor(arc: LegacyArcFacts = OWNER_ARC_DEFAULTS): Sy
     quests: QUESTS.map((quest): QuestTemplateDef => ({
       id: quest.key, domainId: quest.key, type: 'core', designation: quest.designation, realityLabel: quest.label, objective: quest.objective,
       criterion: CRITERIA[quest.key]!, floor: CRITERIA[quest.key]!, xp: quest.xp, bonus: [], schedule: { kind: 'daily' },
-      evidenceMode: 'self_report_allowed', recoverable: true, intentionAllowed: quest.intention,
+      evidenceMode: 'self_report_allowed', recoverable: true, intentionAllowed: quest.intention, rowCriterion: ROW_CRITERIA[quest.key]!,
     })),
     metrics: [
       { id: 'weight_kg', label: 'Weight', unit: 'kg', kind: 'body', source: { manual: true, cadence: 'any' }, direction: 'neutral' },
