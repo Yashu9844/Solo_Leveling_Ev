@@ -13,9 +13,9 @@ import type { CareerEventKind } from '../../engine/types';
 import { defineInstrument, type InstrumentEvaluationContext, type InstrumentIssue, type InstrumentRecord } from '../framework';
 
 export type PipelineRecord = Record<string, unknown> & (
-  | { kind: 'application'; applicationId: string; company: string; role: string; roleCategory: string; resumeVersionId: string; whyLine: string; qualityPass: boolean; status: ApplicationStatus; followedUpAt?: string; followupDueAt?: string }
+  | { kind: 'application'; applicationId: string; company: string; role: string; roleCategory: string; resumeVersionId: string; whyLine: string; qualityPass: boolean; status: ApplicationStatus; source?: string; statusHistory?: { status: ApplicationStatus; date: string }[]; followedUpAt?: string; followupDueAt?: string }
   | { kind: 'substitute'; minutes: number; substituteKind: 'conversation' | 'mock' }
-  | { kind: 'event'; eventKind: CareerEventKind; applicationId?: string }
+  | { kind: 'event'; eventKind: CareerEventKind; applicationId?: string; stuckOn?: string }
   | { kind: 'followup'; applicationId: string }
 );
 

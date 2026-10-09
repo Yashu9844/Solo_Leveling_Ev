@@ -128,7 +128,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | ☑ 3.4 | `duration` (modes, ratio rule) + `artifact` (kinds, flags, verifiability) | `engine/build.ts`, `engine/rules.ts` LEARN_SHIP, artifact queries in `store/checkpoint.ts` | equality |
 | ☑ 3.5 | `session` (Epley, strength gain) + `threshold` + `time_window` (hit, SD) | `engine/training.ts`, `engine/sleep.ts`, `store/lifestyle.ts`, wake SD in `store/attributes.ts` | equality |
 | ☑ 3.6 | `study_block` (`block_count` mastery, modes) + `checklist` (everyNDays) | `engine/foundations.ts`, `engine/maintenance.ts` | equality |
-| ☐ 3.7 | Legacy upcasters + write adapters | every legacy domain event → InstrumentRecord; records derived from events equal records derived from `buildDomainTables` rows | equality on golden + fuzz + owner |
+| ☑ 3.7 | Legacy upcasters + write adapters | every legacy domain event → InstrumentRecord; records derived from events equal records derived from `buildDomainTables` rows | equality on golden + fuzz + owner |
 
 ### Phase 4 — Blueprint-driven engine in shadow
 
