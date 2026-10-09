@@ -57,6 +57,7 @@ const KNOWN_EVENT_TYPE_MAP: Record<EventType, true> = {
   APP_OPENED: true,
   WEEKLY_QUEST_COMPLETED: true,
   BLUEPRINT_ACTIVATED: true,
+  INSTRUMENT_RECORDED: true,
 };
 
 export const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set(Object.keys(KNOWN_EVENT_TYPE_MAP));
@@ -305,6 +306,12 @@ function applyOne(state: EngineState, event: SystemEvent): EngineState {
     // (H9 re-validation needs the whole document, not a fold). The reducer's
     // own state has nothing to hold, so this is a deliberate, inert case.
     case 'BLUEPRINT_ACTIVATED':
+      return state;
+
+    // A generic instrument's record. Like every domain record it persists to
+    // its own table (instrument_record) and, where it earns XP, is read off the
+    // raw log by the ledger; nothing to fold into EngineState.
+    case 'INSTRUMENT_RECORDED':
       return state;
 
     default:

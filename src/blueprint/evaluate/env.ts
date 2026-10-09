@@ -1,10 +1,10 @@
 // Builds the SignalEnv the evaluators read from an event log: legacy events
 // become instrument records through the upcasters (platform/02 §21.2), grouped
 // by the instrument that owns them. Generic INSTRUMENT_RECORDED events join
-// here in Phase 5.
+// them as recorded.
 import type { SystemEvent } from '../../engine/types';
 import type { InstrumentRecord } from '../../instruments/framework';
-import { upcastLegacyEvents } from '../../instruments/legacy/upcasters';
+import { allRecords } from '../../instruments/records';
 import type { SystemBlueprint } from '../schema';
 import type { SignalEnv, SignalFacts } from './signals';
 
@@ -18,9 +18,9 @@ export function groupRecords(records: readonly InstrumentRecord[]): Map<string, 
   return grouped;
 }
 
-/** Every instrument record the log holds, grouped by instrument, in log order. */
+/** Every instrument record the log holds - legacy events upcast, generic ones as recorded - grouped by instrument. */
 export function recordsFromEvents(events: readonly SystemEvent[]): Map<string, InstrumentRecord[]> {
-  return groupRecords(upcastLegacyEvents(events));
+  return groupRecords(allRecords(events));
 }
 
 export interface EnvOptions {

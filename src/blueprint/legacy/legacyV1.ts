@@ -468,8 +468,17 @@ const SKILLS: SkillTreeDef[] = [
   },
 ];
 
-/** The owner's System for an arc. `legacyBlueprintFor(OWNER_ARC_DEFAULTS)` is LEGACY_BLUEPRINT_V1. */
+/**
+ * The owner's System for an arc. `legacyBlueprintFor(OWNER_ARC_DEFAULTS)` is
+ * LEGACY_BLUEPRINT_V1. Every call returns a FRESH deep copy: the tables above
+ * are module state, and a caller that edits its Blueprint (a test, a future
+ * amendment) must never edit anyone else's.
+ */
 export function legacyBlueprintFor(arc: LegacyArcFacts = OWNER_ARC_DEFAULTS): SystemBlueprint {
+  return structuredClone(assembleLegacyBlueprint(arc));
+}
+
+function assembleLegacyBlueprint(arc: LegacyArcFacts): SystemBlueprint {
   const { bosses: bossDefs, milestones } = bosses();
   const lengthDays = Math.round((Date.parse(`${arc.end_date}T00:00:00Z`) - Date.parse(`${arc.start_date}T00:00:00Z`)) / 86_400_000) + 1;
   return {
@@ -540,7 +549,15 @@ export function legacyBlueprintFor(arc: LegacyArcFacts = OWNER_ARC_DEFAULTS): Sy
 }
 
 /** The owner's System at its default arc: the golden master the platform must reproduce. */
-export const LEGACY_BLUEPRINT_V1: SystemBlueprint = legacyBlueprintFor(OWNER_ARC_DEFAULTS);
+export const LEGACY_BLUEPRINT_V1: SystemBlueprint = deepFreeze(legacyBlueprintFor(OWNER_ARC_DEFAULTS));
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  }
+  return value;
+}
 
 /** Instrument-level facts the grant economy reads, kept beside the data they describe. */
 export const LEGACY_FOUNDATION_TOPICS = FOUNDATION_TOPICS;

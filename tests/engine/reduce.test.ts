@@ -386,7 +386,7 @@ describe('applyEvents — forward compatibility', () => {
   });
 
   it('every EventType member is known — only genuinely foreign types are skipped', () => {
-    expect(KNOWN_EVENT_TYPES.size).toBe(32); // 31 legacy types + BLUEPRINT_ACTIVATED (platform loop 5.2)
+    expect(KNOWN_EVENT_TYPES.size).toBe(33); // 31 legacy types + BLUEPRINT_ACTIVATED (5.2) + INSTRUMENT_RECORDED (5.3)
     expect(KNOWN_EVENT_TYPES.has('CHECKPOINT_SEALED')).toBe(true);
     expect(KNOWN_EVENT_TYPES.has('BLUEPRINT_ACTIVATED')).toBe(true);
     expect(KNOWN_EVENT_TYPES.has('NEXT_GEN_EVENT')).toBe(false);

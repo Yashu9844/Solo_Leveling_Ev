@@ -48,7 +48,7 @@ export function grantForRecord(instrument: InstrumentConfig, record: InstrumentR
 /** Events that can carry XP other than a quest completion. Mirrors db/projections.ts's NON_COMPLETION_XP_EVENT_TYPES. */
 const LEDGER_EVENT_TYPES: ReadonlySet<SystemEvent['type']> = new Set([
   'QUEST_RECOVERED', 'PROBLEM_REVISITED', 'ARTIFACT_SHIPPED', 'LEARNING_BLOCK_LOGGED', 'SYSTEM_DESIGN_LOGGED',
-  'STEPS_LOGGED', 'MAINTENANCE_LOGGED', 'BOSS_CLEARED', 'WEEKLY_QUEST_COMPLETED',
+  'STEPS_LOGGED', 'MAINTENANCE_LOGGED', 'BOSS_CLEARED', 'WEEKLY_QUEST_COMPLETED', 'INSTRUMENT_RECORDED',
 ]);
 
 export interface DayGrants { localDate: string; intents: GrantIntentV2[] }

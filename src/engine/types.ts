@@ -48,7 +48,10 @@ export type EventType =
   | 'WEEKLY_QUEST_COMPLETED'
   // Platform (platform/02 §19, §43.2): a System Blueprint version takes effect.
   // The payload carries the full document; see blueprint/events.ts.
-  | 'BLUEPRINT_ACTIVATED';
+  | 'BLUEPRINT_ACTIVATED'
+  // A record of a GENERIC instrument (platform/02 §8.2, §43.2). Legacy
+  // instruments keep writing their legacy event types; see blueprint/events.ts.
+  | 'INSTRUMENT_RECORDED';
 
 export type EventSource = 'user' | 'system' | 'import' | 'rule';
 
@@ -337,6 +340,13 @@ export interface QuestCompletedPayload {
   templateId: string;
   questKey: CoreQuestKey;
   localDate: string;
+  // schema_v 2 (platform/02 §20): which domain and quest definition this
+  // completion belonged to and under which Blueprint version, so an export
+  // alone says what the day meant. Optional: a v1 event has none of them and
+  // reads exactly as before (see blueprint/events.ts#questCompletionFacts).
+  domainId?: string;
+  questDefId?: string;
+  blueprintVersion?: number;
 }
 
 export interface QuestUndonePayload {
