@@ -134,7 +134,7 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 
 | Loop | Objective | Parity target | Acceptance |
 |---|---|---|---|
-| ☐ 4.1 | `evaluateCriterion` + `explainCriterion` | on every day of every corpus, `met` ⇔ the legacy `maybeComplete*` firing condition | 100% agreement |
+| ☑ 4.1 | `evaluateCriterion` + `explainCriterion` | on every day of every corpus, `met` ⇔ the legacy `maybeComplete*` firing condition | 100% agreement |
 | ☐ 4.2 | Grant resolution + channel caps → `computeDayLedgerV2` | `computeDayLedger` rows (amount, category, reason, capped_from) | E1 on the ledger |
 | ☐ 4.3 | `buildProjectionsV2(events, versions, deps)` | all 5 cache tables | E1 deep-equal |
 | ☐ 4.4 | Attribute DSL evaluator | `attributesFrom` + `store/attributes.ts` inputs | E2 |
