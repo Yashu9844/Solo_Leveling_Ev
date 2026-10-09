@@ -31,6 +31,14 @@ export interface SignalEnv {
   /** The attribute window: the last N non-paused dates up to `asOf`. */
   eligibleDates?: ReadonlySet<string>;
   facts?: SignalFacts;
+  /**
+   * LEGACY QUIRK, kept on purpose (platform/02 §22.1): a 'total' aggregate
+   * ignores `asOf`. The old getAttributes(date) reads foundation mastery from
+   * EVERY learning block in the database, so last week's ENGINEERING value in
+   * the weekly review counts this week's blocks. Only the weekly review's
+   * "before" read sets it.
+   */
+  unboundedTotals?: boolean;
 }
 
 /** Filter keys that steer a signal rather than select records. */
@@ -42,6 +50,7 @@ function shift(date: string, days: number): string {
 
 function windowStart(aggregate: Aggregate | undefined, asOf: string): string | undefined {
   switch (aggregate) {
+    case 'window_7': return shift(asOf, -6);
     case 'window_14': return shift(asOf, -13);
     case 'window_28': case 'rate_28': case 'mean_28': case 'sd_28': return shift(asOf, -27);
     case 'window_90': return shift(asOf, -89);
@@ -53,7 +62,7 @@ function windowStart(aggregate: Aggregate | undefined, asOf: string): string | u
 export function recordsFor(records: readonly InstrumentRecord[], aggregate: Aggregate | undefined, filter: Record<string, string> | undefined, env: SignalEnv): InstrumentRecord[] {
   const start = windowStart(aggregate, env.asOf);
   const selected = records.filter((record) => {
-    if (record.localDate > env.asOf) return false;
+    if (record.localDate > env.asOf && !(env.unboundedTotals && aggregate === 'total')) return false;
     if (aggregate === 'day') return record.localDate === env.asOf;
     if (aggregate === 'eligible_28') return env.eligibleDates?.has(record.localDate) ?? false;
     return start === undefined || record.localDate >= start;

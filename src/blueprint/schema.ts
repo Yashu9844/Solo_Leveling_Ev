@@ -10,7 +10,7 @@ export type InstrumentType =
   | 'practice_item' | 'pipeline' | 'duration' | 'session' | 'threshold'
   | 'time_window' | 'artifact' | 'study_block' | 'checklist';
 export type Aggregate =
-  | 'day' | 'total' | 'window_14' | 'window_28' | 'window_90' | 'eligible_28' | 'rate_28' | 'mean_28'
+  | 'day' | 'total' | 'window_7' | 'window_14' | 'window_28' | 'window_90' | 'eligible_28' | 'rate_28' | 'mean_28'
   | 'sd_28' | 'latest' | 'max' | `mastery_count_at_least:${MasteryState}`;
 export type MasteryState = 'unseen' | 'introduced' | 'applied' | 'fluent' | 'retained';
 
@@ -30,7 +30,7 @@ export type SignalRef =
 export type GlobalSignalName =
   | 'mvd_days' | 'core_completion' | 'bosses_cleared' | 'checkpoints_sealed' | 'grace_used'
   | 'consistency_14' | 'consistency_28' | 'completion_days' | 'window_days' | 'first_quest'
-  | 'recovered_after_gap' | 'if_then_rate' | 'boss_cleared' | 'checkpoint_sealed' | 'prior_checkpoints_sealed';
+  | 'recovered_after_gap' | 'if_then_rate' | 'boss_cleared' | 'checkpoint_sealed' | 'prior_checkpoints_sealed' | 'xp_earned';
 
 export interface DomainDefinition {
   id: string; archetypeId?: string; role: 'engine' | 'guardrail' | 'support';
@@ -106,8 +106,29 @@ export interface MilestoneDef { id: string; domainId: string; label: string; con
 export interface RankGateDef { rank: Rank; day: number; conditions: GateCondition[] }
 export interface BossDef { id: string; title: string; anchorMilestoneId: string; windowStartDay: number; windowEndDay: number; conditions: GateCondition[]; gatesRank?: Rank }
 export interface AchievementDef { id: string; label: string; condition: GateCondition; domainId?: string; kind?: 'achievement' | 'identity' }
-export interface CheckpointDef { selfEfficacy: { id: string; prompt: string }[]; automaticity: { id: string; prompt: string }[]; enjoyment: { id: string; domainId: string; prompt: string }[] }
-export interface ReviewDef { domainPrompts: { id: string; domainId: string; prompt: string; options: string[] }[] }
+/**
+ * One value frozen into a checkpoint row when it is sealed (platform/02 §16.3).
+ * `atLeast` turns a count into a flag ("has a public repo"); without it the
+ * value is the signal itself. `zero` is the value an arc with no activity has.
+ */
+export interface EvidenceDef { key: string; signal: SignalRef; atLeast?: number; zero: number | boolean }
+/** A before/after line of the checkpoint report, read from the frozen evidence by `evidenceKey`. */
+export interface ComparisonRowDef {
+  id: string; label: string; evidenceKey: string; format: 'int' | 'percent' | 'of9' | 'minutes'; direction: 'higher' | 'lower';
+  /** Show the row only when the baseline is a real measurement (below this sentinel). */
+  onlyWhenBaselineBelow?: number;
+}
+export interface CheckpointDef {
+  selfEfficacy: { id: string; prompt: string }[]; automaticity: { id: string; prompt: string }[]; enjoyment: { id: string; domainId: string; prompt: string }[];
+  evidence?: EvidenceDef[]; comparison?: ComparisonRowDef[];
+}
+/** A headline number of the REALITY tab: cumulative, real-world, never scored. */
+export interface RealityRowDef { key: string; label: string; signal: SignalRef }
+export interface ReviewDef {
+  domainPrompts: { id: string; domainId: string; prompt: string; options: string[] }[];
+  /** The weekly review's headline numbers, each read over the 7 days ending on the review day. */
+  weeklyMetrics?: RealityRowDef[];
+}
 export interface RuleDef { id: string; kind: 'MODE_RATIO' | 'WRONG_TIME' | 'SUBSTITUTE_SHARE' | 'LOW_CONVERSION' | 'WEAKEST_TOPIC'; enabled: boolean; params?: Record<string, unknown> }
 export interface MessagingDef { evidenceTemplates: { id: string; tier: 'P1' | 'P2' | 'P3' | 'P4' | 'P5'; signal?: SignalRef; template: string }[]; reflectionThemes?: string[] }
 export interface VocabularyOverrides { [key: string]: string | undefined }
@@ -122,4 +143,5 @@ export interface SystemBlueprint {
   metrics: MetricDefinition[]; skills: SkillTreeDef[]; attributes: { groups: AttributeGroupDef[]; defs: AttributeDef[] };
   milestones: MilestoneDef[]; gates: RankGateDef[]; bosses: BossDef[]; checkpoints: CheckpointDef;
   achievements: AchievementDef[]; reviews: ReviewDef; rules: RuleDef[]; messaging: MessagingDef; vocabulary: VocabularyOverrides;
+  reality?: RealityRowDef[];
 }

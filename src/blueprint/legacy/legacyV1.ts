@@ -12,8 +12,8 @@
 // equal the defaults in engine/config.ts; for anyone who started with the old
 // onboarding they are the arc's own (platform/05 loop 1.3).
 import type {
-  AchievementDef, AttributeDef, BossDef, Criterion, DomainDefinition, GateClause, GateCondition, InstrumentConfig,
-  MilestoneDef, QuestTemplateDef, RankGateDef, SignalRef, SkillTreeDef, SystemBlueprint,
+  AchievementDef, AttributeDef, BossDef, ComparisonRowDef, Criterion, DomainDefinition, EvidenceDef, GateClause, GateCondition, InstrumentConfig,
+  MilestoneDef, QuestTemplateDef, RankGateDef, RealityRowDef, SignalRef, SkillTreeDef, SystemBlueprint,
 } from '../schema';
 import type { ConditionFormat, Comparator } from '../schema';
 
@@ -108,6 +108,82 @@ const firstAttempt = (id: string, floor: number, signal: SignalRef = FIRST_ATTEM
 const SYSTEM_DESIGNS_120 = condition('designs', '{0} designs studied (need 12), {1} written (need 4), {2} explained (need 2)', 'count', [clause(DESIGNS, '>=', 12, 'int'), clause(DESIGNS_WRITTEN, '>=', 4, 'int'), clause(DESIGNS_EXPLAINED, '>=', 2, 'int')]);
 const RESUME_V3 = condition('resume-v3', 'Resume v3 with an external review', 'recorded', [clause(RESUMES, '>=', 3), clause(RESUMES_REVIEWED, '>=', 1)]);
 const FOUNDATIONS_90 = condition('foundations-90', '{0} Fluent (need 5), {1} Retained (need 2)', 'count', [clause(MASTERY('fluent'), '>=', 5, 'int'), clause(MASTERY('retained'), '>=', 2, 'int')]);
+
+
+// ── What a sealed checkpoint freezes (engine/rank.ts GateEvidence, field for field) ──
+const evidence = (key: string, signal: SignalRef, zero: number | boolean = 0, atLeast?: number): EvidenceDef =>
+  atLeast === undefined ? { key, signal, zero } : { key, signal, atLeast, zero };
+const EVIDENCE: EvidenceDef[] = [
+  evidence('mvdConsistency14d', glob('consistency_14')),
+  evidence('coreCompletion28d', CORE_COMPLETION_28),
+  evidence('problemsTotal', PROBLEMS_TOTAL),
+  evidence('firstAttemptRateM28d', FIRST_ATTEMPT_M_28),
+  evidence('trainingSessionsTotal', SESSIONS_TOTAL),
+  evidence('meanSteps', MEAN_STEPS),
+  evidence('wakeSdMin', WAKE_SD, 999),
+  evidence('screenTimeAvgMin', SCREEN_AVG),
+  evidence('qualityApplicationsTotal', QUALITY_APPS),
+  evidence('followThroughRate', FOLLOW_THROUGH),
+  evidence('networkingConversations', NETWORKING),
+  evidence('recordedMocks', MOCKS),
+  evidence('aiFeaturePublicRepo', AI_FEATURE, false, 1),
+  evidence('publicProjectsTotal', PROJECTS_TOTAL),
+  evidence('publicProjectsWithEvalSuite', PROJECTS_WITH_EVAL),
+  evidence('publicProjectsDeployedReachable', DEPLOYED),
+  evidence('publishedWriteups', WRITEUPS),
+  evidence('resumeVersionsTotal', RESUMES),
+  evidence('resumeExternallyReviewed', RESUMES_REVIEWED, false, 1),
+  evidence('foundationTopicsIntroducedPlus', MASTERY('introduced')),
+  evidence('foundationTopicsFluentPlus', MASTERY('fluent')),
+  evidence('foundationTopicsRetainedPlus', MASTERY('retained')),
+  evidence('systemDesignsStudied', DESIGNS),
+  evidence('systemDesignsWrittenUp', DESIGNS_WRITTEN),
+  evidence('systemDesignsExplainedAloud', DESIGNS_EXPLAINED),
+  evidence('trainingEst1RmGainPct', EST_1RM_GAIN),
+  evidence('costPerTaskMeasured', COST_MEASURED, false, 1),
+  evidence('interviewBenchmarkPassed', BENCHMARK, false, 1),
+  evidence('bossICleared', BOSS_CLEARED('I'), false, 1),
+  evidence('bossIICleared', BOSS_CLEARED('II'), false, 1),
+  evidence('bossIIICleared', BOSS_CLEARED('III'), false, 1),
+  evidence('bossIVCleared', BOSS_CLEARED('IV'), false, 1),
+  evidence('arcSealed', glob('prior_checkpoints_sealed'), false, 4),
+];
+
+const COMPARISON: ComparisonRowDef[] = [
+  { id: 'problems', label: 'Problems solved', evidenceKey: 'problemsTotal', format: 'int', direction: 'higher' },
+  { id: 'quality-applications', label: 'Quality applications', evidenceKey: 'qualityApplicationsTotal', format: 'int', direction: 'higher' },
+  { id: 'public-projects', label: 'Public projects', evidenceKey: 'publicProjectsTotal', format: 'int', direction: 'higher' },
+  { id: 'foundations', label: 'Foundations >= Introduced', evidenceKey: 'foundationTopicsIntroducedPlus', format: 'of9', direction: 'higher' },
+  { id: 'training', label: 'Training sessions', evidenceKey: 'trainingSessionsTotal', format: 'int', direction: 'higher' },
+  { id: 'first-attempt', label: 'First-attempt rate (M)', evidenceKey: 'firstAttemptRateM28d', format: 'percent', direction: 'higher' },
+  { id: 'wake-sd', label: 'Wake SD', evidenceKey: 'wakeSdMin', format: 'minutes', direction: 'lower', onlyWhenBaselineBelow: 999 },
+];
+
+// ── The REALITY tab: cumulative, real-world numbers, never scored ───────────
+const REALITY: RealityRowDef[] = [
+  { key: 'problems', label: 'Problems', signal: PROBLEMS_TOTAL },
+  { key: 'firstAttemptRateM', label: 'First-attempt rate (M)', signal: FIRST_ATTEMPT_M_ALL },
+  { key: 'publicProjects', label: 'Public projects', signal: inst('build.artifacts', 'count', 'total', { kind: 'project' }) },
+  { key: 'evals', label: 'Eval suites', signal: inst('build.artifacts', 'count', 'total', { kind: 'eval' }) },
+  { key: 'applications', label: 'Applications', signal: inst('career.applications', 'submitted', 'total') },
+  { key: 'qualityRate', label: 'Quality rate', signal: inst('career.applications', 'quality_rate', 'total') },
+  { key: 'followThroughRate', label: 'Follow-through', signal: FOLLOW_THROUGH },
+  { key: 'foundationsFluentOrBetter', label: 'Foundations at Fluent or better', signal: MASTERY('fluent') },
+];
+
+// ── The weekly review's headline numbers (7 days ending on the review day) ──
+const W7 = 'window_7' as const;
+const WEEKLY_METRICS: RealityRowDef[] = [
+  { key: 'xpEarned', label: 'XP earned', signal: glob('xp_earned', undefined, W7) },
+  { key: 'deepWorkMinutes', label: 'Deep work (minutes)', signal: sum(inst('build.sessions', 'minutes', W7), inst('foundations.blocks', 'minutes', W7), inst('foundations.design', 'minutes', W7)) },
+  { key: 'applications', label: 'Applications', signal: inst('career.applications', 'submitted', W7) },
+  { key: 'qualityApplications', label: 'Quality applications', signal: inst('career.applications', 'quality_count', W7) },
+  { key: 'problems', label: 'Problems', signal: inst('dsa.problems', 'count', W7, { isRevisit: 'false' }) },
+  { key: 'buildSessions', label: 'Build sessions', signal: inst('build.sessions', 'records', W7) },
+  { key: 'learnBlocks', label: 'Learning blocks', signal: inst('foundations.blocks', 'blocks', W7) },
+  { key: 'trainingSessions', label: 'Training sessions', signal: inst('training.sessions', 'count', W7) },
+  { key: 'meanSteps', label: 'Mean steps', signal: inst('training.steps', 'mean_value', W7) },
+];
 
 function gates(): RankGateDef[] {
   return [
@@ -445,9 +521,11 @@ export function legacyBlueprintFor(arc: LegacyArcFacts = OWNER_ARC_DEFAULTS): Sy
       ].map((prompt, index) => ({ id: `self-efficacy-${index + 1}`, prompt })),
       automaticity: ['Waking at my target time', 'Training', 'Daily study', 'Sleeping at my target time'].map((prompt, index) => ({ id: `automaticity-${index + 1}`, prompt })),
       enjoyment: [['dsa', 'DSA'], ['build', 'Building/AI'], ['training', 'Training']].map(([domainId, prompt]) => ({ id: `enjoyment-${domainId}`, domainId: domainId!, prompt: prompt! })),
+      evidence: EVIDENCE,
+      comparison: COMPARISON,
     },
     achievements: achievementsAndIdentities,
-    reviews: { domainPrompts: [] },
+    reviews: { domainPrompts: [], weeklyMetrics: WEEKLY_METRICS },
     rules: [
       { id: 'learn-ship', kind: 'MODE_RATIO', enabled: true, params: { instrumentId: 'build.sessions', ratio: 3, windowDays: 14 } },
       { id: 'wrong-time', kind: 'WRONG_TIME', enabled: true, params: { count: 3, windowDays: 14 } },
@@ -457,6 +535,7 @@ export function legacyBlueprintFor(arc: LegacyArcFacts = OWNER_ARC_DEFAULTS): Sy
     ],
     messaging: { evidenceTemplates: [] },
     vocabulary: {},
+    reality: REALITY,
   };
 }
 

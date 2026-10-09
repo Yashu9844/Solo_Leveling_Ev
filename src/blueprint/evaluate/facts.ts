@@ -24,6 +24,8 @@ export interface FactsInput {
   checkpoints: readonly CheckpointFact[];
   /** quest_instance rows (V2 or legacy), for the if-then firing rate. */
   instances: readonly Pick<QuestInstanceRow, 'template_id' | 'local_date' | 'state' | 'recovered'>[];
+  /** xp_ledger rows (V2 or legacy), for XP-earned totals. */
+  ledger?: readonly { local_date: string; amount: number }[];
   asOf: string;
 }
 
@@ -54,6 +56,7 @@ export function eligibleWindowDates(asOf: string, arcStartDate: string, pausedDa
 
 export function buildFacts(input: FactsInput, hooks: FactsHooks): BuiltFacts {
   const { blueprint, config, events, checkpoints, instances, asOf } = input;
+  const ledger = input.ledger ?? [];
   const state = applyEvents([...events], config);
   const arc = state.arc;
   const arcStart = arc?.start_date ?? blueprint.arc.startDate;
@@ -74,6 +77,7 @@ export function buildFacts(input: FactsInput, hooks: FactsHooks): BuiltFacts {
     switch (aggregate) {
       case 'day': return localDate === asOf;
       case 'eligible_28': return eligible.has(localDate);
+      case 'window_7': return localDate >= shift(asOf, -6);
       case 'window_14': return localDate >= shift(asOf, -13);
       case 'window_28': return localDate >= shift(asOf, -27);
       case 'window_90': return localDate >= shift(asOf, -89);
@@ -103,6 +107,7 @@ export function buildFacts(input: FactsInput, hooks: FactsHooks): BuiltFacts {
         case 'boss_cleared': return id !== undefined && hooks.bossCleared(id) ? 1 : 0;
         case 'checkpoint_sealed': return id !== undefined && sealed(Number(id)) ? 1 : 0;
         case 'prior_checkpoints_sealed': return [14, 30, 60, 90].filter(sealed).length;
+        case 'xp_earned': return ledger.filter((row) => inAggregateWindow(row.local_date, aggregate)).reduce((sum, row) => sum + row.amount, 0);
         case 'bosses_cleared': return events.filter((e) => e.type === 'BOSS_CLEARED' && e.local_date <= asOf).length;
         case 'checkpoints_sealed': return checkpoints.filter((checkpoint) => checkpoint.sealed_at !== undefined).length;
         case 'grace_used': return streakYesterday?.grace_used_this_cycle ?? 0;
