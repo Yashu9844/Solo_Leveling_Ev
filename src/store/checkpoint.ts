@@ -39,6 +39,8 @@ import { db } from '../db/db';
 import type { ArcRow, CheckpointRow, EventRow, ProfileRow } from '../db/schema';
 import type { EngineConfig, EngineDeps, Rank, SystemEvent } from '../engine/types';
 import { getActiveArc, getActiveProfile } from './arc';
+import { engineV2Enabled } from '../flags';
+import { blueprintVersionStampV2, checkpointComparisonV2, gateEvidenceV2, gateResultV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -184,6 +186,10 @@ const CHECKPOINT_DAYS: Checkpoint['day'][] = [14, 30, 60, 90];
  * "how close am I") is legitimate and this takes whatever date it's given.
  */
 export async function computeGateEvidence(today: string, config: EngineConfig): Promise<GateEvidence> {
+  if (engineV2Enabled()) {
+    const v2 = await gateEvidenceV2(today);
+    if (v2) return v2;
+  }
   const cutoff28 = shiftDate(today, -27);
   const inLast = (localDate: string, cutoff: string) => localDate >= cutoff && localDate <= today;
 
@@ -355,6 +361,10 @@ export interface CheckpointReport {
  * call before the checkpoint row exists or before its day arrives (a
  * preview), and again after sealing (re-reads the same real data). */
 export async function getCheckpointReport(day: Checkpoint['day'], today: string, config: EngineConfig): Promise<CheckpointReport> {
+  if (engineV2Enabled()) {
+    const v2 = await gateResultV2(day, today);
+    if (v2) return v2;
+  }
   const [checkpoint, previousRank, evidence] = await Promise.all([
     getCheckpoint(day),
     ranksSealedBefore(day),
@@ -381,6 +391,10 @@ export interface CheckpointComparisonResult {
  * what Day 0's evidence would compute to for an arc with zero activity.
  */
 export async function getCheckpointComparison(day: Checkpoint['day'], today: string, config: EngineConfig): Promise<CheckpointComparisonResult> {
+  if (engineV2Enabled()) {
+    const v2 = await checkpointComparisonV2(day, today);
+    if (v2) return v2;
+  }
   const DAYS: Checkpoint['day'][] = [0, 14, 30, 60, 90, 120];
   const allCheckpoints = await db.checkpoint.toArray();
   const previousDay = DAYS.filter((d) => d < day).sort((a, b) => b - a)[0];
@@ -651,10 +665,13 @@ export async function sealCheckpoint(day: Checkpoint['day'], today: string, conf
 
   const previousRank = await ranksSealedBefore(day);
   const evidence = await computeGateEvidence(today, config);
-  const result = evaluateGates({ day, previousRank }, evidence);
+  const v2Gate = engineV2Enabled() ? await gateResultV2(day, today) : undefined;
+  const result = v2Gate ? v2Gate.result : evaluateGates({ day, previousRank }, evidence);
+  const stamp = engineV2Enabled() ? await blueprintVersionStampV2(today) : undefined;
 
   const templates = await db.quest_template.toArray();
   await db.checkpoint.update(existing.id, {
+    ...(stamp !== undefined ? { blueprint_version: stamp } : {}),
     sealed_at: deps.now(),
     rank_before: previousRank,
     rank_after: result.rank,

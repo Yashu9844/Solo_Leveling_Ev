@@ -36,6 +36,8 @@ import { getStreakState } from './streak';
 import { getRecoverableDay } from './recovery';
 import { getCurrentRank } from './checkpoint';
 import { getActiveArc } from './arc';
+import { engineV2Enabled } from '../flags';
+import { systemMessageContextV2 } from './v2Reads';
 
 /** engine/rank.ts's checkpoint ladder — the schedule, not a second copy of it. */
 const CHECKPOINT_DAYS = [14, 30, 60, 90, 120] as const;
@@ -79,6 +81,10 @@ export async function buildSystemMessageContext(
   if (!arc) return null;
 
   const now = deps.now();
+  if (engineV2Enabled()) {
+    const v2 = await systemMessageContextV2(today, arcDayNumber, now);
+    if (v2) return v2;
+  }
   const tz = config.arc.timezone;
 
   const [rollup, yesterdayRollup, totalXp, streakState, recoverable, rank, todayEvents, priorOpens] =

@@ -29,13 +29,14 @@ import type {
 } from '../../engine/types';
 import type { InstrumentRecord } from '../framework';
 import { LEGACY_INSTRUMENTS, MAINTENANCE_ITEMS, minutesSinceMidnight, type LegacyInstrumentId } from './ids';
-import { addDays, format, parseISO } from 'date-fns';
 
 /** The laundry/followup arithmetic buildDomainTables uses for an application's follow-up date. */
 const FOLLOWUP_AFTER_DAYS = 10;
 
+/** Calendar-date arithmetic on a plain YYYY-MM-DD string; UTC so that no timezone or DST can shift the day. */
 function shiftDate(dateStr: string, days: number): string {
-  return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
+  const [year, month, day] = dateStr.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
 function payload<T>(event: SystemEvent): T {
@@ -54,7 +55,12 @@ function record(
 
 /** Drops keys whose value is undefined, so records compare equal under toEqual and JSON alike. */
 function clean<T extends Record<string, unknown>>(value: T): T {
-  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
+  let hasUndefined = false;
+  for (const key in value) if (value[key] === undefined) { hasUndefined = true; break; }
+  if (!hasUndefined) return value;
+  const copy: Record<string, unknown> = {};
+  for (const key in value) if (value[key] !== undefined) copy[key] = value[key];
+  return copy as T;
 }
 
 export function upcastLegacyEvents(events: readonly SystemEvent[]): InstrumentRecord[] {

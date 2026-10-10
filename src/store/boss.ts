@@ -11,6 +11,8 @@ import { getAllEvents, appendEvent } from '../db/events';
 import { rebuildProjections } from '../db/projections';
 import { db } from '../db/db';
 import { getActiveArc } from './arc';
+import { engineV2Enabled } from '../flags';
+import { bossStatusV2 } from './v2Reads';
 
 async function isBossCleared(bossId: BossId): Promise<boolean> {
   const events = await getAllEvents();
@@ -97,6 +99,10 @@ export async function computeBossEvidence(): Promise<BossEvidence> {
 }
 
 export async function getBossStatus(bossId: BossId, today: string): Promise<BossResult> {
+  if (engineV2Enabled()) {
+    const v2 = await bossStatusV2(bossId, today);
+    if (v2) return v2;
+  }
   const arc = await getActiveArc();
   // Both are already local_date strings in the arc's own timezone — a
   // plain calendar-day difference is exact here, unlike engine/time.ts's

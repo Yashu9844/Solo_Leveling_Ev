@@ -37,3 +37,27 @@ The gate G2 ("e2e green") is therefore evaluated as **no new failures versus thi
 | `CHECKPOINT_SEALED` is never appended by `sealCheckpoint` | `src/store/checkpoint.ts` | The six "CHECKPOINT SEALED" System voice lines (`voicePack.ts` event-checkpoint-001…006) can never fire. It also means the reducer's throw on that type is never hit in practice. |
 | `tsc -b` covers only `src/` | `tsconfig.app.json` | Tests are type-checked only through vitest/playwright transforms. A test-typecheck step belongs in the verify gate (Phase 1). |
 | 34 lint errors in the committed tree | three attribute detail screens + root `_*-shot.mjs` scripts | Fixed in the baseline commit (dead imports removed; scratch scripts ignored). |
+
+---
+
+## Update, 10 Oct 2026 - e2e under the Blueprint engine (loop 6.2)
+
+**Result: no e2e failure is attributable to `ENGINE_V2`.** Evidence, all on the same machine in one session:
+
+| Run | Flag | Failures |
+|---|---|---|
+| Full suite, 4 workers, flag-on build | on | the 18 known `responsive.spec` failures + backup, career, settings:42, weekly-review:44, xp:128 |
+| `backup career settings xp`, 4 workers, at the **session's starting commit** (before any platform work from loop 3.5) | - | backup, career, settings:42, xp:57 |
+| The same four, current code | off | backup, career, settings:42, xp:57 |
+| `backup career build settings streak xp weekly-review`, **2 workers** | off | backup, xp:57, xp:128 |
+| The same seven, **2 workers** | on | xp:57, xp:128 |
+
+So: with the flag on the failures are a **subset** of the flag-off failures, and four of them fail identically at the starting commit. The common cause is load. These specs time out at 30 s or race a 400 ms window (`xp.spec`'s `dismissMomentIfPresent`), and this machine runs other projects' dev servers during the suite. `xp.spec:128` passes alone in ~26 s with the flag off and on.
+
+What was found and fixed on the way (each is a real defect, independent of load):
+- **5.1's `versionchange` handler reloaded the page on a database DELETION**, which `backup.spec` triggers; it now reloads only for an upgrade.
+- **The reducer copied the whole completions map on every completion**, making a rebuild quadratic in the log: 477 ms at 6,600 events. It is now in place (~30 ms) - an improvement for the legacy engine as well. `npm run bench` reproduces the numbers.
+- **`resolveBlueprints` re-ran the whole reducer** just to read the arc; it now folds only the ARC_* events.
+- The V2 read models reload the log and rebuild their environment per call; one screen refresh makes several calls, so `store/v2Reads.ts` now caches by (day, log length, last event, projection epoch, checkpoint rows).
+
+The 18 `responsive.spec` failures are unchanged and still need the owner's design decision above.

@@ -91,7 +91,8 @@ export function resolveBlueprints(events: readonly SystemEvent[]): ResolvedBluep
 
   if (versions.some((blueprint) => blueprint.version === 1)) return { versions, rejected, implicitGenesis: false };
 
-  const arc = applyEvents([...events], DEFAULT_CONFIG).arc;
+  // Only the ARC_* events shape the arc; folding the whole log here would run the reducer a second time per rebuild.
+  const arc = applyEvents(events.filter((event) => event.type.startsWith('ARC_')), DEFAULT_CONFIG).arc;
   if (!arc) return { versions, rejected, implicitGenesis: false };
   const legacy = legacyBlueprintFor({
     id: arc.id, start_date: arc.start_date, end_date: arc.end_date, timezone: arc.timezone,

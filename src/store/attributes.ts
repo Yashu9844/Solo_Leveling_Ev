@@ -13,6 +13,8 @@ import { applyEvents } from '../engine/reduce';
 import { getAllEvents } from '../db/events';
 import { db } from '../db/db';
 import type { EngineConfig } from '../engine/types';
+import { engineV2Enabled } from '../flags';
+import { attributesV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -45,6 +47,10 @@ function stddev(values: number[]): number {
 }
 
 export async function getAttributes(today: string, config: EngineConfig): Promise<AttributeResult[]> {
+  if (engineV2Enabled()) {
+    const v2 = await attributesV2(today);
+    if (v2) return v2;
+  }
   const events = await getAllEvents();
   const state = applyEvents(events, config);
   if (!state.arc) return attributesFrom(EMPTY_INPUTS);

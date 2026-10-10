@@ -9,13 +9,13 @@ import { evaluateCondition } from './condition';
 import type { SignalEnv } from './signals';
 
 /** The part of a checkpoint row rank continuity needs. */
-export interface SealedCheckpointFact { day: number; sealed_at?: string; rank_after?: Rank }
+export interface SealedCheckpointFact { day: number; sealed_at?: string; rank_after?: string }
 
 /** The rank already sealed at the latest sealed checkpoint strictly before `day`; 'E' before any. */
 export function rankSealedBefore(checkpoints: readonly SealedCheckpointFact[], day: number): Rank {
   const sealed = checkpoints.filter((checkpoint) => checkpoint.day < day && checkpoint.sealed_at !== undefined && checkpoint.rank_after !== undefined);
   if (sealed.length === 0) return 'E';
-  return sealed.reduce((latest, candidate) => (candidate.day > latest.day ? candidate : latest)).rank_after!;
+  return sealed.reduce((latest, candidate) => (candidate.day > latest.day ? candidate : latest)).rank_after as Rank;
 }
 
 export function evaluateGate(gate: RankGateDef, previousRank: Rank, env: SignalEnv): GateResult {

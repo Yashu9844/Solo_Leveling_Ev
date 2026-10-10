@@ -12,6 +12,8 @@ import { pickReflection } from './reflections';
 import { applyEvents } from '../engine/reduce';
 import { getAllEvents } from '../db/events';
 import { db } from '../db/db';
+import { engineV2Enabled } from '../flags';
+import { messageContextV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -31,6 +33,10 @@ const TREND_MIN_SAMPLE = 3;
 const CORRELATION_MIN_SAMPLE = 5;
 
 export async function computeMessageContext(today: string, config: EngineConfig): Promise<MessageContext> {
+  if (engineV2Enabled()) {
+    const v2 = await messageContextV2(today);
+    if (v2) return v2;
+  }
   const [
     dsaAttempts,
     dsaProblems,

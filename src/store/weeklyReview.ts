@@ -25,6 +25,8 @@ import type { WeeklyQuestProposal } from '../engine/weeklyQuest';
 import { getAllEvents, appendEvent } from '../db/events';
 import { db } from '../db/db';
 import { getActiveArc } from './arc';
+import { engineV2Enabled } from '../flags';
+import { weeklyReviewV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -126,6 +128,14 @@ export interface WeeklyReviewReport {
 }
 
 export async function getWeeklyReview(today: string, config: EngineConfig, deps: EngineDeps): Promise<WeeklyReviewReport> {
+  const arcForV2 = engineV2Enabled() ? await getActiveArc() : undefined;
+  const v2 = arcForV2 ? await weeklyReviewV2(today) : undefined;
+  if (arcForV2 && v2) {
+    // The read models come from the Blueprint engine; the weekly quest is state, not a read model, and is unchanged.
+    const activeWeeklyQuest = await getActiveWeeklyQuest(today, arcForV2.id, config, deps);
+    const weeklyQuestProposal = activeWeeklyQuest ? null : await getWeeklyQuestProposal(today);
+    return { thisWeek: v2.thisWeek as unknown as WeeklyMetrics, lastWeek: v2.lastWeek as unknown as WeeklyMetrics, review: v2.review, resumeNudge: v2.resumeNudge, sleepDsaCorrelation: v2.sleepDsaCorrelation, activeWeeklyQuest, weeklyQuestProposal };
+  }
   const thisWeekDates = weekDates(today);
   const lastWeekDates = weekDates(shiftDate(today, -7));
   const dateSet = new Set(thisWeekDates);

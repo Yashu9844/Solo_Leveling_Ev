@@ -66,6 +66,20 @@ describe('Dexie v5 (loop 5.1)', () => {
     await Dexie.delete(NAME);
   });
 
+  it('a deletion closes the connection so the delete can finish, but does not reload the page', async () => {
+    await seedV4();
+    const events: string[] = [];
+    const open = new SystemDb({ reload: () => events.push('reload'), blocked: () => events.push('blocked') });
+    await open.open();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    expect(open.isOpen()).toBe(false);
+    expect(events).toEqual([]);
+  });
+
   it('tells the person when an upgrade is blocked by a tab that will not close, and completes once it does', async () => {
     await seedV4();
     // A raw connection with no versionchange handler: it never yields.

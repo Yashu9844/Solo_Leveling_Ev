@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../../src/db/db';
+import { appendEvent } from '../../src/db/events';
 import { initialiseArc, type OnboardingInput } from '../../src/store/onboarding';
 import { getBossStatus, clearBoss } from '../../src/store/boss';
 import { logApplication } from '../../src/store/career';
@@ -92,6 +93,13 @@ describe('store/boss — clearBoss end-to-end', () => {
         deps
       );
     }
+    // The shipped artifact as the real writer records it: the event AND its table row. (The row alone is a
+    // state verifyIntegrity() would flag - the log is the source of truth, and the Blueprint engine reads it.)
+    await appendEvent({
+      id: deps.newId(), type: 'ARTIFACT_SHIPPED', occurred_at: deps.now(), local_date: day, arc_id: arcId,
+      payload: { artifactId: 'art-1', kind: 'feature', title: 'Agent tool', url: 'https://github.com/x/y', projectKey: 'proj' },
+      source: 'user', idem_key: 'artifact:art-1', schema_v: 1,
+    });
     await db.artifact.add({ id: 'art-1', kind: 'feature', title: 'Agent tool', url: 'https://github.com/x/y', project_key: 'proj', local_date: day });
     await db.checkpoint.add({
       id: 'cp-30',

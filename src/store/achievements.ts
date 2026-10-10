@@ -15,6 +15,8 @@ import { getAllEvents } from '../db/events';
 import { buildDayOutcomes } from '../db/projections';
 import { db } from '../db/db';
 import { getActiveArc } from './arc';
+import { engineV2Enabled } from '../flags';
+import { achievementsV2 } from './v2Reads';
 
 // The three core quests onboarding actually collects an implementation
 // intention for — store/onboarding.ts's Step 5 (career/DSA/training),
@@ -40,6 +42,10 @@ export interface AchievementsReport {
 }
 
 export async function getAchievementsReport(today: string, config: EngineConfig): Promise<AchievementsReport> {
+  if (engineV2Enabled()) {
+    const v2 = await achievementsV2(today);
+    if (v2) return v2 as unknown as AchievementsReport;
+  }
   const arc = await getActiveArc();
   if (!arc) return { achievements: achievementsFrom(EMPTY), identities: identitiesFrom(EMPTY) };
 

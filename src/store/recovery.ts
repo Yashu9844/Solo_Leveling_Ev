@@ -18,6 +18,8 @@ import { appendEvent } from '../db/events';
 import { getAllEvents } from '../db/events';
 import { rebuildProjections } from '../db/projections';
 import { getActiveArc } from './arc';
+import { engineV2Enabled } from '../flags';
+import { recoverableDayV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -35,6 +37,11 @@ export interface RecoverableDay {
 export async function getRecoverableDay(today: string, config: EngineConfig): Promise<RecoverableDay | null> {
   const arc = await getActiveArc();
   if (!arc) return null;
+
+  if (engineV2Enabled()) {
+    const v2 = await recoverableDayV2(today);
+    if (v2 !== undefined) return v2;
+  }
 
   const events = await getAllEvents();
   const state = applyEvents(events, config);

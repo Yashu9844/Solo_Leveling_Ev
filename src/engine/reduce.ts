@@ -183,30 +183,25 @@ function applyOne(state: EngineState, event: SystemEvent): EngineState {
 
     case 'QUEST_COMPLETED': {
       const payload = event.payload as unknown as QuestCompletedPayload;
-      return {
-        ...state,
-        quests: {
-          ...state.quests,
-          [payload.instanceId]: {
-            instance_id: payload.instanceId,
-            template_id: payload.templateId,
-            quest_key: payload.questKey,
-            local_date: payload.localDate,
-            completed_at: event.occurred_at,
-            event_id: event.id,
-          },
-        },
+      // In place: applyEvents owns `state` for its whole run, and copying the completions map on every
+      // completion made the fold quadratic in the length of the log (platform/05 loop 6.2 benchmark).
+      state.quests[payload.instanceId] = {
+        instance_id: payload.instanceId,
+        template_id: payload.templateId,
+        quest_key: payload.questKey,
+        local_date: payload.localDate,
+        completed_at: event.occurred_at,
+        event_id: event.id,
       };
+      return state;
     }
 
     case 'QUEST_UNDONE': {
       // Undone means "no completion overlay," i.e. back to available —
       // so this deletes the entry rather than recording an "undone" state.
       const payload = event.payload as unknown as QuestUndonePayload;
-      const quests = Object.fromEntries(
-        Object.entries(state.quests).filter(([instanceId]) => instanceId !== payload.instanceId)
-      );
-      return { ...state, quests };
+      delete state.quests[payload.instanceId];
+      return state;
     }
 
     case 'QUEST_RECOVERED': {

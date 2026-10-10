@@ -8,6 +8,11 @@
 //     closes itself and reloads into the new build;
 //   - the NEW connection, if it is blocked anyway, tells the person plainly.
 // Neither touches data: the upgrade itself is additive and transforms nothing.
+//
+// A DELETION also fires "versionchange" (newVersion is null) - the app's own
+// "delete everything" does it, and so do tests that wipe the database. The
+// connection must close or the delete would hang, but there is no newer build to
+// reload into, so it does not reload.
 import type Dexie from 'dexie';
 
 export interface ConnectionHooks {
@@ -18,9 +23,9 @@ export interface ConnectionHooks {
 }
 
 export function installConnectionSafety(database: Dexie, hooks: ConnectionHooks): void {
-  database.on('versionchange', () => {
+  database.on('versionchange', (event) => {
     database.close();
-    hooks.reload();
+    if (event.newVersion !== null) hooks.reload();
     // Returning false stops Dexie's default handler, which would close the
     // connection but leave the page running against a database it cannot read.
     return false;

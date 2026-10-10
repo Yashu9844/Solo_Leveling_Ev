@@ -230,6 +230,15 @@ export function buildProjections(events: SystemEvent[], config: EngineConfig, de
  * as its ONE mechanism for staying correct and read the fresh result
  * back without a second round-trip to the db.
  */
+/**
+ * Bumped after every rebuild. Read-model caches (store/v2Reads.ts) key on it, so a read can never
+ * be served from inputs older than the projections it sits on top of.
+ */
+let epoch = 0;
+export function projectionEpoch(): number {
+  return epoch;
+}
+
 export async function rebuildProjections(
   config: EngineConfig,
   deps: EngineDeps
@@ -256,6 +265,7 @@ export async function rebuildProjections(
     }
   );
 
+  epoch++;
   return built;
 }
 

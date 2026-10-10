@@ -5,6 +5,8 @@ import { funnelFrom, followThroughRate, type ApplicationFixture, type Applicatio
 import type { DsaAttemptFixture } from '../engine/dsa';
 import { FOUNDATION_TOPICS, foundationMasteryFor } from '../engine/foundations';
 import { db } from '../db/db';
+import { engineV2Enabled } from '../flags';
+import { realityV2 } from './v2Reads';
 
 export interface RealitySummary {
   problems: number;
@@ -18,6 +20,10 @@ export interface RealitySummary {
 }
 
 export async function getRealitySummary(today: string): Promise<RealitySummary> {
+  if (engineV2Enabled()) {
+    const v2 = await realityV2(today);
+    if (v2) return v2;
+  }
   const [dsaAttempts, dsaProblems, applications, artifacts, learningBlocks] = await Promise.all([
     db.dsa_attempt.toArray(),
     db.dsa_problem.toArray(),

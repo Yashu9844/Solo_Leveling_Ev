@@ -159,10 +159,10 @@ Each loop implements an instrument type (`src/instruments/types/<type>.ts`: reco
 | Loop | Objective | Acceptance |
 |---|---|---|
 | ☑ 6.1 | Write path: store functions resolve the version and call the V2 engine; `maybeComplete*` replaced by `evaluateCriterion`; legacy instruments write legacy events through write adapters | with the flag on, all L0 suites green; E1 on golden/fuzz/owner |
-| ☐ 6.2 | Read path: attributes, checkpoint, boss, achievements, reality, weekly, messages via the V2 evaluators | E2 green with the flag on |
-| ☐ 6.3 | Flag-on soak on the platform origin with the owner's imported export | `verifyIntegrity` clean daily for 7 days of the owner's real use on a second device, or of replayed activity |
-| ☐ 6.4 | **Cutover** following 02 §22.3: export → date check (not within ±3 days of a checkpoint) → deploy flag-on to the owner's origin → owner runs Verify integrity | the owner confirms Today, Progress, Skills and Profile look and behave the same |
-| ☐ 6.5 | 7-day post-cutover soak + decision record in `platform/decisions/0001-cutover.md` | clean integrity checks; rollback plan still valid |
+| ☑ 6.2 | Read path: attributes, checkpoint, boss, achievements, reality, weekly, messages via the V2 evaluators | E2 green with the flag on |
+| ☐ 6.3 | Flag-on soak on the platform origin with the owner's imported export | `verifyIntegrity` clean daily for 7 days of the owner's real use on a second device, or of replayed activity (needs the owner's export and 7 real days; steps in `06-CUTOVER-RUNBOOK.md`) |
+| ☐ 6.4 | **Cutover** following 02 §22.3: export → date check (not within ±3 days of a checkpoint) → deploy flag-on to the owner's origin → owner runs Verify integrity | the owner confirms Today, Progress, Skills and Profile look and behave the same (**the owner's deploy - not done by the autonomous run**; `npm run cutover:check` and the runbook are ready) |
+| ☐ 6.5 | 7-day post-cutover soak + decision record in `platform/decisions/0001-cutover.md` | clean integrity checks; rollback plan still valid (7 days after 6.4; the record is the owner's sign-off) |
 
 ### Phase 7 — Presentation registry and configuration-aware UI
 
