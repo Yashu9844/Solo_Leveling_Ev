@@ -14,6 +14,7 @@ The swap is one build-time flag, `VITE_ENGINE_V2=true`. With it **off** (the def
 | Every read model is identical (E2): attributes, six gate reports (every label and number), checkpoint comparisons, bosses, achievements, frozen evidence, reality, weekly review, message and transmission contexts, recoverable day | live store functions vs. the Blueprint evaluators on prefix databases | `npm run shadow` |
 | The whole unit suite passes with the flag **on**, unchanged, including the golden read-model snapshots | `vitest.v2.config.ts` | `npm run verify:v2` |
 | No browser failure is attributable to the flag (its failures are a subset of the flag-off failures; the rest is load flakiness on a busy machine - see `platform/decisions/0000-e2e-baseline.md`) | Playwright, flag-on build | `VITE_ENGINE_V2=true npx playwright test` |
+| **E3 - pixels:** every route and the main sheets render identically on the Blueprint engine (41 captures at 360 / 390 / 430 px, tolerance 0.1%, against a baseline recorded from the legacy engine) | `tests/e2e/visual-baseline.spec.ts` | `VITE_ENGINE_V2=true npx playwright test visual-baseline` (Windows/Chromium baselines; another OS needs its own recording) |
 | Dexie v5 upgrades a seeded v4 database byte for byte; a stale tab closes itself | `tests/engine/schema-v5.test.ts` | `npm test` |
 | An older build skips every new event type and reads the owner's log unchanged | `reduce.test.ts`, `event-payloads-v2.test.ts` | `npm test` |
 
