@@ -1,5 +1,5 @@
 import { useMemo, type ComponentType } from 'react';
-import type { InstrumentType } from '../../blueprint/schema';
+import type { DomainDefinition, InstrumentConfig, InstrumentType, SystemBlueprint } from '../../blueprint/schema';
 import { useSystem } from '../../store/SystemContext';
 import { ArtifactSheet } from './ArtifactSheet';
 import { ChecklistCard } from './ChecklistCard';
@@ -34,22 +34,29 @@ interface DomainLogSheetProps {
   onClose: () => void;
 }
 
+export interface LogTarget {
+  domain: DomainDefinition;
+  primary: InstrumentConfig;
+  siblings: InstrumentConfig[];
+}
+
 /**
- * Opens the primary log sheet of a domain: the first of its instruments whose type
- * has a sheet in the registry, with the domain's other instruments as siblings
- * (the duration beside a pipeline is its substitute tab). Renders nothing when the
- * domain, or a sheet for it, does not exist.
+ * The primary log target of a domain: the first of its instruments whose type has a sheet in
+ * the registry, with the domain's other instruments as siblings (the duration beside a
+ * pipeline is its substitute tab). Undefined when the domain, or a sheet for it, does not exist.
  */
+export function logTargetFor(blueprint: SystemBlueprint, domainId: string): LogTarget | undefined {
+  const domain = blueprint.domains.find((candidate) => candidate.id === domainId);
+  if (!domain) return undefined;
+  const instruments = domain.instrumentIds.flatMap((id) => blueprint.instruments.find((candidate) => candidate.id === id) ?? []);
+  const primary = instruments.find((instrument) => INSTRUMENT_SHEETS[instrument.type]);
+  return primary ? { domain, primary, siblings: instruments.filter((instrument) => instrument !== primary) } : undefined;
+}
+
+/** Opens the primary log sheet of a domain; renders nothing when there is none. */
 export function DomainLogSheet({ domainId, today, arcId, onClose }: DomainLogSheetProps) {
   const { blueprint } = useSystem();
-  const target = useMemo(() => {
-    const domain = blueprint.domains.find((candidate) => candidate.id === domainId);
-    if (!domain) return undefined;
-    const instruments = domain.instrumentIds.flatMap((id) => blueprint.instruments.find((candidate) => candidate.id === id) ?? []);
-    const primary = instruments.find((instrument) => INSTRUMENT_SHEETS[instrument.type]);
-    return primary ? { domain, primary, siblings: instruments.filter((instrument) => instrument !== primary) } : undefined;
-  }, [blueprint, domainId]);
-
+  const target = useMemo(() => logTargetFor(blueprint, domainId), [blueprint, domainId]);
   if (!target) return null;
   const Sheet = INSTRUMENT_SHEETS[target.primary.type]!;
   return <Sheet instrument={target.primary} domain={target.domain} siblings={target.siblings} today={today} arcId={arcId} onClose={onClose} />;

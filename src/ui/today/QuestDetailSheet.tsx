@@ -1,6 +1,7 @@
 import type { QuestInstance, QuestTemplate } from '../../engine/types';
 import { FramedPanel, PrimaryButton, SecondaryButton, Sheet } from '../kit';
-import { CRITERION_TEXT } from './criterionText';
+import { useSystem } from '../../store/SystemContext';
+import { presentQuest } from '../presentation/quest';
 
 interface QuestDetailSheetProps {
   template: QuestTemplate;
@@ -37,6 +38,8 @@ export function QuestDetailSheet({
   domainLog,
 }: QuestDetailSheetProps) {
   const complete = instance.state === 'complete';
+  const { blueprint } = useSystem();
+  const { objective } = presentQuest(blueprint, template.key);
 
   return (
     <Sheet
@@ -62,7 +65,7 @@ export function QuestDetailSheet({
         </FramedPanel>
       )}
 
-      <p className="text-sm leading-[1.55] text-ink-500">{CRITERION_TEXT[template.key]}</p>
+      <p className="text-sm leading-[1.55] text-ink-500">{objective}</p>
 
       {!complete && domainLog && (
         <div className="mt-5">

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEngineConfig } from '../../store/engineConfig';
 import { arcDay, isDayClosed, localDate } from '../../engine/time';
 import { levelFor, type LevelState } from '../../engine/level';
-import type { CoreQuestKey, QuestInstance, QuestRecoveredPayload, QuestTemplate } from '../../engine/types';
+import type { QuestInstance, QuestRecoveredPayload, QuestTemplate } from '../../engine/types';
 import { realDeps } from '../../store/deps';
 import { loadTodayQuests, completeQuest, undoQuest } from '../../store/quests';
 import { getDayXpByInstance, getTotalXp } from '../../store/playerState';
@@ -16,7 +16,9 @@ import { LevelUpMoment } from '../moments/LevelUpMoment';
 import { DayCompleteMoment } from '../moments/DayCompleteMoment';
 import { unlockTextForRange } from '../moments/levelUnlocks';
 import { EveningReview } from '../review/EveningReview';
-import { DomainChecklist, DomainLogSheet } from '../instruments/registry';
+import { DomainChecklist, DomainLogSheet, logTargetFor } from '../instruments/registry';
+import { coreQuestOrder, presentQuest } from '../presentation/quest';
+import { useSystem } from '../../store/SystemContext';
 import { getRevisitsDue, logRevisit, type RevisitDue } from '../../store/dsa';
 import { getActiveWeeklyQuest, type ActiveWeeklyQuest } from '../../store/weeklyQuest';
 import { getCurrentRank } from '../../store/checkpoint';
@@ -105,13 +107,15 @@ export function Today() {
   const [recoveryReason, setRecoveryReason] = useState<NonNullable<QuestRecoveredPayload['reason']> | null>(null);
   const [reviewed, setReviewed] = useState(true); // true until refresh() proves otherwise — hides the entry on first paint
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [careerLogOpen, setCareerLogOpen] = useState(false);
-  const [dsaLogOpen, setDsaLogOpen] = useState(false);
-  const [buildLogOpen, setBuildLogOpen] = useState(false);
-  const [trainingLogOpen, setTrainingLogOpen] = useState(false);
-  const [sleepLogOpen, setSleepLogOpen] = useState(false);
-  const [attentionLogOpen, setAttentionLogOpen] = useState(false);
-  const [learningBlockOpen, setLearningBlockOpen] = useState(false);
+  // Which domain's log sheet is open (platform/03 §27.3): one place instead of a boolean per domain.
+  const [logDomain, setLogDomain] = useState<string | null>(null);
+  const { blueprint } = useSystem();
+  const coreOrder = useMemo(() => coreQuestOrder(blueprint), [blueprint]);
+  // Support domains with a log sheet get an action card under the quests (the owner's: FOUNDATIONAL TRIAL).
+  const supportCards = useMemo(
+    () => blueprint.domains.filter((domain) => domain.role === 'support').flatMap((domain) => logTargetFor(blueprint, domain.id) ?? []),
+    [blueprint]
+  );
   const [revisitsDue, setRevisitsDue] = useState<RevisitDue[]>([]);
   const [weeklyQuest, setWeeklyQuest] = useState<ActiveWeeklyQuest | null>(null);
   const [rank, setRank] = useState('E');
@@ -326,25 +330,17 @@ export function Today() {
     }
   }
 
-  function domainLogFor(key: CoreQuestKey, closeSheet: () => void): { label: string; onOpen: () => void } | undefined {
-    function open(setter: (v: boolean) => void) {
-      closeSheet();
-      setter(true);
-    }
-    switch (key) {
-      case 'career':
-        return { label: 'Despatch Ascension', onOpen: () => open(setCareerLogOpen) };
-      case 'dsa':
-        return { label: 'Record Logic Trial', onOpen: () => open(setDsaLogOpen) };
-      case 'build':
-        return { label: 'Forge Construct', onOpen: () => open(setBuildLogOpen) };
-      case 'training':
-        return { label: 'Record Vitality Trial', onOpen: () => open(setTrainingLogOpen) };
-      case 'sleep':
-        return { label: 'Log Synchronization', onOpen: () => open(setSleepLogOpen) };
-      case 'attention':
-        return { label: 'Log Friction Control', onOpen: () => open(setAttentionLogOpen) };
-    }
+  function domainLogFor(questId: string, closeSheet: () => void): { label: string; onOpen: () => void } | undefined {
+    const { domainId } = presentQuest(blueprint, questId);
+    const target = domainId ? logTargetFor(blueprint, domainId) : undefined;
+    if (!target) return undefined;
+    return {
+      label: target.primary.logVerb,
+      onOpen: () => {
+        closeSheet();
+        setLogDomain(target.domain.id);
+      },
+    };
   }
 
   const openTemplate = templates.find(
@@ -570,7 +566,7 @@ export function Today() {
           )}
 
           <p className="pl-2 text-xs leading-relaxed text-ink-300">
-            {priorityLine(templates, instances, today, arc)}
+            {priorityLine(templates, instances, today, arc, coreOrder)}
           </p>
 
           {systemLine && (
@@ -612,38 +608,43 @@ export function Today() {
         <DomainChecklist domainId="maintenance" today={today} arcId={arc.id} arcStartDate={arc.start_date} onChanged={() => void refreshXp(today)} />
       )}
 
-      {/* Learning Block Action Card */}
-      <button
-        type="button"
-        onClick={() => setLearningBlockOpen(true)}
-        className="cut-sm mt-2 flex min-h-tap w-full items-center justify-between px-3 py-1.5 text-left transition-all duration-150"
-        style={{
-          border: '1px solid rgba(77, 163, 255, 0.3)',
-          background: 'linear-gradient(180deg, rgba(12, 22, 38, 0.75), rgba(7, 13, 24, 0.85))',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-accent/40 bg-accent-deep/40 text-accent-mid shadow-[0_0_8px_rgba(77,163,255,0.3)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
+      {/* Action cards for the support domains that keep a log (the owner's: Foundational Trial). */}
+      {supportCards.map(({ domain, primary }) => (
+        <button
+          key={domain.id}
+          type="button"
+          onClick={() => setLogDomain(domain.id)}
+          className="cut-sm mt-2 flex min-h-tap w-full items-center justify-between px-3 py-1.5 text-left transition-all duration-150"
+          style={{
+            border: '1px solid rgba(77, 163, 255, 0.3)',
+            background: 'linear-gradient(180deg, rgba(12, 22, 38, 0.75), rgba(7, 13, 24, 0.85))',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-accent/40 bg-accent-deep/40 text-accent-mid shadow-[0_0_8px_rgba(77,163,255,0.3)]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-100">
+              {primary.logVerb}
+            </span>
           </div>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-100">
-            Foundational Trial
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-semibold text-accent-mid">
-            +{getEngineConfig().learningBlockXp} XP
-          </span>
-          <span className="text-ink-700">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </span>
-        </div>
-      </button>
+          <div className="flex items-center gap-2">
+            {typeof primary.params.blockXp === 'number' && (
+              <span className="font-mono text-xs font-semibold text-accent-mid">
+                +{primary.params.blockXp} XP
+              </span>
+            )}
+            <span className="text-ink-700">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </span>
+          </div>
+        </button>
+      ))}
 
       {weeklyQuest && (
         <div
@@ -773,85 +774,13 @@ export function Today() {
         />
       )}
 
-      {careerLogOpen && arc && (
+      {logDomain && arc && (
         <DomainLogSheet
-          domainId="career"
+          domainId={logDomain}
           today={today}
           arcId={arc.id}
           onClose={() => {
-            setCareerLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {dsaLogOpen && arc && (
-        <DomainLogSheet
-          domainId="dsa"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setDsaLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {buildLogOpen && arc && (
-        <DomainLogSheet
-          domainId="build"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setBuildLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {trainingLogOpen && arc && (
-        <DomainLogSheet
-          domainId="training"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setTrainingLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {sleepLogOpen && arc && (
-        <DomainLogSheet
-          domainId="sleep"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setSleepLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {attentionLogOpen && arc && (
-        <DomainLogSheet
-          domainId="attention"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setAttentionLogOpen(false);
-            void refresh();
-          }}
-        />
-      )}
-
-      {learningBlockOpen && arc && (
-        <DomainLogSheet
-          domainId="foundations"
-          today={today}
-          arcId={arc.id}
-          onClose={() => {
-            setLearningBlockOpen(false);
+            setLogDomain(null);
             void refresh();
           }}
         />

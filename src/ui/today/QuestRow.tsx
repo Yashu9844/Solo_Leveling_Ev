@@ -1,69 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import {
-  Barbell,
-  Briefcase,
-  CaretDoubleRight,
-  Check,
-  Code,
-  Cpu,
-  Eye,
-  MoonStars,
-  ArrowUUpLeft,
-  type Icon,
-} from '@phosphor-icons/react';
-import type { CoreQuestKey, QuestInstance, QuestTemplate } from '../../engine/types';
-import { ROW_SUMMARY } from './criterionText';
-
-/** One glyph per domain, so a row is recognisable before it is read. */
-const QUEST_ICON: Record<CoreQuestKey, Icon> = {
-  career: Briefcase,
-  dsa: Code,
-  build: Cpu,
-  training: Barbell,
-  sleep: MoonStars,
-  attention: Eye,
-};
-
-/** Tile color scheme for domain icon box matching reference design */
-const DOMAIN_THEME: Record<CoreQuestKey, { bg: string; border: string; color: string; glow: string }> = {
-  attention: {
-    bg: 'rgba(15, 45, 85, 0.65)',
-    border: 'rgba(77, 163, 255, 0.45)',
-    color: '#5fb2ff',
-    glow: '0 0 10px rgba(77, 163, 255, 0.35)',
-  },
-  build: {
-    bg: 'rgba(15, 45, 85, 0.65)',
-    border: 'rgba(77, 163, 255, 0.45)',
-    color: '#5fb2ff',
-    glow: '0 0 10px rgba(77, 163, 255, 0.35)',
-  },
-  career: {
-    bg: 'rgba(55, 20, 85, 0.65)',
-    border: 'rgba(192, 132, 252, 0.45)',
-    color: '#c084fc',
-    glow: '0 0 10px rgba(192, 132, 252, 0.35)',
-  },
-  dsa: {
-    bg: 'rgba(55, 20, 85, 0.65)',
-    border: 'rgba(192, 132, 252, 0.45)',
-    color: '#c084fc',
-    glow: '0 0 10px rgba(192, 132, 252, 0.35)',
-  },
-  sleep: {
-    bg: 'rgba(55, 20, 85, 0.65)',
-    border: 'rgba(192, 132, 252, 0.45)',
-    color: '#c084fc',
-    glow: '0 0 10px rgba(192, 132, 252, 0.35)',
-  },
-  training: {
-    bg: 'rgba(55, 20, 85, 0.65)',
-    border: 'rgba(192, 132, 252, 0.45)',
-    color: '#c084fc',
-    glow: '0 0 10px rgba(192, 132, 252, 0.35)',
-  },
-};
+import { CaretDoubleRight, Check, ArrowUUpLeft } from '@phosphor-icons/react';
+import type { QuestInstance, QuestTemplate } from '../../engine/types';
+import { useSystem } from '../../store/SystemContext';
+import { presentQuest } from '../presentation/quest';
 
 /**
  * How far the card has to travel before the System accepts the gesture.
@@ -127,9 +67,9 @@ export function QuestRow({ template, instance, dayClosed, xp, onToggle, onOpen }
   const disabled = dayClosed;
   const displayedXp = complete ? (xp?.amount ?? template.xp) : template.xp;
   const capped = complete && xp?.cappedFrom !== undefined;
-  const key = template.key as CoreQuestKey;
-  const Glyph = QUEST_ICON[key] ?? Code;
-  const theme = DOMAIN_THEME[key] ?? DOMAIN_THEME.attention;
+  // One glyph per domain, so a row is recognisable before it is read; its tile is the domain's hue (ui/presentation).
+  const { blueprint } = useSystem();
+  const { Glyph, theme, summary } = presentQuest(blueprint, template.key);
 
   const x = useMotionValue(0);
   /** True once this drag has passed the slop, so the release is not
@@ -284,7 +224,7 @@ export function QuestRow({ template, instance, dayClosed, xp, onToggle, onOpen }
             <span className="truncate text-xs font-bold uppercase tracking-[0.14em] text-ink-100">
               {template.title}
             </span>
-            <span className="truncate text-[11px] text-ink-900">{ROW_SUMMARY[key]}</span>
+            <span className="truncate text-[11px] text-ink-900">{summary}</span>
           </span>
         </button>
 

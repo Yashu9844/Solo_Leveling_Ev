@@ -1,16 +1,10 @@
-import type { ArcState, CoreQuestKey, QuestInstance, QuestTemplate } from '../../engine/types';
+import type { ArcState, QuestInstance, QuestTemplate } from '../../engine/types';
+import { countWord } from '../presentation/quest';
 
 // Deterministic, not adaptive — Slice 11 owns the rules-based version
 // (engine/rules.ts, still a stub). This is plain presentation logic, not
-// domain logic, so it lives in ui/ rather than engine/.
-const CORE_ORDER: readonly CoreQuestKey[] = [
-  'career',
-  'dsa',
-  'build',
-  'training',
-  'sleep',
-  'attention',
-];
+// domain logic, so it lives in ui/ rather than engine/. The order the quests
+// are walked in is the Blueprint's (presentation/quest.ts#coreQuestOrder).
 
 /**
  * "Today: {title} at {intention.time}." for the first incomplete core
@@ -25,7 +19,8 @@ export function priorityLine(
   templates: QuestTemplate[],
   instances: QuestInstance[],
   localDate: string,
-  arc: Pick<ArcState, 'start_date' | 'end_date'> | null
+  arc: Pick<ArcState, 'start_date' | 'end_date'> | null,
+  order: readonly string[]
 ): string {
   if (instances.length === 0) {
     if (arc && localDate < arc.start_date) {
@@ -38,13 +33,14 @@ export function priorityLine(
   }
 
   if (instances.every((i) => i.state === 'complete')) {
-    return 'Six of six. Day closed.';
+    // "Six of six" for the owner's six; the count is the day's, so another System's three read "Three of three".
+    return `${countWord(instances.length)} of ${countWord(instances.length).toLowerCase()}. Day closed.`;
   }
 
-  const templateByKey = new Map(templates.map((t) => [t.key, t]));
+  const templateByKey = new Map<string, QuestTemplate>(templates.map((t) => [t.key, t]));
   const instanceByTemplateId = new Map(instances.map((i) => [i.template_id, i]));
 
-  for (const key of CORE_ORDER) {
+  for (const key of order) {
     const template = templateByKey.get(key);
     if (!template) continue;
     const instance = instanceByTemplateId.get(template.id);
