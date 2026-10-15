@@ -162,13 +162,13 @@ const COMPARISON: ComparisonRowDef[] = [
 // ── The REALITY tab: cumulative, real-world numbers, never scored ───────────
 const REALITY: RealityRowDef[] = [
   { key: 'problems', label: 'Problems', signal: PROBLEMS_TOTAL },
-  { key: 'firstAttemptRateM', label: 'First-attempt rate (M)', signal: FIRST_ATTEMPT_M_ALL },
+  { key: 'firstAttemptRateM', label: 'First-attempt rate (M)', signal: FIRST_ATTEMPT_M_ALL, display: { label: 'First-attempt M', format: 'percent', dashWhenZero: true, day0: '—' } },
   { key: 'publicProjects', label: 'Public projects', signal: inst('build.artifacts', 'count', 'total', { kind: 'project' }) },
-  { key: 'evals', label: 'Eval suites', signal: inst('build.artifacts', 'count', 'total', { kind: 'eval' }) },
+  { key: 'evals', label: 'Eval suites', signal: inst('build.artifacts', 'count', 'total', { kind: 'eval' }), display: { label: 'Evals' } },
   { key: 'applications', label: 'Applications', signal: inst('career.applications', 'submitted', 'total') },
-  { key: 'qualityRate', label: 'Quality rate', signal: inst('career.applications', 'quality_rate', 'total') },
-  { key: 'followThroughRate', label: 'Follow-through', signal: FOLLOW_THROUGH },
-  { key: 'foundationsFluentOrBetter', label: 'Foundations at Fluent or better', signal: MASTERY('fluent') },
+  { key: 'qualityRate', label: 'Quality rate', signal: inst('career.applications', 'quality_rate', 'total'), display: { format: 'percent', dashUnless: 'applications', day0: '—' } },
+  { key: 'followThroughRate', label: 'Follow-through', signal: FOLLOW_THROUGH, display: { format: 'percent', dashWhenZero: true, day0: '—' } },
+  { key: 'foundationsFluentOrBetter', label: 'Foundations at Fluent or better', signal: MASTERY('fluent'), display: { label: 'Foundations Fluent+', format: 'fraction', of: 9 } },
 ];
 
 // ── The weekly review's headline numbers (7 days ending on the review day) ──
@@ -369,7 +369,7 @@ const attributeDefs: AttributeDef[] = [
     ],
   },
   {
-    id: 'MOMENTUM', name: 'MOMENTUM', groupId: 'career', description: 'Applications sent, their quality, and following through.', combine: 'sum',
+    id: 'MOMENTUM', name: 'MOMENTUM', groupId: 'craft', description: 'Applications sent, their quality, and following through.', combine: 'sum',
     terms: [
       term('applications', 'Applications', 0.4, inst('career.applications', 'submitted', E28), { kind: 'ratio', denominator: 70 }),
       term('quality', 'Quality rate', 0.35, inst('career.applications', 'quality_rate', E28), { kind: 'rate' }),
@@ -509,10 +509,9 @@ function assembleLegacyBlueprint(arc: LegacyArcFacts): SystemBlueprint {
     skills: SKILLS,
     attributes: {
       groups: [
-        { id: 'mind', heading: 'MIND', tagline: 'How you think and show up.', layout: 'mind', icon: 'Brain' },
-        { id: 'craft', heading: 'CRAFT', tagline: 'What you build.', layout: 'craft', icon: 'Cpu' },
-        { id: 'career', heading: 'CAREER', tagline: 'Where you are headed.', layout: 'craft', icon: 'Briefcase' },
-        { id: 'body', heading: 'BODY', tagline: 'What carries you.', layout: 'body', icon: 'Barbell' },
+        { id: 'mind', heading: 'MIND', tagline: 'A SHARPER YOU', layout: 'mind', icon: 'Brain' },
+        { id: 'craft', heading: 'CRAFT', tagline: 'BUILD SKILLS. BUILD OPTIONS.', layout: 'craft', icon: 'Cpu' },
+        { id: 'body', heading: 'BODY', tagline: 'A STRONGER YOU', layout: 'body', icon: 'Barbell' },
       ],
       defs: attributeDefs,
     },
@@ -545,6 +544,7 @@ function assembleLegacyBlueprint(arc: LegacyArcFacts): SystemBlueprint {
     messaging: { evidenceTemplates: [] },
     vocabulary: {},
     reality: REALITY,
+    origin: 'legacy',
   };
 }
 

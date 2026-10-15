@@ -6,7 +6,9 @@ import { levelFor } from '../../engine/level';
 import { realDeps } from '../../store/deps';
 import { getTotalXp } from '../../store/playerState';
 import { getStreakState, type LiveStreakState } from '../../store/streak';
-import { getRealitySummary, type RealitySummary } from '../../store/reality';
+import { getRealitySummary } from '../../store/reality';
+import { useSystem } from '../../store/SystemContext';
+import { realityCells } from '../presentation/reality';
 import { AttributeBars } from '../components/AttributeBars';
 import { StreakGrid } from '../components/StreakGrid';
 import { WeeklyReview } from '../review/WeeklyReview';
@@ -14,13 +16,12 @@ import { getCurrentRank } from '../../store/checkpoint';
 import { ArtLayer, DayMeta, MeterBar, ScreenTitle, SectionLabel } from '../kit';
 import { getActiveArc } from '../../store/arc';
 
-const ARC_LENGTH_DAYS = 120;
-
 type SubTab = 'SYSTEM' | 'REALITY';
 
 const REALITY_DEFAULT_FROM_DAY = 30;
 
 export function Progress() {
+  const { blueprint } = useSystem();
   const [day, setDay] = useState<number | null>(null);
   const [tab, setTab] = useState<SubTab | null>(null);
 
@@ -44,7 +45,7 @@ export function Progress() {
           eight specs failed on strict mode. The visible heading is the
           heading. */}
       <div className="px-gutter pb-6 pt-2">
-        <ScreenTitle title="PROGRESS" meta={<DayMeta day={day} of={ARC_LENGTH_DAYS} />} className="mb-3" />
+        <ScreenTitle title="PROGRESS" meta={<DayMeta day={day} of={blueprint.arc.lengthDays} />} className="mb-3" />
 
         {/* SubTab Switcher (SYSTEM / REALITY) */}
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -254,44 +255,21 @@ function Row({ label, day0, now }: { label: string; day0: string; now: string })
   );
 }
 
-function pct(x: number): string {
-  return `${Math.round(x * 100)}%`;
-}
-
 function RealityTab() {
-  const [summary, setSummary] = useState<RealitySummary | null>(null);
+  const { blueprint } = useSystem();
+  const [values, setValues] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     void (async () => {
       const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
-      setSummary(await getRealitySummary(today));
+      // The summary is keyed by the Blueprint's reality rows (the owner's eight, or a generated System's own).
+      setValues({ ...(await getRealitySummary(today)) });
     })();
   }, []);
 
-  if (!summary) return null;
+  if (!values) return null;
 
-  const rows: { label: string; day0: string; now: string }[] = [
-    { label: 'Problems', day0: '0', now: String(summary.problems) },
-    {
-      label: 'First-attempt M',
-      day0: '—',
-      now: summary.firstAttemptRateM > 0 ? pct(summary.firstAttemptRateM) : '—',
-    },
-    { label: 'Public projects', day0: '0', now: String(summary.publicProjects) },
-    { label: 'Evals', day0: '0', now: String(summary.evals) },
-    { label: 'Applications', day0: '0', now: String(summary.applications) },
-    {
-      label: 'Quality rate',
-      day0: '—',
-      now: summary.applications > 0 ? pct(summary.qualityRate) : '—',
-    },
-    {
-      label: 'Follow-through',
-      day0: '—',
-      now: summary.followThroughRate > 0 ? pct(summary.followThroughRate) : '—',
-    },
-    { label: 'Foundations Fluent+', day0: '0 / 9', now: `${summary.foundationsFluentOrBetter} / 9` },
-  ];
+  const rows = (blueprint.reality ?? []).map((row) => realityCells(row, values));
 
   return (
     <div className="cut-sm mt-3 p-4" data-testid="reality-tab" style={{ border: '1px solid rgba(77, 163, 255, 0.25)', background: 'linear-gradient(180deg, rgba(10, 20, 36, 0.8), rgba(5, 10, 20, 0.9))' }}>
@@ -312,4 +290,3 @@ function RealityTab() {
     </div>
   );
 }
-

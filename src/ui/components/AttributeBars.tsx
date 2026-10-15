@@ -1,61 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Barbell, Brain, Cpu, CaretRight, type Icon } from '@phosphor-icons/react';
+import { CaretRight } from '@phosphor-icons/react';
 import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { getAttributes } from '../../store/attributes';
+import { useSystem } from '../../store/SystemContext';
 import type { AttributeResult } from '../../engine/attributes';
-import type { Attribute } from '../../engine/types';
+import { iconFor } from '../presentation/icons';
 import { MeterBar } from '../kit';
 
-const ATTRIBUTE_LABELS: Record<Attribute, string> = {
-  DISCIPLINE: 'DISCIPLINE',
-  DEPTH: 'DEPTH',
-  PROBLEM_SOLVING: 'PROBLEM SOLVING',
-  ENGINEERING: 'ENGINEERING',
-  MOMENTUM: 'MOMENTUM',
-  VITALITY: 'VITALITY',
-};
-
-const GROUPS: {
-  heading: string;
-  tagline: string;
-  icon: Icon;
-  route: string;
-  attributes: Attribute[];
-}[] = [
-  {
-    heading: 'MIND',
-    tagline: 'A SHARPER YOU',
-    icon: Brain,
-    route: '/attributes/mind',
-    attributes: ['DISCIPLINE', 'DEPTH', 'PROBLEM_SOLVING'],
-  },
-  {
-    heading: 'CRAFT',
-    tagline: 'BUILD SKILLS. BUILD OPTIONS.',
-    icon: Cpu,
-    route: '/attributes/craft',
-    attributes: ['ENGINEERING', 'MOMENTUM'],
-  },
-  {
-    heading: 'BODY',
-    tagline: 'A STRONGER YOU',
-    icon: Barbell,
-    route: '/attributes/body',
-    attributes: ['VITALITY'],
-  },
-];
-
-function Bar({ result }: { result: AttributeResult }) {
+function Bar({ result, label }: { result: AttributeResult; label: string }) {
   const value = Math.round(result.value);
   return (
     <div className="flex items-center gap-3 py-1.5">
       <span className="w-[110px] shrink-0 text-xs font-semibold uppercase tracking-wider text-ink-700">
-        {ATTRIBUTE_LABELS[result.attribute]}
+        {label}
       </span>
-      <MeterBar pct={value} height={7} label={ATTRIBUTE_LABELS[result.attribute]} className="min-w-0 flex-1" />
+      <MeterBar pct={value} height={7} label={label} className="min-w-0 flex-1" />
       <span className="w-6 shrink-0 text-right font-mono text-xs font-bold tabular-nums text-ink-100">
         {value}
       </span>
@@ -66,6 +28,14 @@ function Bar({ result }: { result: AttributeResult }) {
 /** All 0-100, non-editable, 28-day rolling window — final/01 §5. Cut-corner HUD cards matching the Progress design screenshot */
 export function AttributeBars() {
   const navigate = useNavigate();
+  const { blueprint } = useSystem();
+  // The Blueprint's groups, each with the attributes assigned to it; a group nothing is assigned to is not shown.
+  const groups = useMemo(
+    () => blueprint.attributes.groups
+      .map((group) => ({ ...group, attributes: blueprint.attributes.defs.filter((definition) => definition.groupId === group.id) }))
+      .filter((group) => group.attributes.length > 0),
+    [blueprint]
+  );
   const [results, setResults] = useState<AttributeResult[] | null>(null);
 
   useEffect(() => {
@@ -80,20 +50,20 @@ export function AttributeBars() {
   }, []);
 
   if (!results) return null;
-  const byAttribute = new Map(results.map((r) => [r.attribute, r]));
+  const byAttribute = new Map<string, AttributeResult>(results.map((r) => [r.attribute, r]));
 
   return (
     <div className="mt-4 flex flex-col gap-3" data-testid="attribute-bars">
-      {GROUPS.map((group) => {
-        const Glyph = group.icon;
+      {groups.map((group) => {
+        const Glyph = iconFor(group.icon);
         return (
           <div
-            key={group.heading}
-            onClick={() => navigate(group.route)}
+            key={group.id}
+            onClick={() => navigate(`/attributes/${group.id}`)}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') navigate(group.route);
+              if (e.key === 'Enter' || e.key === ' ') navigate(`/attributes/${group.id}`);
             }}
             className="cut-sm p-3.5 transition-all duration-200 cursor-pointer group hover:border-accent/80 hover:shadow-[0_0_20px_rgba(77,163,255,0.25)]"
             style={{
@@ -122,9 +92,9 @@ export function AttributeBars() {
 
             {/* Attribute Rows */}
             <div className="flex flex-col gap-1">
-              {group.attributes.map((attribute) => {
-                const result = byAttribute.get(attribute);
-                return result ? <Bar key={attribute} result={result} /> : null;
+              {group.attributes.map((definition) => {
+                const result = byAttribute.get(definition.id);
+                return result ? <Bar key={definition.id} result={result} label={definition.name} /> : null;
               })}
             </div>
           </div>

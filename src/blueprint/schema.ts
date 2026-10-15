@@ -123,7 +123,23 @@ export interface CheckpointDef {
   evidence?: EvidenceDef[]; comparison?: ComparisonRowDef[];
 }
 /** A headline number of the REALITY tab: cumulative, real-world, never scored. */
-export interface RealityRowDef { key: string; label: string; signal: SignalRef }
+export interface RealityRowDef {
+  key: string; label: string; signal: SignalRef;
+  /** How the REALITY tab shows the row; without it the row is a plain count that starts at 0. */
+  display?: {
+    /** A shorter label for the tab than the full one. */
+    label?: string;
+    format?: 'int' | 'percent' | 'fraction';
+    /** The whole for a 'fraction' ("3 / 9"). */
+    of?: number;
+    /** Show a dash while the value is zero (a rate with nothing behind it yet). */
+    dashWhenZero?: boolean;
+    /** Show a dash until the row with this key is above zero (a quality rate needs applications). */
+    dashUnless?: string;
+    /** What the Day 0 column says; defaults to "0" ("0 / 9" for a fraction, a dash for a rate). */
+    day0?: string;
+  };
+}
 export interface ReviewDef {
   domainPrompts: { id: string; domainId: string; prompt: string; options: string[] }[];
   /** The weekly review's headline numbers, each read over the 7 days ending on the review day. */
@@ -144,4 +160,6 @@ export interface SystemBlueprint {
   milestones: MilestoneDef[]; gates: RankGateDef[]; bosses: BossDef[]; checkpoints: CheckpointDef;
   achievements: AchievementDef[]; reviews: ReviewDef; rules: RuleDef[]; messaging: MessagingDef; vocabulary: VocabularyOverrides;
   reality?: RealityRowDef[];
+  /** 'legacy' marks the owner's System: screens built for it before the platform keep their bespoke layouts for it. */
+  origin?: 'legacy';
 }

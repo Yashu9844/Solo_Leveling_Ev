@@ -12,6 +12,7 @@ import { FALLBACK_ICON, ICON_TOKENS, isIconToken } from '../../src/library/icons
 import { db } from '../../src/db/db';
 import { getBlueprintVersionsSnapshot, refreshBlueprintVersions, resetBlueprintVersions } from '../../src/store/systemBlueprint';
 import { hueTheme, presentDomain, presentDomains } from '../../src/ui/presentation/domain';
+import { realityCells } from '../../src/ui/presentation/reality';
 import { priorityLine } from '../../src/ui/today/priorityLine';
 import { coreQuestOrder, countWord, presentQuest } from '../../src/ui/presentation/quest';
 import { ICONS, iconFor } from '../../src/ui/presentation/icons';
@@ -192,5 +193,41 @@ describe('priorityLine over the Blueprint order (loop 7.5)', () => {
     expect(priorityLine([], [], '2026-08-01', arc, [])).toContain('ARC INITIALIZATION');
     expect(priorityLine([], [], '2027-01-01', arc, [])).toContain('ARC CONCLUDED');
     expect(priorityLine([], [], '2026-10-01', arc, [])).toContain('NO ACTIVE QUESTS');
+  });
+});
+
+describe('Progress from the Blueprint (loop 7.6)', () => {
+  it('the legacy attribute groups are the three cards the screen has always drawn, in order', () => {
+    const groups = LEGACY_BLUEPRINT_V1.attributes.groups
+      .map((group) => ({ id: group.id, heading: group.heading, tagline: group.tagline, layout: group.layout, icon: group.icon, attributes: LEGACY_BLUEPRINT_V1.attributes.defs.filter((definition) => definition.groupId === group.id).map((definition) => definition.name) }))
+      .filter((group) => group.attributes.length > 0);
+    expect(groups).toEqual([
+      { id: 'mind', heading: 'MIND', tagline: 'A SHARPER YOU', layout: 'mind', icon: 'Brain', attributes: ['DISCIPLINE', 'DEPTH', 'PROBLEM SOLVING'] },
+      { id: 'craft', heading: 'CRAFT', tagline: 'BUILD SKILLS. BUILD OPTIONS.', layout: 'craft', icon: 'Cpu', attributes: ['ENGINEERING', 'MOMENTUM'] },
+      { id: 'body', heading: 'BODY', tagline: 'A STRONGER YOU', layout: 'body', icon: 'Barbell', attributes: ['VITALITY'] },
+    ]);
+    expect(LEGACY_BLUEPRINT_V1.origin).toBe('legacy');
+    expect(LEGACY_BLUEPRINT_V1.arc.lengthDays).toBe(120);
+  });
+
+  const rows = LEGACY_BLUEPRINT_V1.reality!;
+  const cells = (values: Record<string, number>) => rows.map((row) => realityCells(row, values));
+
+  it('the REALITY tab prints the owner\'s eight rows exactly as it did', () => {
+    const empty = { problems: 0, firstAttemptRateM: 0, publicProjects: 0, evals: 0, applications: 0, qualityRate: 0, followThroughRate: 0, foundationsFluentOrBetter: 0 };
+    expect(cells(empty)).toEqual([
+      { label: 'Problems', day0: '0', now: '0' },
+      { label: 'First-attempt M', day0: '—', now: '—' },
+      { label: 'Public projects', day0: '0', now: '0' },
+      { label: 'Evals', day0: '0', now: '0' },
+      { label: 'Applications', day0: '0', now: '0' },
+      { label: 'Quality rate', day0: '—', now: '—' },
+      { label: 'Follow-through', day0: '—', now: '—' },
+      { label: 'Foundations Fluent+', day0: '0 / 9', now: '0 / 9' },
+    ]);
+    const live = { problems: 52, firstAttemptRateM: 0.456, publicProjects: 2, evals: 1, applications: 31, qualityRate: 0.8, followThroughRate: 0.5, foundationsFluentOrBetter: 4 };
+    expect(cells(live).map((cell) => cell.now)).toEqual(['52', '46%', '2', '1', '31', '80%', '50%', '4 / 9']);
+    // A quality rate needs applications behind it, whatever the rate says.
+    expect(cells({ ...live, applications: 0 })[5]!.now).toBe('—');
   });
 });
