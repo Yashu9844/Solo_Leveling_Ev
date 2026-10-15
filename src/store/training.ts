@@ -190,6 +190,22 @@ export async function logInterviewBenchmark(
   config: EngineConfig,
   deps: EngineDeps
 ): Promise<void> {
+  await logSelfCert(today, arcId, 'interview_benchmark', passed, config, deps);
+}
+
+/**
+ * A self-certified pass/fail against any Blueprint metric (the interview benchmark is the
+ * owner's): a metric_sample of that metric's id, value 1 (pass) or 0 (attempted), the unit
+ * 'pass'. Once any attempt passes, the metric stays passed.
+ */
+export async function logSelfCert(
+  today: string,
+  arcId: string,
+  metricId: string,
+  passed: boolean,
+  config: EngineConfig,
+  deps: EngineDeps
+): Promise<void> {
   const id = deps.newId();
   await db.transaction('rw', REBUILD_ADJACENT_TABLES, async () => {
     await appendEvent({
@@ -198,12 +214,12 @@ export async function logInterviewBenchmark(
       occurred_at: deps.now(),
       local_date: today,
       arc_id: arcId,
-      payload: { kind: 'interview_benchmark', value: passed ? 1 : 0, unit: 'pass' },
+      payload: { kind: metricId, value: passed ? 1 : 0, unit: 'pass' },
       source: 'user',
-      idem_key: `interview-benchmark:${id}`,
+      idem_key: `${metricId.replace(/_/g, '-')}:${id}`,
       schema_v: 1,
     });
-    const row: MetricSampleRow = { id, local_date: today, kind: 'interview_benchmark', value: passed ? 1 : 0, unit: 'pass' };
+    const row: MetricSampleRow = { id, local_date: today, kind: metricId as MetricSampleRow['kind'], value: passed ? 1 : 0, unit: 'pass' };
     await db.metric_sample.add(row);
   });
   await rebuildProjections(config, deps);
@@ -214,14 +230,17 @@ export interface InterviewBenchmarkAttempt {
   passed: boolean;
 }
 
-export async function getInterviewBenchmarkHistory(): Promise<InterviewBenchmarkAttempt[]> {
-  const rows = await db.metric_sample.where('kind').equals('interview_benchmark').toArray();
+export async function getSelfCertHistory(metricId: string): Promise<InterviewBenchmarkAttempt[]> {
+  const rows = await db.metric_sample.where('kind').equals(metricId).toArray();
   return rows.map((r) => ({ local_date: r.local_date, passed: r.value === 1 })).sort((a, b) => a.local_date.localeCompare(b.local_date));
 }
 
+export async function getInterviewBenchmarkHistory(): Promise<InterviewBenchmarkAttempt[]> {
+  return getSelfCertHistory('interview_benchmark');
+}
+
 export async function getInterviewBenchmarkPassed(): Promise<boolean> {
-  const rows = await db.metric_sample.where('kind').equals('interview_benchmark').toArray();
-  return rows.some((r) => r.value === 1);
+  return (await getSelfCertHistory('interview_benchmark')).some((attempt) => attempt.passed);
 }
 
 export interface MetricSeriesPoint {

@@ -13,6 +13,7 @@ import { evaluateAchievements } from '../blueprint/evaluate/achievement';
 import { evaluateAttributes } from '../blueprint/evaluate/attribute';
 import { evaluateBoss } from '../blueprint/evaluate/boss';
 import { checkpointComparisonFor, evidenceSnapshot, realitySummary } from '../blueprint/evaluate/checkpoint';
+import { evaluateCondition } from '../blueprint/evaluate/condition';
 import { evaluateGate, rankSealedBefore } from '../blueprint/evaluate/gate';
 import { messageContextFor, recoverableDayFor, systemMessageContextFor } from '../blueprint/evaluate/messages';
 import { readModelEnv } from '../blueprint/evaluate/readModel';
@@ -94,6 +95,15 @@ export async function gateResultV2(day: number, today: string): Promise<{ result
 export async function checkpointComparisonV2(day: number, today: string) {
   const inputs = await readInputs(today);
   return inputs && checkpointComparisonFor(inputs.blueprint, inputs.checkpoints, day, inputs.env);
+}
+
+/** Each Blueprint milestone with its live label and whether it is met (the Skills milestone panel). */
+export async function milestonesV2(today: string): Promise<{ id: string; label: string; progress: string; met: boolean }[] | undefined> {
+  const inputs = await readInputs(today);
+  return inputs && inputs.blueprint.milestones.map((milestone) => {
+    const result = evaluateCondition(milestone.condition, inputs.env);
+    return { id: milestone.id, label: milestone.label, progress: result.label, met: result.met };
+  });
 }
 
 export async function achievementsV2(today: string) {

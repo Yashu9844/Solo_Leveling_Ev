@@ -1,49 +1,35 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  Code,
-  Cpu,
   Lightning,
-  Sparkle,
-  Sword,
   Trophy,
   MagnifyingGlass,
-  CheckCircle,
   Flame,
   Star,
   Check,
   type Icon,
 } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { SkillTreeDef, SystemBlueprint } from '../../blueprint/schema';
 import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
-import {
-  getDsaSkillsOverview,
-  getFoundationSkillsOverview,
-  getAiSkillsOverview,
-  getCareerTreeOverview,
-  logQuickSkillPractice,
-  type TopicMastery,
-  type CareerTreeOverview,
-} from '../../store/skills';
-import {
-  getInterviewBenchmarkHistory,
-  getInterviewBenchmarkPassed,
-  logInterviewBenchmark,
-} from '../../store/training';
+import { getTreeMastery, type TopicMastery } from '../../store/skills';
+import { useSystem } from '../../store/SystemContext';
 import type { MasteryState } from '../../engine/types';
 import {
   ArtLayer,
   DayMeta,
-  FramedPanel,
   PrimaryButton,
   ScreenTitle,
-  SecondaryButton,
   SegmentBar,
 } from '../kit';
 import { getActiveArc } from '../../store/arc';
-
-const ARC_LENGTH_DAYS = 120;
+import { LEGACY_CAREER_PANEL, LEGACY_SELF_CERT, LEGACY_SKILLS_SCREEN, LEGACY_TREE_COPY, type TreeCopy } from '../instruments/legacy/skillsCopy';
+import { canQuickPractice, quickPractice } from '../instruments/recorders/quickPractice';
+import { presentDomain } from '../presentation/domain';
+import { iconFor } from '../presentation/icons';
+import { LegacyCareerPanel, MilestonePanel } from '../skills/Panels';
+import { genericSelfCertCopy, SelfCertCard } from '../skills/SelfCertCard';
 
 const MASTERY_ORDER: MasteryState[] = ['unseen', 'introduced', 'applied', 'fluent', 'retained'];
 
@@ -92,7 +78,7 @@ function TopicRow({
 }: {
   item: TopicMastery;
   index: number;
-  onPractice: (topic: string) => void;
+  onPractice?: (topic: string) => void;
 }) {
   const filled = MASTERY_ORDER.indexOf(item.state);
   const touched = filled > 0;
@@ -142,86 +128,53 @@ function TopicRow({
       {/* SegmentBar is a sibling of the topic span — e2e uses aria-label on this */}
       <SegmentBar filled={filled} label={item.state} className="shrink-0" />
 
-      <button
-        type="button"
-        onClick={() => onPractice(item.topic)}
-        className="cut-sm px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-accent-mid bg-accent-deep/30 border border-accent/40 hover:bg-accent-deep/70 hover:border-accent transition-all flex items-center gap-1 shadow-[0_0_6px_rgba(77,163,255,0.2)] shrink-0"
-        title={`Practice ${item.topic}`}
-      >
-        <Lightning size={11} weight="fill" color="#5fb2ff" />
-        <span className="hidden sm:inline">PRACTICE</span>
-      </button>
+      {onPractice && (
+        <button
+          type="button"
+          onClick={() => onPractice(item.topic)}
+          className="cut-sm px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-accent-mid bg-accent-deep/30 border border-accent/40 hover:bg-accent-deep/70 hover:border-accent transition-all flex items-center gap-1 shadow-[0_0_6px_rgba(77,163,255,0.2)] shrink-0"
+          title={`Practice ${item.topic}`}
+        >
+          <Lightning size={11} weight="fill" color="#5fb2ff" />
+          <span className="hidden sm:inline">PRACTICE</span>
+        </button>
+      )}
     </motion.div>
   );
 }
 
-const AI_TIERS: { title: string; subtitle: string; rank: string; items: string[] }[] = [
-  {
-    title: 'Tier 0 — Table Stakes',
-    subtitle: 'CORE FOUNDATIONS',
-    rank: 'E-RANK',
-    items: [
-      'LLM Fundamentals',
-      'Prompting with Cache-Awareness',
-      'Structured Outputs',
-      'Tool Calling',
-      'Embeddings',
-      'RAG Basics',
-      'Vector Store Selection',
-      'Model Landscape & Pricing',
-    ],
-  },
-  {
-    title: 'Tier 1 — Differentiators',
-    subtitle: 'ADVANCED CAPABILITIES',
-    rank: 'B-RANK',
-    items: ['Evaluation Design', 'Agent Orchestration', 'Context Engineering', 'MCP Protocol', 'Cost & Latency Optimization'],
-  },
-  {
-    title: 'Tier 2 — Production Engine',
-    subtitle: 'PRODUCTION ARCHITECTURES',
-    rank: 'A-RANK',
-    items: [
-      'Observability & Tracing',
-      'Guardrails & OWASP LLM Risks',
-      'Sandboxing & Kill-Switches',
-      'Production Deployment',
-      'Async Job Architecture',
-    ],
-  },
-  {
-    title: 'Tier 3 — Frontier Tier',
-    subtitle: 'MONARCH ARCHITECTURES',
-    rank: 'S-RANK',
-    items: ['Multi-Agent Coordination', 'Computer-Use / Vision-Action Loops', 'Custom Fine-Tuning'],
-  },
-];
+type FilterCategory = string;
 
-type FilterCategory = 'all' | 'dsa' | 'foundations' | 'ai' | 'career' | 'benchmark';
+/** What one skill tree looks like on this screen: the owner's voice where it has one, plain Blueprint names otherwise. */
+function treeView(blueprint: SystemBlueprint, tree: SkillTreeDef): TreeCopy {
+  const copy = LEGACY_TREE_COPY[tree.id];
+  if (blueprint.origin === 'legacy' && copy) return copy;
+  const domain = presentDomain(blueprint, tree.domainId);
+  const Glyph = domain?.Glyph ?? iconFor(undefined);
+  return {
+    tab: tree.designation, tabIcon: Glyph, title: tree.name, tagline: domain?.designation ?? tree.designation, sectionIcon: Glyph,
+    badge: tree.name, badgeIcon: Glyph, emptyMessage: 'No matching topics found.', inOverall: true,
+  };
+}
 
 export function Skills() {
-  const [dsa, setDsa] = useState<TopicMastery[] | null>(null);
-  const [foundations, setFoundations] = useState<TopicMastery[] | null>(null);
-  const [aiSkills, setAiSkills] = useState<TopicMastery[] | null>(null);
-  const [careerTree, setCareerTree] = useState<CareerTreeOverview | null>(null);
+  const { blueprint } = useSystem();
+  const legacy = blueprint.origin === 'legacy';
+  const trees = blueprint.skills;
+  const selfCertMetrics = useMemo(() => blueprint.metrics.filter((metric) => 'manual' in metric.source && metric.unit === 'pass'), [blueprint]);
+  const [mastery, setMastery] = useState<Record<string, TopicMastery[]> | null>(null);
   const [day, setDay] = useState<number | null>(null);
   const [arcId, setArcId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [practiceTopic, setPracticeTopic] = useState<string | null>(null);
+  const [practice, setPractice] = useState<{ tree: SkillTreeDef; topic: string } | null>(null);
 
   const refreshData = async () => {
-    const [d, f, ai, c, arc] = await Promise.all([
-      getDsaSkillsOverview(),
-      getFoundationSkillsOverview(),
-      getAiSkillsOverview(),
-      getCareerTreeOverview(),
+    const [overviews, arc] = await Promise.all([
+      Promise.all(trees.map(async (tree) => [tree.id, await getTreeMastery(blueprint, tree)] as const)),
       getActiveArc(),
     ]);
-    setDsa(d);
-    setFoundations(f);
-    setAiSkills(ai);
-    setCareerTree(c);
+    setMastery(Object.fromEntries(overviews));
     if (arc) {
       setArcId(arc.id);
       const dNum = Math.max(1, Math.floor((Date.now() - new Date(arc.start_date).getTime()) / (86400 * 1000)));
@@ -231,39 +184,37 @@ export function Skills() {
 
   useEffect(() => {
     void refreshData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blueprint]);
 
-  const dsaTouched = dsa?.filter((t) => t.state !== 'unseen').length ?? 0;
-  const foundationsTouched = foundations?.filter((t) => t.state !== 'unseen').length ?? 0;
-  const aiTouched = aiSkills?.filter((t) => t.state !== 'unseen').length ?? 0;
+  const views = trees.map((tree) => ({ tree, copy: treeView(blueprint, tree), topics: mastery?.[tree.id] ?? [] }));
+  const touched = (topics: TopicMastery[]) => topics.filter((t) => t.state !== 'unseen').length;
 
-  const totalSkillsCount = (dsa?.length ?? 0) + (foundations?.length ?? 0);
-  const totalTouchedCount = dsaTouched + foundationsTouched;
+  const overall = views.filter((view) => view.copy.inOverall);
+  const totalSkillsCount = overall.reduce((sum, view) => sum + view.topics.length, 0);
+  const totalTouchedCount = overall.reduce((sum, view) => sum + touched(view.topics), 0);
   const masteryPercentage =
     totalSkillsCount > 0 ? Math.round((totalTouchedCount / totalSkillsCount) * 100) : 0;
 
-  const filteredDsa = useMemo(() => {
-    if (!dsa) return [];
-    if (!searchQuery.trim()) return dsa;
-    return dsa.filter((t) => t.topic.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [dsa, searchQuery]);
+  const matches = (topic: string) => !searchQuery.trim() || topic.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const filteredFoundations = useMemo(() => {
-    if (!foundations) return [];
-    if (!searchQuery.trim()) return foundations;
-    return foundations.filter((t) => t.topic.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [foundations, searchQuery]);
+  const showPanel = legacy || blueprint.milestones.length > 0;
+  const panelCopy = legacy ? LEGACY_CAREER_PANEL : { tab: 'MILESTONES', tabIcon: Trophy, title: 'Milestones', tagline: 'WHAT THE ARC IS FOR' };
+  const certs = selfCertMetrics.map((metric) => ({ metric, copy: (legacy ? LEGACY_SELF_CERT[metric.id] : undefined) ?? genericSelfCertCopy(metric) }));
+  const screen = legacy ? LEGACY_SKILLS_SCREEN : { allTab: 'ALL SKILLS', quote: '', gaugeLabel: 'SKILL MASTERY', searchPlaceholder: 'Search skills...' };
 
-  const aiMap = useMemo(() => {
-    const map = new Map<string, MasteryState>();
-    aiSkills?.forEach((item) => map.set(item.topic, item.state));
-    return map;
-  }, [aiSkills]);
+  const tabs: { id: string; label: string; icon: Icon }[] = [
+    { id: 'all', label: screen.allTab, icon: Star },
+    ...views.map((view) => ({ id: view.tree.id, label: view.copy.tab, icon: view.copy.tabIcon })),
+    ...(showPanel ? [{ id: 'panel', label: panelCopy.tab, icon: panelCopy.tabIcon }] : []),
+    ...certs.map(({ metric, copy }) => ({ id: metric.id, label: copy.tab, icon: copy.tabIcon })),
+  ];
+  const searchable = activeTab === 'all' || views.some((view) => view.tree.id === activeTab);
 
   return (
     <>
       <div className="px-gutter pb-8 pt-2">
-        <ScreenTitle title="SKILLS" meta={<DayMeta day={day} of={ARC_LENGTH_DAYS} />} className="mb-3" />
+        <ScreenTitle title="SKILLS" meta={<DayMeta day={day} of={blueprint.arc.lengthDays} />} className="mb-3" />
 
 
 
@@ -300,17 +251,18 @@ export function Skills() {
                 said level 1. A wrong number in a loud colour is worse
                 than no number, and the quote below is what this panel
                 is actually for. */}
-            <p className="text-sm italic leading-relaxed text-ink-100 max-w-[96%]">
-              &ldquo;Skills are not granted by favour. They are forged in the dungeon of
-              unyielding discipline.&rdquo;
-            </p>
+            {screen.quote && (
+              <p className="text-sm italic leading-relaxed text-ink-100 max-w-[96%]">
+                &ldquo;{screen.quote}&rdquo;
+              </p>
+            )}
 
             {/* Mana / EXP Progress Gauge Bar */}
             <div className="mt-3 pt-3 border-t border-hair-faint">
               <div className="flex items-center justify-between text-[10px] font-mono font-bold mb-1">
                 <span className="text-accent-mid uppercase tracking-widest flex items-center gap-1">
                   <Lightning size={13} weight="fill" color="#5fb2ff" />
-                  MANA &amp; SPELL MASTERY
+                  {screen.gaugeLabel}
                 </span>
                 <span className="text-ink-100 glow-text">{masteryPercentage}% OVERALL</span>
               </div>
@@ -325,9 +277,9 @@ export function Skills() {
             </div>
 
             <div className="grid grid-cols-3 gap-2.5 mt-4">
-              <BandStat value={dsaTouched} total={dsa?.length ?? 0} label="DSA Power" icon={Code} />
-              <BandStat value={foundationsTouched} total={foundations?.length ?? 0} label="SE Architect" icon={Cpu} />
-              <BandStat value={aiTouched} total={AI_TIERS.reduce((acc, t) => acc + t.items.length, 0)} label="AI Spells" icon={Sparkle} />
+              {views.map((view) => (
+                <BandStat key={view.tree.id} value={touched(view.topics)} total={view.topics.length} label={view.copy.badge} icon={view.copy.badgeIcon} />
+              ))}
             </div>
           </div>
         </motion.div>
@@ -335,20 +287,13 @@ export function Skills() {
         {/* Interactive Filter Category Tabs */}
         <div className="mb-4 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1.5 p-1 rounded cut-sm border border-accent/25 bg-surface/80 min-w-max">
-            {[
-              { id: 'all', label: 'ALL SPELLS', icon: Star },
-              { id: 'dsa', label: 'DSA POWER', icon: Code },
-              { id: 'foundations', label: 'ARCHITECT', icon: Cpu },
-              { id: 'ai', label: 'AI SPELLS', icon: Sparkle },
-              { id: 'career', label: 'CAREER PATH', icon: Trophy },
-              { id: 'benchmark', label: 'DUNGEON GATE', icon: Sword },
-            ].map((tab) => {
+            {tabs.map((tab) => {
               const IconComp = tab.icon;
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as FilterCategory)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={[
                     'relative min-h-tap px-3 text-[10px] font-mono font-bold tracking-wider uppercase rounded transition-all duration-200 flex items-center gap-1.5',
                     isActive ? 'text-ink-100 glow-text font-extrabold' : 'text-ink-700 hover:text-ink-300',
@@ -372,7 +317,7 @@ export function Skills() {
         </div>
 
         {/* Search Bar */}
-        {(activeTab === 'all' || activeTab === 'dsa' || activeTab === 'foundations' || activeTab === 'ai') && (
+        {searchable && (
           <div className="mb-4 relative">
             <div className="relative flex items-center">
               <MagnifyingGlass size={16} color="#5fb2ff" className="absolute left-3 drop-shadow-[0_0_6px_#5fb2ff]" />
@@ -380,7 +325,7 @@ export function Skills() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search skills, algorithms, architecture, AI spells..."
+                placeholder={screen.searchPlaceholder}
                 className="w-full min-h-tap cut-sm bg-surface-2/90 border border-accent/35 pl-9 pr-4 text-xs font-mono text-ink-100 placeholder:text-ink-700 focus:outline-none focus:border-accent focus:shadow-[0_0_12px_rgba(77,163,255,0.3)] transition-all"
               />
               {searchQuery && (
@@ -396,156 +341,129 @@ export function Skills() {
         )}
 
         <AnimatePresence mode="wait">
-          {/* Section 1: DSA */}
-          {(activeTab === 'all' || activeTab === 'dsa') && (
-            <motion.div key="dsa-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Section title="DSA Algorithmic Power" tagline="CORE SPELLS" icon={Code} count={filteredDsa.length}>
-                {filteredDsa.length > 0 ? (
-                  filteredDsa.map((item, i) => (
-                    <TopicRow
-                      key={item.topic}
-                      item={item}
-                      index={i}
-                      onPractice={(topic) => setPracticeTopic(topic)}
-                    />
-                  ))
-                ) : (
-                  <p className="text-xs font-mono text-ink-700 py-3 text-center">No matching algorithms found.</p>
-                )}
-              </Section>
-            </motion.div>
-          )}
+          {/* One section per skill tree */}
+          {views.filter((view) => activeTab === 'all' || activeTab === view.tree.id).map(({ tree, copy, topics }) => {
+            const canPractice = canQuickPractice(blueprint, tree);
+            const byTopic = new Map(topics.map((item) => [item.topic, item.state]));
+            return (
+              <motion.div key={`${tree.id}-sec`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                {copy.tiers ? (
+                  <Section title={copy.title} tagline={copy.tagline} icon={copy.sectionIcon}>
+                    {copy.tiers.map((tier) => {
+                      const matchingItems = searchQuery.trim() ? tier.items.filter(matches) : tier.items;
 
-          {/* Section 2: SE Foundations */}
-          {(activeTab === 'all' || activeTab === 'foundations') && (
-            <motion.div key="foundations-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Section title="SE Foundations" tagline="SYSTEM ARCHITECTURE" icon={Cpu} count={filteredFoundations.length}>
-                {filteredFoundations.length > 0 ? (
-                  filteredFoundations.map((item, i) => (
-                    <TopicRow
-                      key={item.topic}
-                      item={item}
-                      index={i}
-                      onPractice={(topic) => setPracticeTopic(topic)}
-                    />
-                  ))
-                ) : (
-                  <p className="text-xs font-mono text-ink-700 py-3 text-center">No matching architecture topics found.</p>
-                )}
-              </Section>
-            </motion.div>
-          )}
+                      if (searchQuery.trim() && matchingItems.length === 0) return null;
 
-          {/* Section 3: AI / Agentic Tiers */}
-          {(activeTab === 'all' || activeTab === 'ai') && (
-            <motion.div key="ai-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Section title="AI / Agentic Spells" tagline="FRONTIER TECH TIERS" icon={Sparkle}>
-                {AI_TIERS.map((tier) => {
-                  const matchingItems = searchQuery.trim()
-                    ? tier.items.filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
-                    : tier.items;
+                      return (
+                        <div key={tier.title} className="mb-4 last:mb-0 p-3 rounded cut-sm bg-surface/50 border border-hair-faint">
+                          <div className="mb-2.5 flex items-center justify-between border-b border-hair-faint pb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="h-1.5 w-1.5 rounded-full bg-accent-mid shadow-[0_0_6px_#5fb2ff]" />
+                              <div className="text-xs font-bold uppercase tracking-wider text-accent-mid glow-text">
+                                {tier.title}
+                              </div>
+                            </div>
+                            <span className="cut-sm px-2 py-0.5 text-[9px] font-mono font-bold tracking-widest text-amber-300 bg-amber-950/50 border border-amber-500/40 shadow-[0_0_8px_rgba(251,191,36,0.3)]">
+                              {tier.rank}
+                            </span>
+                          </div>
 
-                  if (searchQuery.trim() && matchingItems.length === 0) return null;
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {matchingItems.map((item) => {
+                              const state = byTopic.get(item) || 'unseen';
+                              const styleInfo = MASTERY_BADGE_STYLE[state];
+                              return (
+                                <motion.div
+                                  key={item}
+                                  whileHover={{ scale: 1.02, y: -1 }}
+                                  className="cut-sm p-2.5 text-xs font-medium text-ink-100 transition-all duration-150 border border-accent/30 bg-surface-2/90 flex items-center justify-between gap-2 shadow-[0_0_10px_rgba(77,163,255,0.1)] hover:border-accent/70 hover:shadow-[0_0_14px_rgba(77,163,255,0.3)]"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <Flame size={14} weight="fill" color="#5fb2ff" className="drop-shadow-[0_0_6px_#5fb2ff] shrink-0" />
+                                    <span className="truncate font-semibold text-ink-100">{item}</span>
+                                  </div>
 
-                  return (
-                    <div key={tier.title} className="mb-4 last:mb-0 p-3 rounded cut-sm bg-surface/50 border border-hair-faint">
-                      <div className="mb-2.5 flex items-center justify-between border-b border-hair-faint pb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-accent-mid shadow-[0_0_6px_#5fb2ff]" />
-                          <div className="text-xs font-bold uppercase tracking-wider text-accent-mid glow-text">
-                            {tier.title}
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className={['text-[8px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border', styleInfo.bg, styleInfo.border, styleInfo.text].join(' ')}>
+                                      {styleInfo.label}
+                                    </span>
+                                    {canPractice && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPractice({ tree, topic: item })}
+                                        className="px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-accent-mid bg-accent-deep/40 border border-accent/40 rounded hover:bg-accent-deep hover:border-accent transition-all flex items-center gap-0.5"
+                                        title={`Practice ${item}`}
+                                      >
+                                        <Lightning size={10} weight="fill" color="#5fb2ff" />
+                                        <span>PRACTICE</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
                           </div>
                         </div>
-                        <span className="cut-sm px-2 py-0.5 text-[9px] font-mono font-bold tracking-widest text-amber-300 bg-amber-950/50 border border-amber-500/40 shadow-[0_0_8px_rgba(251,191,36,0.3)]">
-                          {tier.rank}
-                        </span>
-                      </div>
+                      );
+                    })}
+                  </Section>
+                ) : (
+                  <Section title={copy.title} tagline={copy.tagline} icon={copy.sectionIcon} count={topics.filter((item) => matches(item.topic)).length}>
+                    {topics.some((item) => matches(item.topic)) ? (
+                      topics.filter((item) => matches(item.topic)).map((item, i) => (
+                        <TopicRow
+                          key={item.topic}
+                          item={item}
+                          index={i}
+                          onPractice={canPractice ? (topic) => setPractice({ tree, topic }) : undefined}
+                        />
+                      ))
+                    ) : (
+                      <p className="text-xs font-mono text-ink-700 py-3 text-center">{copy.emptyMessage}</p>
+                    )}
+                  </Section>
+                )}
+              </motion.div>
+            );
+          })}
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {matchingItems.map((item) => {
-                          const state = aiMap.get(item) || 'unseen';
-                          const styleInfo = MASTERY_BADGE_STYLE[state];
-                          return (
-                            <motion.div
-                              key={item}
-                              whileHover={{ scale: 1.02, y: -1 }}
-                              className="cut-sm p-2.5 text-xs font-medium text-ink-100 transition-all duration-150 border border-accent/30 bg-surface-2/90 flex items-center justify-between gap-2 shadow-[0_0_10px_rgba(77,163,255,0.1)] hover:border-accent/70 hover:shadow-[0_0_14px_rgba(77,163,255,0.3)]"
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <Flame size={14} weight="fill" color="#5fb2ff" className="drop-shadow-[0_0_6px_#5fb2ff] shrink-0" />
-                                <span className="truncate font-semibold text-ink-100">{item}</span>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={['text-[8px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border', styleInfo.bg, styleInfo.border, styleInfo.text].join(' ')}>
-                                  {styleInfo.label}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setPracticeTopic(item)}
-                                  className="px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-accent-mid bg-accent-deep/40 border border-accent/40 rounded hover:bg-accent-deep hover:border-accent transition-all flex items-center gap-0.5"
-                                  title={`Practice ${item}`}
-                                >
-                                  <Lightning size={10} weight="fill" color="#5fb2ff" />
-                                  <span>PRACTICE</span>
-                                </button>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* The owner's Career Tree, or a generic System's milestones */}
+          {showPanel && (activeTab === 'all' || activeTab === 'panel') && (
+            <motion.div key="panel-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <Section title={panelCopy.title} tagline={panelCopy.tagline} icon={panelCopy.tabIcon}>
+                {legacy ? (
+                  <LegacyCareerPanel
+                    foundationsTouched={touched(mastery?.foundations ?? [])}
+                    aiTouched={touched(mastery?.ai ?? [])}
+                  />
+                ) : (
+                  <MilestonePanel />
+                )}
               </Section>
             </motion.div>
           )}
 
-          {/* Section 4: Career Tree */}
-          {(activeTab === 'all' || activeTab === 'career') && careerTree && (
-            <motion.div key="career-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Section title="Career Tree" tagline="ARTEFACTS & INTERVIEWS" icon={Trophy}>
-                <TreeRow label="Software engineering → foundations" value={`${foundationsTouched}/9`} />
-                <TreeRow label="AI / Agentic → tiers unlocked" value={`${aiTouched}/21 Tiers Active`} />
-                <TreeRow
-                  label="Projects → artifacts"
-                  value={
-                    Object.entries(careerTree.artifactsByKind)
-                      .filter(([, n]) => (n ?? 0) > 0)
-                      .map(([kind, n]) => `${n} ${kind}`)
-                      .join(' · ') || '0'
-                  }
-                />
-                <TreeRow label="Resume → versions" value={String(careerTree.resumeVersions)} />
-                <TreeRow
-                  label="Applications Logged"
-                  value={`${careerTree.applications} (${careerTree.qualityApplications} quality)`}
-                />
-                <TreeRow label="Interviews Conducted" value={String(careerTree.interviews)} />
-                <TreeRow label="Offer Secured" value={String(careerTree.offers)} />
+          {/* Self-certified metrics (the owner's: the Dungeon Gate benchmark) */}
+          {certs.filter(({ metric }) => activeTab === 'all' || activeTab === metric.id).map(({ metric, copy }) => (
+            <motion.div key={`${metric.id}-sec`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <Section title={copy.title} tagline={copy.tagline} icon={copy.glyph}>
+                <SelfCertCard metric={metric} copy={copy} />
               </Section>
             </motion.div>
-          )}
-
-          {/* Section 5: Dungeon Gate Benchmark */}
-          {(activeTab === 'all' || activeTab === 'benchmark') && (
-            <motion.div key="benchmark-sec" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Section title="Interview Readiness Benchmark" tagline="S-RANK DUNGEON GATE" icon={Sword}>
-                <InterviewBenchmarkCard />
-              </Section>
-            </motion.div>
-          )}
+          ))}
         </AnimatePresence>
       </div>
 
       {/* Quick Skill Practice Modal */}
-      {practiceTopic && arcId && (
+      {practice && arcId && (
         <QuickPracticeModal
-          topic={practiceTopic}
+          blueprint={blueprint}
+          tree={practice.tree}
+          topic={practice.topic}
           arcId={arcId}
-          onClose={() => setPracticeTopic(null)}
+          onClose={() => setPractice(null)}
           onSaved={() => {
-            setPracticeTopic(null);
+            setPractice(null);
             void refreshData();
           }}
         />
@@ -625,120 +543,16 @@ function Section({
   );
 }
 
-function TreeRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3 py-2.5 px-2 rounded-sm transition-all duration-150 hover:bg-accent-deep/15 border-b border-hair-faint">
-      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink-300">{label}</span>
-      <span className="shrink-0 font-mono text-xs font-bold tabular-nums text-accent-mid glow-text">{value}</span>
-    </div>
-  );
-}
-
-function InterviewBenchmarkCard() {
-  const [passed, setPassed] = useState<boolean | null>(null);
-  const [history, setHistory] = useState<{ local_date: string; passed: boolean }[]>([]);
-  const [arcId, setArcId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function refresh() {
-    const [p, h, arc] = await Promise.all([getInterviewBenchmarkPassed(), getInterviewBenchmarkHistory(), getActiveArc()]);
-    setPassed(p);
-    setHistory(h);
-    setArcId(arc?.id ?? null);
-  }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  async function handleLog(didPass: boolean) {
-    if (!arcId || submitting) return;
-    setSubmitting(true);
-    try {
-      const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
-      await logInterviewBenchmark(today, arcId, didPass, getEngineConfig(), realDeps);
-      await refresh();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (!arcId) return null;
-
-  return (
-    <FramedPanel className="px-4 py-4 relative overflow-hidden cut-sm border border-accent/40 bg-surface-2/90 shadow-[0_0_20px_rgba(77,163,255,0.2)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-25"
-        style={{
-          mixBlendMode: 'lighten',
-          maskImage: 'radial-gradient(100% 100% at 50% 50%, #000 20%, transparent 80%)',
-          WebkitMaskImage: 'radial-gradient(100% 100% at 50% 50%, #000 20%, transparent 80%)',
-        }}
-      >
-        <ArtLayer slot="training" scrim="quiet" focal="50% 40%" />
-      </div>
-
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-2">
-          <Sword size={16} weight="fill" color="#5fb2ff" className="animate-bounce drop-shadow-[0_0_8px_#5fb2ff]" />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-ink-100">
-            DUNGEON GATE PROTOCOL RULES
-          </span>
-        </div>
-
-        <p className="text-xs leading-relaxed text-ink-200 font-medium">
-          3 randomly-drawn medium DSA challenges · 90 minutes total duration · unseen test cases · first-attempt working solution with full space-time complexity analysis.
-        </p>
-
-        <div className="mt-4 p-2.5 rounded cut-sm border border-accent/30 bg-accent-deep/20 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-widest font-mono text-ink-500 font-bold">BENCHMARK GATE STATUS:</span>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle size={15} weight="fill" color={passed ? '#5fb2ff' : '#90a8c2'} />
-            <p className={['text-xs font-bold tracking-wider uppercase font-mono', passed ? 'glow-text text-accent-mid font-extrabold' : 'text-ink-500'].join(' ')}>
-              {passed ? '✓ GATE CLEARED' : 'UNCLEARED GATE'}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <PrimaryButton size="md" disabled={submitting} onClick={() => void handleLog(true)} className="flex-1 shadow-[0_0_16px_rgba(77,163,255,0.4)] font-mono uppercase font-bold tracking-wider">
-            {submitting ? 'RECORDING...' : 'GATE CLEARED'}
-          </PrimaryButton>
-          <SecondaryButton disabled={submitting} onClick={() => void handleLog(false)} className="flex-1 font-mono uppercase tracking-wider">
-            RETRIED / FAILED
-          </SecondaryButton>
-        </div>
-
-        {history.length > 0 && (
-          <ul className="mt-4 flex flex-col gap-1.5 border-t border-hair-faint pt-3">
-            <div className="text-[9px] uppercase font-mono font-bold text-ink-700 tracking-wider mb-1">
-              DUNGEON ENTRY LOGS ({history.length})
-            </div>
-            {history.map((h, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between font-mono text-xxs tabular-nums px-2 py-1 rounded bg-surface/50 border border-hair-faint"
-              >
-                <span className="text-ink-500">{h.local_date}</span>
-                <span className={h.passed ? 'text-accent-mid font-bold glow-text uppercase' : 'text-ink-700 uppercase'}>
-                  {h.passed ? '✓ CLEARED' : 'RETRIED'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </FramedPanel>
-  );
-}
-
 function QuickPracticeModal({
+  blueprint,
+  tree,
   topic,
   arcId,
   onClose,
   onSaved,
 }: {
+  blueprint: SystemBlueprint;
+  tree: SkillTreeDef;
   topic: string;
   arcId: string;
   onClose: () => void;
@@ -754,7 +568,7 @@ function QuickPracticeModal({
     setSubmitting(true);
     try {
       const todayStr = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
-      await logQuickSkillPractice(todayStr, arcId, topic, minutes, getEngineConfig(), realDeps, note || undefined);
+      await quickPractice(blueprint, tree, topic, minutes, note || undefined, { today: todayStr, arcId });
       onSaved();
     } catch {
       alert('Could not save practice trial.');

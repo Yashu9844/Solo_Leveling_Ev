@@ -4,6 +4,11 @@ import { getDsaTopicMastery, getFoundationTopicMastery } from './mastery';
 import { db } from '../db/db';
 import type { MasteryState, EngineConfig, EngineDeps } from '../engine/types';
 import { logLearningBlock } from './build';
+import type { SkillTreeDef, SystemBlueprint } from '../blueprint/schema';
+import { practiceItemMastery, type PracticeItemRecord } from '../instruments/types/practiceItem';
+import { studyBlockMastery, type StudyBlockRecord } from '../instruments/types/studyBlock';
+import type { InstrumentRecord } from '../instruments/framework';
+import { milestonesV2 } from './v2Reads';
 import { foundationMasteryFor } from '../engine/foundations';
 
 export interface TopicMastery {
@@ -129,3 +134,33 @@ export async function getCareerTreeOverview(): Promise<CareerTreeOverview> {
   };
 }
 
+/**
+ * The mastery of every node of a skill tree (platform/03 §27.3). The owner's trees read the
+ * domain tables their instruments have always filled; a generic tree reads the instrument's
+ * records through its mastery policy.
+ */
+export async function getTreeMastery(blueprint: SystemBlueprint, tree: SkillTreeDef): Promise<TopicMastery[]> {
+  const instrument = blueprint.instruments.find((candidate) => candidate.id === tree.instrumentId);
+  if (instrument?.eventBinding.kind === 'legacy') {
+    if (tree.id === 'dsa') return getDsaSkillsOverview();
+    if (tree.id === 'foundations') return getFoundationSkillsOverview();
+    if (tree.id === 'ai') return getAiSkillsOverview();
+    return tree.nodes.map((node) => ({ topic: node.name, state: 'unseen' as MasteryState }));
+  }
+  const rows = await db.instrument_record.where('instrument_id').equals(tree.instrumentId).toArray();
+  const records = rows.map((row) => ({
+    id: row.id, instrumentId: row.instrument_id, instrumentType: instrument?.type ?? 'study_block', domainId: row.domain_id, localDate: row.local_date,
+    eventId: row.event_id, blueprintVersion: row.blueprint_version, record: row.record,
+  })) as InstrumentRecord[];
+  return tree.nodes.map((node) => ({
+    topic: node.name,
+    state: tree.policy.kind === 'practice_rate'
+      ? practiceItemMastery(node.id, records as InstrumentRecord<PracticeItemRecord>[])
+      : studyBlockMastery(node.id, records as InstrumentRecord<StudyBlockRecord>[], { introducedAt: tree.policy.introducedAt, appliedAt: tree.policy.appliedAt, fluentAt: tree.policy.fluentAt, retainedGapDays: tree.policy.retainedGapDays }),
+  }));
+}
+
+/** The Blueprint's milestones with their live progress; empty when there is no arc. */
+export async function getMilestonePanel(today: string): Promise<{ id: string; label: string; progress: string; met: boolean }[]> {
+  return (await milestonesV2(today)) ?? [];
+}

@@ -256,3 +256,66 @@ describe('instrument recorders (loop 7.4)', () => {
     expect(loaded.due).toEqual(expect.arrayContaining(['bath', 'fuel']));
   }, 60_000);
 });
+
+// ── Loop 7.7 ────────────────────────────────────────────────────────────────
+import { LEGACY_TREE_COPY } from '../../src/ui/instruments/legacy/skillsCopy';
+import { canQuickPractice, quickPractice } from '../../src/ui/instruments/recorders/quickPractice';
+import { getMilestonePanel, getTreeMastery } from '../../src/store/skills';
+import { getSelfCertHistory, logSelfCert } from '../../src/store/training';
+import { getEngineConfig } from '../../src/store/engineConfig';
+
+describe('skills and self-cert from the Blueprint (loop 7.7)', () => {
+  it('the owner\'s AI tier ladder lists exactly the AI tree\'s nodes, in order', () => {
+    const tree = legacyBlueprintFor(facts).skills.find((candidate) => candidate.id === 'ai')!;
+    expect(LEGACY_TREE_COPY.ai!.tiers!.flatMap((tier) => tier.items)).toEqual(tree.nodes.map((node) => node.name));
+  });
+
+  it('legacy trees read the domain tables; a generic tree reads its instrument records through the mastery policy', async () => {
+    const harness = await loadLegacyDb(prefixOf(log, dateAt(15)), dateAt(15));
+    const blueprint = synthetic([reading, essays]);
+    blueprint.skills.push({
+      id: 'letters', domainId: 'foundations', instrumentId: 'foundations.reading', name: 'Letters', designation: 'LETTERS',
+      nodes: [{ id: 'Poetry', name: 'Poetry' }, { id: 'Prose', name: 'Prose' }],
+      policy: { kind: 'block_count', introducedAt: 1, appliedAt: 2, fluentAt: 3, retainedGapDays: 21 },
+    });
+    await activateBlueprint(blueprint, dateAt(15), deps(harness.now()));
+
+    const legacyDsa = await getTreeMastery(legacyBlueprintFor(facts), legacyBlueprintFor(facts).skills.find((tree) => tree.id === 'dsa')!);
+    expect(legacyDsa.map((row) => row.topic)).toContain('Arrays');
+
+    const tree = blueprint.skills.find((candidate) => candidate.id === 'letters')!;
+    expect((await getTreeMastery(blueprint, tree)).map((row) => row.state)).toEqual(['unseen', 'unseen']);
+    expect(canQuickPractice(blueprint, tree)).toBe(true);
+    await quickPractice(blueprint, tree, 'Poetry', 20, 'sonnets', ctx);
+    await quickPractice(blueprint, tree, 'Poetry', 20, undefined, ctx);
+    expect((await getTreeMastery(blueprint, tree)).map((row) => row.state)).toEqual(['applied', 'unseen']);
+  }, 60_000);
+
+  it('a practice_item tree offers no quick practice, and the milestone panel reads the Blueprint\'s milestones', async () => {
+    const blueprint = legacyBlueprintFor(facts);
+    expect(canQuickPractice(blueprint, blueprint.skills.find((tree) => tree.id === 'dsa')!)).toBe(true); // legacy: the learning block it always logged
+    const generic = synthetic([drills]);
+    generic.skills.push({
+      id: 'drilling', domainId: 'foundations', instrumentId: 'foundations.drills', name: 'Drilling', designation: 'DRILLING',
+      nodes: [{ id: 'Alpha', name: 'Alpha' }],
+      policy: { kind: 'practice_rate', appliedAt: 3, fluent: { minAttempts: 5, minRate: 0.6, minAboveEasiest: 2 }, retainedGapDays: 21, allowRegression: true },
+    });
+    expect(canQuickPractice(generic, generic.skills.find((tree) => tree.id === 'drilling')!)).toBe(false);
+
+    await loadLegacyDb(prefixOf(log, today), today);
+    const rows = await getMilestonePanel(today);
+    expect(rows.length).toBe(legacyBlueprintFor(facts).milestones.length);
+    expect(rows[0]).toEqual(expect.objectContaining({ id: expect.any(String), label: expect.any(String), met: expect.any(Boolean) }));
+  }, 60_000);
+
+  it('a self-certified metric records and reads back by its own id, and the interview benchmark is one such metric', async () => {
+    await loadLegacyDb(prefixOf(log, today), today);
+    await logSelfCert(today, LEGACY_ARC_ID, 'public_speaking', false, getEngineConfig(), { now: () => `${today}T09:00:00.000Z`, newId: () => 'zzzz-cert-000001' });
+    await logSelfCert(today, LEGACY_ARC_ID, 'public_speaking', true, getEngineConfig(), { now: () => `${today}T09:05:00.000Z`, newId: () => 'zzzz-cert-000002' });
+    expect(await getSelfCertHistory('public_speaking')).toEqual([{ local_date: today, passed: false }, { local_date: today, passed: true }]);
+    expect(await getSelfCertHistory('interview_benchmark')).toEqual([]);
+    const benchmark = legacyBlueprintFor(facts).metrics.find((metric) => metric.id === 'interview_benchmark')!;
+    expect(benchmark.unit).toBe('pass');
+    expect('manual' in benchmark.source).toBe(true);
+  }, 60_000);
+});
