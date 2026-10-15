@@ -2,3 +2,4 @@
 export * from './types';
 export { generateCore, deriveSections } from './pipeline';
 export { generateBlueprint, GENERATOR_ID, type GeneratedBlueprint } from './generate';
+export { draftFromAreas, draftFromPreset, type DraftContext } from './presets';

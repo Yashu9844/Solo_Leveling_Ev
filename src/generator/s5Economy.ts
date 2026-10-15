@@ -22,31 +22,26 @@ export const priorityTilt = (position: number): number => Math.max(0.6, 1.2 - 0.
 export function allocateQuestXp(resolved: ResolvedDomain[], mode: 'ranked' | 'equal'): { xp: Map<number, number>; issues: Issue[] } {
   const issues: Issue[] = [];
   const core = resolved.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.archetype.quest);
-  const engines = core.filter(({ entry }) => entry.archetype.role === 'engine');
-  const guardrails = core.filter(({ entry }) => entry.archetype.role !== 'engine');
-  const weigh = ({ entry }: (typeof core)[number]) => ({
-    weight: entry.archetype.weight * (mode === 'ranked' ? priorityTilt(entry.rolePosition) : 1),
-    min: MIN_CORE_XP, max: MAX_CORE_XP,
+  const isEngine = ({ entry }: (typeof core)[number]) => entry.archetype.role === 'engine';
+  const rawWeight = (member: (typeof core)[number]) => member.entry.archetype.weight * (mode === 'ranked' ? priorityTilt(member.entry.rolePosition) : 1);
+  const groupWeight = (engines: boolean) => core.filter((member) => isEngine(member) === engines).reduce((sum, member) => sum + rawWeight(member), 0);
+  const engineWeight = groupWeight(true);
+  const guardrailWeight = groupWeight(false);
+  // Engines are meant to hold 80% of the budget and guardrails 20%; a group with no members hands its share to the other.
+  const engineFraction = guardrailWeight === 0 ? 1 : engineWeight === 0 ? 0 : ENGINE_SHARE;
+  // One allocation over everyone: each member's weight is its place in its group times the group's share. A member the
+  // [30, 150] band pins (four guardrails cannot each get 25) is held at the band and the others re-share what is left, so the
+  // budget always balances whenever the band allows it.
+  const items = core.map((member) => {
+    const engine = isEngine(member);
+    const sum = engine ? engineWeight : guardrailWeight;
+    const fraction = engine ? engineFraction : 1 - engineFraction;
+    return { weight: sum > 0 ? (fraction * rawWeight(member)) / sum : 0, min: MIN_CORE_XP, max: MAX_CORE_XP };
   });
-
-  // Each group takes its share of the budget; a group with no members hands its share to the other.
-  const enginePool = guardrails.length === 0 ? DAILY_CORE_BUDGET : engines.length === 0 ? 0 : DAILY_CORE_BUDGET * ENGINE_SHARE;
-  const guardrailPool = DAILY_CORE_BUDGET - enginePool;
+  const allocated = allocate(DAILY_CORE_BUDGET, items, XP_UNIT);
   const values = new Map<number, number>();
-  const engineValues = allocate(enginePool, engines.map(weigh), XP_UNIT);
-  engines.forEach(({ index }, i) => values.set(index, engineValues[i]!));
-  const guardrailValues = allocate(guardrailPool, guardrails.map(weigh), XP_UNIT);
-  guardrails.forEach(({ index }, i) => values.set(index, guardrailValues[i]!));
-
-  // A clamp can leave part of a pool unspent: spend it where there is room, by the same weights.
-  const spent = [...values.values()].reduce((sum, v) => sum + v, 0);
-  const leftover = DAILY_CORE_BUDGET - spent;
-  if (leftover > 0 && core.length > 0) {
-    const room = core.map((member) => ({ ...weigh(member), min: 0, max: MAX_CORE_XP - values.get(member.index)! }));
-    const extra = allocate(leftover, room, XP_UNIT);
-    core.forEach(({ index }, i) => values.set(index, values.get(index)! + extra[i]!));
-  }
-  const total = [...values.values()].reduce((sum, v) => sum + v, 0);
+  core.forEach(({ index }, i) => values.set(index, allocated[i]!));
+  const total = allocated.reduce((sum, value) => sum + value, 0);
   if (core.length > 0 && total !== DAILY_CORE_BUDGET) {
     issues.push(generatorIssue('G-XP-01', 'error', 'quests', 'THE CORE ECONOMY CANNOT BE BALANCED.', `${core.length} core quests cannot share ${DAILY_CORE_BUDGET} XP between ${MIN_CORE_XP} and ${MAX_CORE_XP} each.`));
   }

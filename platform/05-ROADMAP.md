@@ -190,7 +190,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 8.4 | Generator S11–S14 (checkpoint items, reviews, rules, messaging labels, presentation, hash + validate) | determinism + totality property (I11) |
 | ☑ 8.5 | Archetype content batch 1: software-practice, career-pipeline, deep-build, strength-movement, sleep-regularity, attention-control, exam-prep, reading | each archetype reviewed for voice and richness (checklist in 03 §25.2) |
 | ☑ 8.6 | Batch 2: remaining archetypes + `custom:<type>` | same |
-| ☐ 8.7 | Presets + "never empty" property (I17); SOFTWARE ENGINEER vs legacy diff documented by a snapshot test | I17 green |
+| ☑ 8.7 | Presets + "never empty" property (I17); SOFTWARE ENGINEER vs legacy diff documented by a snapshot test | I17 green |
 | ☐ 8.8 | Floor collapse in Reduced Mode + level-unlock gating (feature table) for generated Systems; `collapsesQuests: false` for legacy | persona lapsing profile shows the collapse; legacy golden unchanged |
 
 ### Phase 9 — Persona fixtures + property tests
