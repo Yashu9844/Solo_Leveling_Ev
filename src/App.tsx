@@ -7,7 +7,8 @@ import { Progress } from './ui/screens/Progress';
 import { Skills } from './ui/screens/Skills';
 import { Profile } from './ui/screens/Profile';
 import { AttributeGroupScreen } from './ui/screens/AttributeGroupScreen';
-import { SHORTCUT_ROUTES, OPEN_PARAM, type OpenTarget } from './ui/routing/shortcuts';
+import { SHORTCUT_ROUTES, ALIAS_ROUTES, OPEN_PARAM, aliasTarget, type OpenTarget } from './ui/routing/shortcuts';
+import { useSystem } from './store/SystemContext';
 import { Splash, SPLASH_MIN_MS, useMinimumElapsed } from './ui/boot/Splash';
 import { Start } from './ui/boot/Start';
 import { SettingsScreen } from './ui/settings/SettingsScreen';
@@ -35,6 +36,13 @@ function Shortcut({ target, arcExists }: { target: OpenTarget; arcExists: boolea
     return <Navigate to="/start" replace />;
   }
   return <Navigate to={`/today?${OPEN_PARAM}=${target}`} replace />;
+}
+
+/** /log/primary and /log/evidence: the same shortcut, by the slot a domain declares rather than by name. */
+function AliasShortcut({ slot, arcExists }: { slot: 'primary' | 'evidence'; arcExists: boolean }) {
+  const { blueprint } = useSystem();
+  const target = aliasTarget(blueprint.domains, slot);
+  return target ? <Shortcut target={target} arcExists={arcExists} /> : <Navigate to={arcExists ? '/today' : '/start'} replace />;
 }
 
 export function App() {
@@ -68,6 +76,10 @@ export function App() {
       {/* Declared in the manifest since Slice 1; unhandled until now. */}
       {SHORTCUT_ROUTES.map(({ path, target }) => (
         <Route key={path} path={path} element={<Shortcut target={target} arcExists={arcExists} />} />
+      ))}
+
+      {ALIAS_ROUTES.map(({ path, slot }) => (
+        <Route key={path} path={path} element={<AliasShortcut slot={slot} arcExists={arcExists} />} />
       ))}
 
       <Route element={<RequireArc arcExists={arcExists} />}>

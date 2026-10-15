@@ -71,3 +71,7 @@ export interface SessionCopy {
 export const LEGACY_SESSION_COPY: Record<string, SessionCopy> = {
   'training.sessions': { sessionLabel: 'Session' },
 };
+
+/** The short names the owner's evening review and reminder settings call their domains by. */
+export const LEGACY_REVIEW_LABELS: Record<string, string> = { career: 'Career', dsa: 'DSA', build: 'Build', training: 'Train' };
+export const LEGACY_REMINDER_LABELS: Record<string, string> = { career: 'Career', dsa: 'DSA', training: 'Training' };

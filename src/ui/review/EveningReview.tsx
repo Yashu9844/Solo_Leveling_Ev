@@ -8,6 +8,8 @@ import {
   Quotes,
 } from '@phosphor-icons/react';
 import type { CoreQuestKey, ReviewBlocker } from '../../engine/types';
+import { useSystem } from '../../store/SystemContext';
+import { priorityOptions } from '../presentation/plan';
 import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { db } from '../../db/db';
@@ -24,16 +26,6 @@ const BLOCKER_LABELS: Record<ReviewBlocker, string> = {
   nothing: 'Nothing',
 };
 
-const PRIORITY_LABELS: Record<CoreQuestKey, string> = {
-  career: 'Career',
-  dsa: 'DSA',
-  build: 'Build',
-  training: 'Train',
-  sleep: 'Sleep',
-  attention: 'Attention',
-};
-const PRIORITY_OPTIONS: CoreQuestKey[] = ['career', 'dsa', 'build', 'training'];
-
 interface EveningReviewProps {
   today: string;
   day: number | null;
@@ -43,6 +35,8 @@ interface EveningReviewProps {
 
 /** final/05 §5 — 25 seconds, 5 taps, no typing. Matching exact sci-fi HUD design from Image 1 */
 export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps) {
+  const { blueprint } = useSystem();
+  const priorities = priorityOptions(blueprint);
   const [energy, setEnergy] = useState(3);
   const [focus, setFocus] = useState(3);
   const [blocker, setBlocker] = useState<ReviewBlocker | null>(null);
@@ -222,8 +216,8 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
 
         <SingleChipSelect
           label="TOMORROW'S ONE PRIORITY"
-          options={PRIORITY_OPTIONS}
-          labelFor={(k) => PRIORITY_LABELS[k]}
+          options={priorities.map((option) => option.questId as CoreQuestKey)}
+          labelFor={(k) => priorities.find((option) => option.questId === k)?.label ?? k}
           selected={priority}
           onSelect={setPriority}
         />

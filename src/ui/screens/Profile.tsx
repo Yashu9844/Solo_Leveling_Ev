@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GearSix, Sparkle } from '@phosphor-icons/react';
 import { getEngineConfig } from '../../store/engineConfig';
+import { useSystem } from '../../store/SystemContext';
 import { levelFor } from '../../engine/level';
 import { arcDay, localDate } from '../../engine/time';
 import { applyEvents } from '../../engine/reduce';
@@ -31,10 +32,8 @@ import {
 } from '../kit';
 import { getActiveArc, getActiveProfile } from '../../store/arc';
 
-const CHECKPOINT_DAYS: Checkpoint['day'][] = [14, 30, 60, 90, 120];
-const ARC_LENGTH_DAYS = 120;
-
 export function Profile() {
+  const { blueprint } = useSystem();
   const navigate = useNavigate();
   const [day, setDay] = useState<number | null>(null);
 
@@ -59,7 +58,7 @@ export function Profile() {
         <div className="mb-4 flex items-center gap-3">
           <ScreenTitle
             title="PROFILE"
-            meta={<DayMeta day={day} of={ARC_LENGTH_DAYS} />}
+            meta={<DayMeta day={day} of={blueprint.arc.lengthDays} />}
             className="min-w-0 flex-1"
           />
           <button
@@ -204,6 +203,7 @@ function LevelSummary() {
 /** final/01 §4.1 — "The Profile screen always shows the next gate as a
  * ✓/✗ checklist. This is the app's most important sentence." */
 function CheckpointRow() {
+  const { blueprint } = useSystem();
   const [day, setDay] = useState<number | null>(null);
   const [nextCheckpointDay, setNextCheckpointDay] = useState<Checkpoint['day'] | null>(null);
   const [open, setOpen] = useState(false);
@@ -217,9 +217,10 @@ function CheckpointRow() {
     const sealedDays = new Set(
       (await db.checkpoint.toArray()).filter((c) => c.sealed_at !== undefined).map((c) => c.day)
     );
-    const next = CHECKPOINT_DAYS.find((d) => !sealedDays.has(d)) ?? null;
+    // The checkpoint days are the Blueprint's (the engine types them as the owner's five; another System's days are cast through).
+    const next = (blueprint.progression.checkpointDays as Checkpoint['day'][]).find((d) => !sealedDays.has(d)) ?? null;
     setNextCheckpointDay(next);
-  }, []);
+  }, [blueprint]);
 
   useEffect(() => {
     void refresh();

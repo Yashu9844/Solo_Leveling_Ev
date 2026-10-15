@@ -420,8 +420,8 @@ const dom = (id: string, role: DomainDefinition['role'], name: string, designati
   id, role, name, designation, description, priority, presentation: { icon, hue }, instrumentIds, channel: { id: channel, cap }, reviewPromptIds: [], ...extra,
 });
 const DOMAINS: DomainDefinition[] = [
-  dom('career', 'engine', 'Job search', 'ASCENSION', 'Applications and the work that substitutes for them.', 1, 'Briefcase', 'violet', 'CAREER', 140, ['career.applications', 'career.substitute', 'career.resumes'], { coreQuestId: 'career', intention: { allowed: true }, evidenceSurface: 'resume' }),
-  dom('dsa', 'engine', 'Algorithms', 'LOGIC TRIAL', 'Problems solved, revisited and mastered.', 2, 'Code', 'violet', 'MIND', 200, ['dsa.problems'], { coreQuestId: 'dsa', intention: { allowed: true } }),
+  dom('career', 'engine', 'Job search', 'ASCENSION', 'Applications and the work that substitutes for them.', 1, 'Briefcase', 'violet', 'CAREER', 140, ['career.applications', 'career.substitute', 'career.resumes'], { coreQuestId: 'career', intention: { allowed: true }, evidenceSurface: 'resume', shortcut: 'evidence' }),
+  dom('dsa', 'engine', 'Algorithms', 'LOGIC TRIAL', 'Problems solved, revisited and mastered.', 2, 'Code', 'violet', 'MIND', 200, ['dsa.problems'], { coreQuestId: 'dsa', intention: { allowed: true }, shortcut: 'primary' }),
   dom('build', 'engine', 'Building', 'FORGE', 'Construct sessions and shipped work.', 3, 'Cpu', 'blue', 'CRAFT', 200, ['build.sessions', 'build.artifacts'], { coreQuestId: 'build', intention: { allowed: false }, evidenceSurface: 'portfolio' }),
   dom('training', 'engine', 'Training', 'VITALITY TRIAL', 'Conditioning sessions and daily movement.', 4, 'Barbell', 'violet', 'BODY', 150, ['training.sessions', 'training.steps'], { coreQuestId: 'training', intention: { allowed: true }, presentation: { icon: 'Barbell', hue: 'violet', artSlot: 'training' } }),
   dom('sleep', 'guardrail', 'Sleep', 'RECONSTITUTION', 'Waking inside the window.', 5, 'MoonStars', 'violet', 'SLEEP', 60, ['sleep.wake'], { coreQuestId: 'sleep', intention: { allowed: false } }),

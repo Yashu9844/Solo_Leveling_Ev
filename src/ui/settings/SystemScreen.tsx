@@ -4,7 +4,9 @@ import type { CoreQuestKey, ImplementationIntention } from '../../engine/types';
 import { getEngineConfig } from '../../store/engineConfig';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
-import { INTENTION_KEYS, amendIntention, getArcClock, getIntentions } from '../../store/plan';
+import { amendIntention, getArcClock, getIntentions } from '../../store/plan';
+import { useSystem } from '../../store/SystemContext';
+import { reminderOptions } from '../presentation/plan';
 import { InstallCard } from '../components/InstallCard';
 import {
   Field,
@@ -15,15 +17,6 @@ import {
   SettingsRow,
   TextInput,
 } from '../kit';
-
-const QUEST_LABELS: Record<CoreQuestKey, string> = {
-  career: 'Career',
-  dsa: 'DSA',
-  build: 'Build',
-  training: 'Training',
-  sleep: 'Sleep',
-  attention: 'Attention',
-};
 
 type Intentions = Partial<Record<CoreQuestKey, ImplementationIntention>>;
 
@@ -40,6 +33,8 @@ type Intentions = Partial<Record<CoreQuestKey, ImplementationIntention>>;
  */
 export function SystemScreen() {
   const navigate = useNavigate();
+  const { blueprint } = useSystem();
+  const reminders = reminderOptions(blueprint);
   const [intentions, setIntentions] = useState<Intentions | null>(null);
   const [clock, setClock] = useState<Awaited<ReturnType<typeof getArcClock>>>(null);
 
@@ -64,12 +59,13 @@ export function SystemScreen() {
           footnote="The if-then sentences from onboarding. Changing one is recorded as an amendment — the arc keeps both the old commitment and the day you changed it."
         >
           <SettingsList>
-            {INTENTION_KEYS.map((key) => {
+            {reminders.map(({ questId, label }) => {
+              const key = questId as CoreQuestKey;
               const it = intentions?.[key];
               return (
                 <SettingsRow
                   key={key}
-                  label={QUEST_LABELS[key]}
+                  label={label}
                   description={it ? `at ${it.place}, ${it.first_action}` : undefined}
                   value={it ? <span className="font-mono tabular-nums">{it.time}</span> : '—'}
                   onClick={() => navigate(`/profile/settings/system/${key}`)}
@@ -126,9 +122,9 @@ export function SystemScreen() {
 export function ReminderScreen() {
   const navigate = useNavigate();
   const { questKey } = useParams<{ questKey: string }>();
-  const key = (INTENTION_KEYS as string[]).includes(questKey ?? '')
-    ? (questKey as CoreQuestKey)
-    : null;
+  const { blueprint } = useSystem();
+  const reminder = reminderOptions(blueprint).find((option) => option.questId === questKey);
+  const key = reminder ? (reminder.questId as CoreQuestKey) : null;
 
   const [time, setTime] = useState('');
   const [place, setPlace] = useState('');
@@ -187,7 +183,7 @@ export function ReminderScreen() {
 
   return (
     <>
-      <ScreenHeader title={QUEST_LABELS[key].toUpperCase()} onBack={back} />
+      <ScreenHeader title={(reminder?.label ?? key).toUpperCase()} onBack={back} />
       <div className="px-gutter pb-8" data-testid="reminder-screen">
         {/* The sentence, read back as one thing before it is edited in
             three fields — this is the form of the commitment, and seeing

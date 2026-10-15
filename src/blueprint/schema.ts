@@ -38,6 +38,8 @@ export interface DomainDefinition {
   presentation: { icon: IconToken; hue: DomainHueToken; artSlot?: ArtToken };
   instrumentIds: string[]; coreQuestId?: string; channel: { id: string; cap: number };
   intention?: { allowed: boolean }; reviewPromptIds: string[]; evidenceSurface?: string;
+  /** Which app shortcut opens this domain's log: /log/primary or /log/evidence (the installed shortcuts keep their older paths). */
+  shortcut?: 'primary' | 'evidence';
 }
 
 export type InstrumentParams = Record<string, unknown>;

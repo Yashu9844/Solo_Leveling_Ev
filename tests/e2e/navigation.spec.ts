@@ -24,6 +24,9 @@ test.describe('PWA app shortcuts', () => {
     ['/log/problem', 'dsa'],
     ['/log/application', 'career'],
     ['/review', 'review'],
+    // The Blueprint-neutral aliases (loop 7.8): the owner's primary practice is DSA, their evidence log the career pipeline.
+    ['/log/primary', 'dsa'],
+    ['/log/evidence', 'career'],
   ] as const) {
     test(`${path} resolves to Today asking for "${target}"`, async ({ page }) => {
       await withSafeClock(page);

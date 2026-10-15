@@ -13,6 +13,8 @@ import { db } from '../../src/db/db';
 import { getBlueprintVersionsSnapshot, refreshBlueprintVersions, resetBlueprintVersions } from '../../src/store/systemBlueprint';
 import { hueTheme, presentDomain, presentDomains } from '../../src/ui/presentation/domain';
 import { realityCells } from '../../src/ui/presentation/reality';
+import { priorityOptions, reminderOptions } from '../../src/ui/presentation/plan';
+import { ALIAS_ROUTES, aliasTarget, SHORTCUT_ROUTES } from '../../src/ui/routing/shortcuts';
 import { priorityLine } from '../../src/ui/today/priorityLine';
 import { coreQuestOrder, countWord, presentQuest } from '../../src/ui/presentation/quest';
 import { ICONS, iconFor } from '../../src/ui/presentation/icons';
@@ -229,5 +231,38 @@ describe('Progress from the Blueprint (loop 7.6)', () => {
     expect(cells(live).map((cell) => cell.now)).toEqual(['52', '46%', '2', '1', '31', '80%', '50%', '4 / 9']);
     // A quality rate needs applications behind it, whatever the rate says.
     expect(cells({ ...live, applications: 0 })[5]!.now).toBe('—');
+  });
+});
+
+describe('plan options, shortcuts and checkpoints from the Blueprint (loop 7.8)', () => {
+  it('the evening review offers the four engine domains under the names it always used', () => {
+    expect(priorityOptions(LEGACY_BLUEPRINT_V1)).toEqual([
+      { questId: 'career', label: 'Career' }, { questId: 'dsa', label: 'DSA' }, { questId: 'build', label: 'Build' }, { questId: 'training', label: 'Train' },
+    ]);
+  });
+
+  it('the reminder settings offer the three domains that allow an intention, as they always did', () => {
+    expect(reminderOptions(LEGACY_BLUEPRINT_V1)).toEqual([
+      { questId: 'career', label: 'Career' }, { questId: 'dsa', label: 'DSA' }, { questId: 'training', label: 'Training' },
+    ]);
+  });
+
+  it('another System is offered its own domains by name', () => {
+    const blueprint = legacyBlueprintFor();
+    delete blueprint.origin;
+    blueprint.domains.find((domain) => domain.id === 'dsa')!.name = 'Logic';
+    expect(priorityOptions(blueprint).map((option) => option.label)).toEqual(['Job search', 'Logic', 'Building', 'Training']);
+  });
+
+  it('the aliases resolve to the domain that declares the slot; the legacy paths are untouched', () => {
+    expect(aliasTarget(LEGACY_BLUEPRINT_V1.domains, 'primary')).toBe('dsa');
+    expect(aliasTarget(LEGACY_BLUEPRINT_V1.domains, 'evidence')).toBe('career');
+    expect(aliasTarget([{ id: 'x' }], 'primary')).toBeNull();
+    expect(SHORTCUT_ROUTES.map((route) => route.path)).toEqual(['/log/problem', '/log/application', '/review']);
+    expect(ALIAS_ROUTES.map((route) => route.path)).toEqual(['/log/primary', '/log/evidence']);
+  });
+
+  it('the checkpoint schedule is the Blueprint\'s', () => {
+    expect(LEGACY_BLUEPRINT_V1.progression.checkpointDays).toEqual([14, 30, 60, 90, 120]);
   });
 });
