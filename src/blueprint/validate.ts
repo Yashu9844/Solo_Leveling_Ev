@@ -1,6 +1,7 @@
 import { addDays, compareAsc, differenceInCalendarDays, parseISO } from 'date-fns';
 import { INSTRUMENT_CATALOGUE, isKnownInstrumentSignal } from '../instruments/catalog';
 import { isValidTimeZone } from '../engine/time';
+import { checkpointDaysFor } from '../library/calibration';
 import { isValidDesignation } from '../library/lexicon';
 import { canonicalJson, hashesFor, partitionBlueprint } from './hash';
 import type { Criterion, GateCondition, SignalRef, SystemBlueprint } from './schema';
@@ -137,6 +138,31 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   if (blueprint.attributes.defs.some((attribute) => attribute.terms.some((term) => unsafeSignal(term.signal))) || blueprint.gates.some((gate) => gate.conditions.some((condition) => conditionSignals(condition).some(unsafeSignal))) || blueprint.bosses.some((boss) => boss.conditions.some((condition) => conditionSignals(condition).some(unsafeSignal)))) add('V-MET-01', 'error', 'metrics', 'UNCONTROLLED EVIDENCE ENTERED A SCORE.', 'External and body metrics cannot drive XP, gates, or attributes.');
   for (const gate of blueprint.gates) {
     if (['C', 'B', 'A', 'S'].includes(gate.rank) && !gate.conditions.some((condition) => condition.verifiability === 'public_url' || condition.verifiability === 'recorded')) add('V-GATE-01', 'error', `gates.${gate.rank}`, 'THE GATE LACKS VERIFIABLE EVIDENCE.', 'Add a public URL or recorded evidence condition.');
+  }
+  // V-GATE-03: ladders only rise - a milestone's C/B/A/S thresholds, and a count (or a rate) asked of the same condition at later ranks.
+  const ladderOrdered = blueprint.milestones.every((milestone) => (milestone.ladder ?? []).every((rung, index, rungs) => index === 0 || rung.threshold >= rungs[index - 1]!.threshold));
+  const stricterLater = (comparator: string, before: number, after: number): boolean => (comparator === '>=' || comparator === '>' ? after >= before : comparator === '<' || comparator === '<=' ? after <= before : true);
+  const previousAsked = new Map<string, { comparator: string; threshold: number }>();
+  let gatesOrdered = true;
+  for (const gate of [...blueprint.gates].filter((candidate) => ['C', 'B', 'A', 'S'].includes(candidate.rank)).sort((a, b) => a.day - b.day)) {
+    for (const condition of gate.conditions) {
+      const first = condition.clauses?.[0] ?? condition;
+      if (typeof first.threshold !== 'number' || first.comparator === 'between') continue;
+      const before = previousAsked.get(condition.id);
+      if (before && !stricterLater(first.comparator, before.threshold, first.threshold)) gatesOrdered = false;
+      previousAsked.set(condition.id, { comparator: first.comparator, threshold: first.threshold });
+    }
+  }
+  if (!ladderOrdered || !gatesOrdered) add('V-GATE-03', 'error', 'gates', 'A LADDER FALLS AS IT CLIMBS.', 'Each rank may ask for more than the one before it, never less.');
+  // V-GATE-04: the D gate is the System's own (effort only, so early rank is reachable), and the checkpoints are the arc length's.
+  const dGate = blueprint.gates.find((gate) => gate.rank === 'D');
+  const dIsGlobal = !!dGate && dGate.conditions.length === 1 && dGate.conditions[0]!.signal.source === 'global' && dGate.conditions[0]!.signal.signal === 'consistency_14';
+  const scheduled = checkpointDaysFor(blueprint.arc.lengthDays);
+  const gateDays = blueprint.gates.filter((gate) => gate.rank !== 'E').sort((a, b) => a.day - b.day).map((gate) => gate.day);
+  if (blueprint.gates.length > 0 && (!dIsGlobal || JSON.stringify(blueprint.progression.checkpointDays) !== JSON.stringify(scheduled) || JSON.stringify(gateDays) !== JSON.stringify(scheduled))) add('V-GATE-04', 'error', 'gates', 'THE GATES DO NOT FOLLOW THE ARC.', 'The D gate is the global consistency gate, and the checkpoints fall on the days the arc length sets.');
+  for (const boss of blueprint.bosses) {
+    const needed = boss.gatesRank ? blueprint.gates.find((gate) => gate.rank === boss.gatesRank)?.day : undefined;
+    if (needed !== undefined && boss.windowStartDay > needed - 7) add('V-BOSS-02', 'error', `bosses.${boss.id}`, 'A BOSS OPENS TOO LATE.', 'A boss window must open at least a week before the checkpoint that needs it.');
   }
   for (const boss of blueprint.bosses) if (!boss.anchorMilestoneId || !milestoneIds.has(boss.anchorMilestoneId)) add('V-BOSS-01', 'error', `bosses.${boss.id}`, 'A BOSS HAS NO REAL-WORLD ANCHOR.', 'Anchor every boss to a milestone.');
   if (blueprint.attributes.defs.some((attribute) => attribute.combine === 'sum' && Math.abs(attribute.terms.reduce((sum, term) => sum + term.weight, 0) - 1) > .001 || attribute.combine === 'product' && attribute.terms.length > 3)) add('V-ATT-01', 'error', 'attributes', 'THE ATTRIBUTE FORMULA IS UNBALANCED.', 'Sum weights must total 1; product formulas may have at most three factors.');

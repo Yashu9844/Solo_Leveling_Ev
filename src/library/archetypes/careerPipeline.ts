@@ -29,4 +29,47 @@ export const careerPipeline: ArchetypeDef = {
   },
   presentation: { icon: 'Briefcase', hue: 'violet' },
   intention: true, evidenceSurface: 'resume',
+
+  metrics: [
+    { key: 'applications', label: 'Applications', unit: 'applications', kind: 'effort', direction: 'higher', source: { instrument: 'main', signal: 'submitted', aggregate: 'total' } },
+    { key: 'quality-rate', label: 'Quality rate', unit: '%', kind: 'effort', direction: 'higher', source: { instrument: 'main', signal: 'quality_rate', aggregate: 'total' } },
+    { key: 'interview-loops', label: 'Interview loops reached', unit: 'loops', kind: 'external', direction: 'neutral', source: { instrument: 'main', signal: 'stage_counts', aggregate: 'total', filter: { stage: 'loops' } } },
+    { key: 'benchmark', label: 'Interview-readiness benchmark', unit: 'pass', kind: 'performance', direction: 'higher', source: { manual: true, cadence: 'any' } },
+  ],
+  ladder: {
+    key: 'applications', label: 'Quality applications', noun: 'quality applications', success: 280, verifiability: 'count',
+    signal: { instrument: 'main', signal: 'quality_count', aggregate: 'total' },
+  },
+  conditions: [
+    {
+      id: 'resume-on-file', label: 'Resume versions on file {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      signal: { instrument: 'resumes', signal: 'count', aggregate: 'total' }, at: { C: 1, B: 2 },
+    },
+    {
+      id: 'resume-reviewed', label: 'Resumes reviewed by someone else {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      signal: { instrument: 'resumes', signal: 'count', aggregate: 'total', filter: { externalReview: 'true' } }, at: { B: 1, A: 1, S: 1 },
+    },
+    {
+      id: 'follow-through', label: 'Follow-through {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
+      signal: { instrument: 'main', signal: 'followthrough_rate', aggregate: 'total' }, at: { A: 0.7, S: 0.7 },
+    },
+    {
+      id: 'mocks', label: '{0} recorded mocks (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      signal: { instrument: 'substitute', signal: 'mode_counts', aggregate: 'total', filter: { mode: 'mock' } }, at: { A: 2, S: 4 },
+    },
+  ],
+  attribute: {
+    id: 'MOMENTUM', name: 'MOMENTUM', group: 'craft', combine: 'sum', description: 'Applications sent, their quality, and following through.',
+    terms: [
+      { id: 'applications', label: 'Applications', weight: 0.4, signal: { instrument: 'main', signal: 'submitted', aggregate: 'eligible_28' }, transform: { kind: 'ratio', denominator: 70 } },
+      { id: 'quality', label: 'Quality rate', weight: 0.35, signal: { instrument: 'main', signal: 'quality_rate', aggregate: 'eligible_28' }, transform: { kind: 'rate' } },
+      { id: 'follow_through', label: 'Follow-through', weight: 0.25, signal: { instrument: 'main', signal: 'followthrough_rate', aggregate: 'eligible_28' }, transform: { kind: 'rate' } },
+    ],
+  },
+  // "First interview" depends on other people, so the boss is its controlled counterpart and the outcome is recorded, never gating (B5).
+  bossAnchor: {
+    id: 'interview-ready', title: 'INTERVIEW READY', milestone: 'Mocks recorded and materials reviewed',
+    uses: { ladder: true, conditions: ['mocks', 'resume-reviewed'] }, verifiability: 'recorded',
+    external: { key: 'interview-loops', label: 'Interview loops reached', source: { instrument: 'main', signal: 'stage_counts', aggregate: 'total', filter: { stage: 'loops' } } },
+  },
 };

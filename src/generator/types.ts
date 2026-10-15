@@ -2,7 +2,9 @@
 // library: no clock (today is an input), no randomness, no I/O. Same draft + same library version ->
 // deep-equal Blueprint; every draft yields a Blueprint (possibly with issues); it never throws.
 import type { Issue } from '../blueprint/validate';
-import type { DomainDefinition, InstrumentConfig, ProgressionSection, QuestTemplateDef, SystemBlueprint } from '../blueprint/schema';
+import type {
+  AttributeDef, AttributeGroupDef, BossDef, DomainDefinition, InstrumentConfig, MetricDefinition, MilestoneDef, ProgressionSection, QuestTemplateDef, RankGateDef, SkillTreeDef, SystemBlueprint,
+} from '../blueprint/schema';
 import type { ArchetypeDef } from '../library/archetypes/types';
 
 /** What the person said about one domain. Everything is optional: the archetype has a default for each. */
@@ -19,6 +21,8 @@ export interface DomainAnswers {
   limit?: number;
   /** A subject the domain is about ("Medical licensing"); part of its id and its name. */
   topic?: string;
+  /** "What would a successful arc look like?": the headline ladder's S target (problems solved, sessions done). */
+  success?: number;
 }
 
 export interface DomainChoice {
@@ -79,6 +83,17 @@ export interface CoreGeneration {
   instruments: InstrumentConfig[];
   quests: QuestTemplateDef[];
   progression: ProgressionSection;
+  issues: Issue[];
+}
+
+/** What S6-S10 add to the core: the sections that make a System more than a list of quests. */
+export interface DerivedSections {
+  metrics: MetricDefinition[];
+  milestones: MilestoneDef[];
+  skills: SkillTreeDef[];
+  attributes: { groups: AttributeGroupDef[]; defs: AttributeDef[] };
+  gates: RankGateDef[];
+  bosses: BossDef[];
   issues: Issue[];
 }
 

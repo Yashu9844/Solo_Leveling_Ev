@@ -19,4 +19,13 @@ export const sleepRegularity: ArchetypeDef = {
     schedule: { kind: 'daily' }, evidenceMode: 'self_report_allowed', recoverable: true, intentionAllowed: false,
   },
   presentation: { icon: 'MoonStars', hue: 'violet' },
+
+  metrics: [
+    { key: 'wake-sd', label: 'Wake-time spread', unit: 'min', kind: 'performance', direction: 'lower', source: { instrument: 'main', signal: 'sd_minutes', aggregate: 'window_28' } },
+  ],
+  // Consistency is the evidence a guardrail has: it is judged from A.
+  conditions: [{
+    id: 'wake-sd', label: 'Wake SD {0}min (need < {t0})', verifiability: 'recorded', comparator: '<', format: 'round',
+    signal: { instrument: 'main', signal: 'sd_minutes_failsafe', aggregate: 'window_28' }, at: { A: 60, S: 45 },
+  }],
 };

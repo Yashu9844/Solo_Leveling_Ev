@@ -1,6 +1,8 @@
 import { DSA_TOPICS } from '../../engine/dsa';
 import type { ArchetypeDef } from './types';
 
+const FIRST_ATTEMPT_M = { difficulty: 'M', isRevisit: 'false' };
+
 /** Problems solved, revisited and mastered: the owner's DSA domain, as a template. */
 export const softwarePractice: ArchetypeDef = {
   id: 'software-practice', area: 'craft', label: 'Software practice', version: 1,
@@ -29,4 +31,35 @@ export const softwarePractice: ArchetypeDef = {
   },
   presentation: { icon: 'Code', hue: 'violet' },
   intention: true,
+
+  metrics: [
+    { key: 'problems', label: 'Problems solved', unit: 'problems', kind: 'effort', direction: 'higher', source: { instrument: 'main', signal: 'count', aggregate: 'total', filter: { isRevisit: 'false' } } },
+    { key: 'first-attempt-m', label: 'First-attempt rate (M)', unit: '%', kind: 'performance', direction: 'higher', source: { instrument: 'main', signal: 'first_attempt_rate', aggregate: 'total', filter: FIRST_ATTEMPT_M } },
+  ],
+  ladder: {
+    key: 'problems', label: 'Problems solved', noun: 'problems', success: 240, verifiability: 'count',
+    signal: { instrument: 'main', signal: 'count', aggregate: 'total', filter: { isRevisit: 'false' } },
+  },
+  conditions: [{
+    id: 'first-attempt-m', label: 'First-attempt M {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
+    signal: { instrument: 'main', signal: 'first_attempt_rate', aggregate: 'window_28', filter: FIRST_ATTEMPT_M },
+    at: { B: 0.5, A: 0.6, S: 0.6 },
+  }],
+  skillTree: {
+    instrument: 'main', name: 'Practice topics', designation: 'PRACTICE', nodes: 'topics',
+    policy: { kind: 'practice_rate', appliedAt: 3, fluent: { minAttempts: 5, minRate: 0.6, minAboveEasiest: 2 }, retainedGapDays: 21, allowRegression: true },
+  },
+  attribute: {
+    id: 'PROBLEM_SOLVING', name: 'PROBLEM SOLVING', group: 'mind', combine: 'sum',
+    description: 'Volume, first-attempt accuracy on Mediums, and revisit success.',
+    terms: [
+      { id: 'volume', label: 'Weighted problems', weight: 0.45, signal: { instrument: 'main', signal: 'weighted_volume', aggregate: 'eligible_28', filter: { isRevisit: 'false' } }, transform: { kind: 'ratio', denominator: 110 } },
+      { id: 'first_attempt_m', label: 'First-attempt rate (M)', weight: 0.35, signal: { instrument: 'main', signal: 'first_attempt_rate', aggregate: 'eligible_28', filter: FIRST_ATTEMPT_M }, transform: { kind: 'rate' } },
+      { id: 'revisit_success', label: 'Revisit success', weight: 0.2, signal: { instrument: 'main', signal: 'revisit_success_rate', aggregate: 'eligible_28' }, transform: { kind: 'rate' } },
+    ],
+  },
+  bossAnchor: {
+    id: 'gauntlet', title: 'LOGIC GAUNTLET', milestone: 'Mediums solved first try, at volume',
+    uses: { ladder: true, conditions: ['first-attempt-m'] }, verifiability: 'count',
+  },
 };

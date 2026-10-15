@@ -12,10 +12,10 @@
 // equal the defaults in engine/config.ts; for anyone who started with the old
 // onboarding they are the arc's own (platform/05 loop 1.3).
 import type {
-  AchievementDef, AttributeDef, BossDef, ComparisonRowDef, Criterion, DomainDefinition, EvidenceDef, GateClause, GateCondition, InstrumentConfig,
+  AchievementDef, AttributeDef, BossDef, ComparisonRowDef, Criterion, DomainDefinition, EvidenceDef, InstrumentConfig,
   MilestoneDef, QuestTemplateDef, RankGateDef, RealityRowDef, SignalRef, SkillTreeDef, SystemBlueprint,
 } from '../schema';
-import type { ConditionFormat, Comparator } from '../schema';
+import { BOSS_CLEARED, clause, condition, coreCompletion, flag, glob, inst, need, ratio, sum } from '../build';
 
 export interface LegacyArcFacts {
   id: string;
@@ -47,28 +47,7 @@ const AI_TOPICS = [
 /** The six foundation topics Boss II names (engine/boss.ts BOSS_II_TOPICS). */
 const BOSS_II_TOPICS = ['Operating Systems', 'Networking', 'Databases', 'Distributed Systems', 'Concurrency', 'Backend Engineering'];
 
-// ── Signal and condition helpers ────────────────────────────────────────────
-type Aggregate = Extract<SignalRef, { source: 'instrument' }>['aggregate'];
-const inst = (instrumentId: string, signal: string, aggregate: Aggregate, filter?: Record<string, string>): SignalRef =>
-  filter ? { source: 'instrument', instrumentId, signal, aggregate, filter } : { source: 'instrument', instrumentId, signal, aggregate };
-const glob = (signal: Extract<SignalRef, { source: 'global' }>['signal'], id?: string, aggregate?: Aggregate): SignalRef => {
-  const ref: Extract<SignalRef, { source: 'global' }> = { source: 'global', signal };
-  if (id !== undefined) ref.id = id;
-  if (aggregate !== undefined) ref.aggregate = aggregate;
-  return ref;
-};
-const sum = (...of: SignalRef[]): SignalRef => ({ source: 'sum', of });
-const ratio = (num: SignalRef, den: SignalRef): SignalRef => ({ source: 'ratio', num, den });
-const clause = (signal: SignalRef, comparator: Comparator, threshold: number | [number, number], format?: ConditionFormat): GateClause =>
-  format ? { signal, comparator, threshold, format } : { signal, comparator, threshold };
-/** A condition; its top-level signal/comparator/threshold mirror the first clause. */
-function condition(id: string, label: string, verifiability: GateCondition['verifiability'], clauses: GateClause[], clauseMode?: 'any'): GateCondition {
-  const first = clauses[0] ?? clause(glob('first_quest'), '>=', 0);
-  const result: GateCondition = { id, label, signal: first.signal, comparator: first.comparator, threshold: first.threshold, verifiability, clauses };
-  if (first.format) result.format = first.format;
-  if (clauseMode) result.clauseMode = clauseMode;
-  return result;
-}
+// ── Signal and condition helpers (blueprint/build.ts) ───────────────────────
 
 // The evidence signals the gates, bosses and achievements read.
 const PROBLEMS_TOTAL = inst('dsa.problems', 'count', 'total', { isRevisit: 'false' });
@@ -98,12 +77,8 @@ const WAKE_SD = inst('sleep.wake', 'sd_minutes_failsafe', 'window_28');
 const SCREEN_AVG = inst('attention.screen', 'mean_value_failsafe', 'window_28');
 const BENCHMARK: SignalRef = { source: 'metric', metricId: 'interview_benchmark', aggregate: 'max' };
 const CORE_COMPLETION_28 = glob('consistency_28');
-const BOSS_CLEARED = (id: string) => glob('boss_cleared', id);
 
 // Frequently repeated condition shapes (labels are the owner's exact words).
-const need = (id: string, noun: string, signal: SignalRef, n: number) => condition(id, `{0} ${noun} (need {t0})`, 'count', [clause(signal, '>=', n, 'int')]);
-const coreCompletion = (id: string, floor: number) => condition(id, `Core completion {0} (need {t0})`, 'count', [clause(CORE_COMPLETION_28, '>=', floor / 100, 'percent')]);
-const flag = (id: string, label: string, verifiability: GateCondition['verifiability'], signal: SignalRef, n = 1) => condition(id, label, verifiability, [clause(signal, '>=', n)]);
 const firstAttempt = (id: string, floor: number, signal: SignalRef = FIRST_ATTEMPT_M_28) => condition(id, `First-attempt M {0} (need {t0})`, 'count', [clause(signal, '>=', floor / 100, 'percent')]);
 const SYSTEM_DESIGNS_120 = condition('designs', '{0} designs studied (need {t0}), {1} written (need {t1}), {2} explained (need {t2})', 'count', [clause(DESIGNS, '>=', 12, 'int'), clause(DESIGNS_WRITTEN, '>=', 4, 'int'), clause(DESIGNS_EXPLAINED, '>=', 2, 'int')]);
 const RESUME_V3 = condition('resume-v3', 'Resume v3 with an external review', 'recorded', [clause(RESUMES, '>=', 3), clause(RESUMES_REVIEWED, '>=', 1)]);

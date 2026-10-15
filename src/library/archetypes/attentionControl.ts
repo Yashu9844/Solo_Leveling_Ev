@@ -19,4 +19,12 @@ export const attentionControl: ArchetypeDef = {
     schedule: { kind: 'daily' }, evidenceMode: 'self_report_allowed', recoverable: true, intentionAllowed: false,
   },
   presentation: { icon: 'Eye', hue: 'blue' },
+
+  metrics: [
+    { key: 'screen-time', label: 'Screen time', unit: 'min/day', kind: 'effort', direction: 'lower', source: { instrument: 'main', signal: 'mean_value', aggregate: 'window_28' } },
+  ],
+  conditions: [{
+    id: 'screen', label: 'Screen time {0}min/day (need <= {t0})', verifiability: 'recorded', comparator: '<=', format: 'round',
+    signal: { instrument: 'main', signal: 'mean_value_failsafe', aggregate: 'window_28' }, at: { S: { param: 'target', instrument: 'main' } },
+  }],
 };
