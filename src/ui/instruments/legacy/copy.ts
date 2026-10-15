@@ -62,3 +62,12 @@ export const LEGACY_DURATION_COPY: Record<string, DurationCopy> = {
     shippedPlaceholder: 'e.g. Tool-calling retry logic',
   },
 };
+
+export interface SessionCopy {
+  /** The singular the mode toggle uses for the session itself ("Session" beside "Steps"). */
+  sessionLabel: string;
+}
+
+export const LEGACY_SESSION_COPY: Record<string, SessionCopy> = {
+  'training.sessions': { sessionLabel: 'Session' },
+};

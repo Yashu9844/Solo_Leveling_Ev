@@ -20,8 +20,6 @@ import { DomainLogSheet } from '../instruments/registry';
 import { getRevisitsDue, logRevisit, type RevisitDue } from '../../store/dsa';
 import { getActiveWeeklyQuest, type ActiveWeeklyQuest } from '../../store/weeklyQuest';
 import { getCurrentRank } from '../../store/checkpoint';
-import { LogBuildSessionSheet } from '../build/LogBuildSessionSheet';
-import { LogTrainingSheet } from '../training/LogTrainingSheet';
 import { LogSleepSheet } from '../lifestyle/LogSleepSheet';
 import { LogAttentionSheet } from '../lifestyle/LogAttentionSheet';
 import { MaintenanceCard } from '../lifestyle/MaintenanceCard';
@@ -804,7 +802,8 @@ export function Today() {
       )}
 
       {buildLogOpen && arc && (
-        <LogBuildSessionSheet
+        <DomainLogSheet
+          domainId="build"
           today={today}
           arcId={arc.id}
           onClose={() => {
@@ -815,7 +814,8 @@ export function Today() {
       )}
 
       {trainingLogOpen && arc && (
-        <LogTrainingSheet
+        <DomainLogSheet
+          domainId="training"
           today={today}
           arcId={arc.id}
           onClose={() => {

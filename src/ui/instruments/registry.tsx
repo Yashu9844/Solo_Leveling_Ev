@@ -1,8 +1,11 @@
 import { useMemo, type ComponentType } from 'react';
 import type { InstrumentType } from '../../blueprint/schema';
 import { useSystem } from '../../store/SystemContext';
+import { ArtifactSheet } from './ArtifactSheet';
+import { DurationSheet } from './DurationSheet';
 import { PipelineSheet } from './PipelineSheet';
 import { PracticeItemSheet } from './PracticeItemSheet';
+import { SessionSheet } from './SessionSheet';
 import type { InstrumentSheetProps } from './types';
 
 /**
@@ -13,6 +16,9 @@ import type { InstrumentSheetProps } from './types';
 export const INSTRUMENT_SHEETS: Partial<Record<InstrumentType, ComponentType<InstrumentSheetProps>>> = {
   practice_item: PracticeItemSheet,
   pipeline: PipelineSheet,
+  duration: DurationSheet,
+  artifact: ArtifactSheet,
+  session: SessionSheet,
 };
 
 interface DomainLogSheetProps {
