@@ -16,8 +16,7 @@ import { LevelUpMoment } from '../moments/LevelUpMoment';
 import { DayCompleteMoment } from '../moments/DayCompleteMoment';
 import { unlockTextForRange } from '../moments/levelUnlocks';
 import { EveningReview } from '../review/EveningReview';
-import { LogApplicationSheet } from '../career/LogApplicationSheet';
-import { LogProblemSheet } from '../dsa/LogProblemSheet';
+import { DomainLogSheet } from '../instruments/registry';
 import { getRevisitsDue, logRevisit, type RevisitDue } from '../../store/dsa';
 import { getActiveWeeklyQuest, type ActiveWeeklyQuest } from '../../store/weeklyQuest';
 import { getCurrentRank } from '../../store/checkpoint';
@@ -781,7 +780,8 @@ export function Today() {
       )}
 
       {careerLogOpen && arc && (
-        <LogApplicationSheet
+        <DomainLogSheet
+          domainId="career"
           today={today}
           arcId={arc.id}
           onClose={() => {
@@ -792,7 +792,8 @@ export function Today() {
       )}
 
       {dsaLogOpen && arc && (
-        <LogProblemSheet
+        <DomainLogSheet
+          domainId="dsa"
           today={today}
           arcId={arc.id}
           onClose={() => {
