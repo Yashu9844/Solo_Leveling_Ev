@@ -1,6 +1,7 @@
 import { addDays, compareAsc, differenceInCalendarDays, parseISO } from 'date-fns';
 import { INSTRUMENT_CATALOGUE, isKnownInstrumentSignal } from '../instruments/catalog';
 import { isValidTimeZone } from '../engine/time';
+import { isValidDesignation } from '../library/lexicon';
 import { canonicalJson, hashesFor, partitionBlueprint } from './hash';
 import type { Criterion, GateCondition, SignalRef, SystemBlueprint } from './schema';
 
@@ -15,7 +16,6 @@ export interface Issue {
 export interface ValidationContext { today: string }
 export interface TransitionContext extends ValidationContext { arcDay: number; nextCheckpointDay: number }
 
-const LEXICON = new Set(['QUEST', 'LEVEL', 'RANK', 'GATE', 'BOSS', 'CHECKPOINT', 'EVIDENCE', 'MASTERY', 'TRANSMISSION', 'ARC', 'RECOVERY', 'REDUCED MODE']);
 const issue = (code: string, severity: Issue['severity'], path: string, system: string, plain: string): Issue => ({ code, severity, path, system, plain });
 const asNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const timeHours = (time: string): number | undefined => {
@@ -68,7 +68,7 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   const support = blueprint.domains.filter((domain) => domain.role === 'support');
   if (core.length < 4 || core.length > 8 || engines.length < 2 || guardrails.length < 1 || support.length > 3) add('V-DOM-01', 'error', 'domains', 'THE DOMAIN BALANCE IS INVALID.', 'Use 4–8 engine/guardrail domains, at least 2 engines, 1 guardrail, and at most 3 support domains.');
   const designations = blueprint.domains.map((domain) => domain.designation);
-  if (designations.some((designation) => !designation || designation.length > 18 || designation !== designation.toUpperCase() || LEXICON.has(designation)) || new Set(designations).size !== designations.length) add('V-DOM-02', 'error', 'domains', 'DOMAIN DESIGNATIONS COLLIDE WITH THE SYSTEM.', 'Use unique uppercase designations of 18 characters or fewer, excluding System terms.');
+  if (designations.some((designation) => !designation || !isValidDesignation(designation)) || new Set(designations).size !== designations.length) add('V-DOM-02', 'error', 'domains', 'DOMAIN DESIGNATIONS COLLIDE WITH THE SYSTEM.', 'Use unique uppercase designations of 18 characters or fewer, excluding System terms.');
   const duplicates = blueprint.domains.some((domain, index) => blueprint.domains.slice(index + 1).some((other) => {
     const sameInstrument = domain.instrumentIds.some((id) => other.instrumentIds.includes(id));
     const sameArchetype = !!domain.archetypeId && domain.archetypeId === other.archetypeId;

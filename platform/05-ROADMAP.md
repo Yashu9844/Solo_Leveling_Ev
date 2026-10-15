@@ -184,7 +184,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 
 | Loop | Objective | Acceptance |
 |---|---|---|
-| ☐ 8.1 | Library skeleton: `src/library/{index,lexicon,icons,hues,calibration}.ts`; TS port of `final/xp-simulation.py`; calibration table asserted (120 d → 84) | simulation test reproduces the final/01 §3 table within ±1 level |
+| ☑ 8.1 | Library skeleton: `src/library/{index,lexicon,icons,hues,calibration}.ts`; TS port of `final/xp-simulation.py`; calibration table asserted (120 d → 84) | simulation test reproduces the final/01 §3 table within ±1 level |
 | ☐ 8.2 | Generator S1–S5 (normalize → archetypes → domains/instruments → quests → economy/progression) | legacy-shaped answers → economy 100/100/100/100/60/40, caps 140/200/200/150/60/40 |
 | ☐ 8.3 | Generator S6–S10 (metrics, milestones, skills, attributes, gates, bosses; B5) | ladders monotonic; bosses anchored; gates satisfy E1/E2 |
 | ☐ 8.4 | Generator S11–S14 (checkpoint items, reviews, rules, messaging labels, presentation, hash + validate) | determinism + totality property (I11) |
