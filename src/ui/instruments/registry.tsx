@@ -2,16 +2,19 @@ import { useMemo, type ComponentType } from 'react';
 import type { InstrumentType } from '../../blueprint/schema';
 import { useSystem } from '../../store/SystemContext';
 import { ArtifactSheet } from './ArtifactSheet';
+import { ChecklistCard } from './ChecklistCard';
 import { DurationSheet } from './DurationSheet';
 import { PipelineSheet } from './PipelineSheet';
 import { PracticeItemSheet } from './PracticeItemSheet';
 import { SessionSheet } from './SessionSheet';
+import { StudyBlockSheet } from './StudyBlockSheet';
+import { ThresholdSheet } from './ThresholdSheet';
+import { TimeWindowSheet } from './TimeWindowSheet';
 import type { InstrumentSheetProps } from './types';
 
 /**
  * Which sheet logs which kind of instrument (platform/03 §27.2). Filled in as each
- * type is extracted from its bespoke legacy sheet (loops 7.2-7.4); a type with no
- * entry yet is still opened by the legacy sheet its screen has always used.
+ * type is extracted from its bespoke legacy sheet (loops 7.2-7.4). The checklist is a card, not a sheet: see DomainChecklist.
  */
 export const INSTRUMENT_SHEETS: Partial<Record<InstrumentType, ComponentType<InstrumentSheetProps>>> = {
   practice_item: PracticeItemSheet,
@@ -19,6 +22,9 @@ export const INSTRUMENT_SHEETS: Partial<Record<InstrumentType, ComponentType<Ins
   duration: DurationSheet,
   artifact: ArtifactSheet,
   session: SessionSheet,
+  threshold: ThresholdSheet,
+  time_window: TimeWindowSheet,
+  study_block: StudyBlockSheet,
 };
 
 interface DomainLogSheetProps {
@@ -47,4 +53,23 @@ export function DomainLogSheet({ domainId, today, arcId, onClose }: DomainLogShe
   if (!target) return null;
   const Sheet = INSTRUMENT_SHEETS[target.primary.type]!;
   return <Sheet instrument={target.primary} domain={target.domain} siblings={target.siblings} today={today} arcId={arcId} onClose={onClose} />;
+}
+
+interface DomainChecklistProps {
+  domainId: string;
+  today: string;
+  arcId: string;
+  arcStartDate: string;
+  onChanged: () => void;
+}
+
+/** The domain's checklist card (platform/03 §27.2), or nothing if it keeps no checklist. */
+export function DomainChecklist({ domainId, today, arcId, arcStartDate, onChanged }: DomainChecklistProps) {
+  const { blueprint } = useSystem();
+  const instrument = useMemo(() => {
+    const domain = blueprint.domains.find((candidate) => candidate.id === domainId);
+    return domain?.instrumentIds.flatMap((id) => blueprint.instruments.find((candidate) => candidate.id === id && candidate.type === 'checklist') ?? [])[0];
+  }, [blueprint, domainId]);
+  if (!instrument) return null;
+  return <ChecklistCard instrument={instrument} today={today} arcId={arcId} arcStartDate={arcStartDate} onChanged={onChanged} />;
 }

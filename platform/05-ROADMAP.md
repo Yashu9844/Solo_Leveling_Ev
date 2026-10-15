@@ -173,7 +173,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 7.1 | `SystemProvider` exposes the Blueprint; `presentDomain`; curated icon and hue token sets; `theme-contrast.test.ts` extended to 8 domain hues × 5 themes | tokens pass contrast; legacy hues = the current `DOMAIN_THEME` |
 | ☑ 7.2 | Extract `PracticeItemSheet` (from LogProblemSheet) and `PipelineSheet` (from LogApplicationSheet) into `ui/instruments/*`; registry | E3 0 diff; dsa and career e2e green |
 | ☑ 7.3 | Extract `DurationSheet`, `ArtifactSheet`, `SessionSheet` | same |
-| ☐ 7.4 | Extract `ThresholdSheet`, `TimeWindowSheet`, `StudyBlockSheet`, `ChecklistCard`; new `MetricSheet` | same |
+| ☑ 7.4 | Extract `ThresholdSheet`, `TimeWindowSheet`, `StudyBlockSheet`, `ChecklistCard`; new `MetricSheet` | same |
 | ☐ 7.5 | Today: `openSheet` state; rows from `presentDomain` + `evaluateCriterion` progress; priority line from Blueprint priority; count words | same |
 | ☐ 7.6 | Progress SYSTEM/REALITY from the Blueprint; `/attributes/:groupId` with layout variants; legacy routes redirect | same |
 | ☐ 7.7 | Skills from trees + milestone panels; benchmark as a self_cert metric card | same |

@@ -10,6 +10,8 @@ import { activateBlueprint } from '../../src/store/blueprint';
 import { pipelineGateway } from '../../src/ui/instruments/recorders/pipeline';
 import { artifactSibling, recordArtifact, recordDuration } from '../../src/ui/instruments/recorders/duration';
 import { recordSession, recordThreshold } from '../../src/ui/instruments/recorders/sessionAndThreshold';
+import { checklistGateway, recordTimeWindow } from '../../src/ui/instruments/recorders/lifestyle';
+import { recordStudy } from '../../src/ui/instruments/recorders/studyBlock';
 import { recordPractice } from '../../src/ui/instruments/recorders/practiceItem';
 import { dateAt, LEGACY_ARC_ID, legacyActivityLog } from './support/legacyActivityLog';
 import { loadLegacyDb, prefixOf } from './support/legacyDb';
@@ -186,5 +188,71 @@ describe('instrument recorders (loop 7.3)', () => {
     expect(await count('SCREENTIME_LOGGED')).toBe(before.screen + 1);
     expect(await count('INSTRUMENT_RECORDED')).toBe(0);
     await expect(recordArtifact(get('build.artifacts'), { kind: 'feature', title: 'x', projectKey: 'y' }, ctx)).rejects.toThrow(/legacy artifact/);
+  }, 60_000);
+});
+
+// ── Loop 7.4 ────────────────────────────────────────────────────────────────
+const rise: InstrumentConfig = {
+  id: 'foundations.rise', domainId: 'foundations', type: 'time_window', label: 'Rising time', logVerb: 'Log Rising',
+  params: { targetTime: '07:00', toleranceMinutes: 20, secondaryLabel: 'Bedtime' }, controllability: 'effort', eventBinding: { kind: 'generic' },
+};
+const routine: InstrumentConfig = {
+  id: 'foundations.routine', domainId: 'foundations', type: 'checklist', label: 'Routine', logVerb: 'Tick Routine',
+  params: { items: [{ id: 'stretch', label: 'Stretch' }, { id: 'water', label: 'Water', everyNDays: 2 }] }, controllability: 'effort', eventBinding: { kind: 'generic' },
+};
+const reading: InstrumentConfig = {
+  id: 'foundations.reading', domainId: 'foundations', type: 'study_block', label: 'Reading', logVerb: 'Log Reading',
+  params: { topics: ['Poetry', 'Prose'], blockXp: 10, designTopic: 'Prose' }, controllability: 'effort', eventBinding: { kind: 'generic' },
+};
+const essays: InstrumentConfig = {
+  id: 'foundations.essays', domainId: 'foundations', type: 'study_block', label: 'Essays', logVerb: 'Log Essay',
+  params: { topics: ['Prose'], modes: ['drafted', 'published'] }, controllability: 'effort', eventBinding: { kind: 'generic' },
+};
+
+describe('instrument recorders (loop 7.4)', () => {
+  it('generic time window, study block, design study and checklist record against their instruments', async () => {
+    const harness = await loadLegacyDb(prefixOf(log, dateAt(15)), dateAt(15));
+    await activateBlueprint(synthetic([rise, routine, reading, essays]), dateAt(15), deps(harness.now()));
+
+    await recordTimeWindow(rise, { time: '06:45', secondary: '23:10' }, ctx);
+    const first = await recordStudy(reading, essays, { topic: 'Poetry', minutes: 20, note: 'sonnets' }, ctx);
+    expect(first.masteryAdvance?.topic).toBe('Poetry');
+    await recordStudy(reading, essays, { topic: 'Prose', minutes: 30, design: { system: 'Essay on memory', mode: 'drafted', artifactUrl: 'https://example.com/e' } }, ctx);
+
+    const by = async (id: string) => (await db.instrument_record.where('instrument_id').equals(id).toArray()).map((row) => row.record);
+    expect(await by('foundations.rise')).toEqual([{ minutes: 6 * 60 + 45, sleepMinutes: 23 * 60 + 10 }]);
+    expect(await by('foundations.reading')).toEqual([{ topic: 'Poetry', minutes: 20, note: 'sonnets' }]);
+    expect(await by('foundations.essays')).toEqual([{ topic: 'Prose', system: 'Essay on memory', mode: 'drafted', minutes: 30, artifactUrl: 'https://example.com/e' }]);
+
+    const gateway = checklistGateway({ instrument: routine, ...ctx, arcStartDate: '2026-09-01' });
+    expect((await gateway.load()).done).toEqual([]);
+    await gateway.save(['stretch']);
+    await gateway.save(['stretch', 'water']);
+    const loaded = await gateway.load();
+    expect(loaded.done).toEqual(['stretch', 'water']);
+    expect(loaded.due).toContain('stretch');
+  }, 60_000);
+
+  it('legacy wake time, learning blocks, system design and maintenance keep writing their legacy events', async () => {
+    await loadLegacyDb(prefixOf(log, today), today);
+    const blueprint = legacyBlueprintFor(facts);
+    const get = (id: string) => blueprint.instruments.find((instrument) => instrument.id === id)!;
+    const count = (type: string) => db.event.where('type').equals(type).count();
+    const before = { sleep: await count('SLEEP_LOGGED'), block: await count('LEARNING_BLOCK_LOGGED'), design: await count('SYSTEM_DESIGN_LOGGED'), maint: await count('MAINTENANCE_LOGGED') };
+
+    await recordTimeWindow(get('sleep.wake'), { time: '08:20', secondary: '00:30' }, ctx);
+    await recordStudy(get('foundations.blocks'), get('foundations.design'), { topic: 'Databases', minutes: 25 }, ctx);
+    await recordStudy(get('foundations.blocks'), get('foundations.design'), { topic: 'System Design', minutes: 30, design: { system: 'Rate limiter', mode: 'studied' } }, ctx);
+    const maintenance = checklistGateway({ instrument: get('maintenance.daily'), ...ctx, arcStartDate: '2026-09-01' });
+    await maintenance.save(['bath', 'fuel']);
+
+    expect(await count('SLEEP_LOGGED')).toBe(before.sleep + 1);
+    expect(await count('LEARNING_BLOCK_LOGGED')).toBe(before.block + 1);
+    expect(await count('SYSTEM_DESIGN_LOGGED')).toBe(before.design + 1);
+    expect(await count('MAINTENANCE_LOGGED')).toBe(before.maint + 1);
+    expect(await count('INSTRUMENT_RECORDED')).toBe(0);
+    const loaded = await maintenance.load();
+    expect(loaded.done).toEqual(['bath', 'fuel']);
+    expect(loaded.due).toEqual(expect.arrayContaining(['bath', 'fuel']));
   }, 60_000);
 });

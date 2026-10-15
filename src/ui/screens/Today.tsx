@@ -16,14 +16,10 @@ import { LevelUpMoment } from '../moments/LevelUpMoment';
 import { DayCompleteMoment } from '../moments/DayCompleteMoment';
 import { unlockTextForRange } from '../moments/levelUnlocks';
 import { EveningReview } from '../review/EveningReview';
-import { DomainLogSheet } from '../instruments/registry';
+import { DomainChecklist, DomainLogSheet } from '../instruments/registry';
 import { getRevisitsDue, logRevisit, type RevisitDue } from '../../store/dsa';
 import { getActiveWeeklyQuest, type ActiveWeeklyQuest } from '../../store/weeklyQuest';
 import { getCurrentRank } from '../../store/checkpoint';
-import { LogSleepSheet } from '../lifestyle/LogSleepSheet';
-import { LogAttentionSheet } from '../lifestyle/LogAttentionSheet';
-import { MaintenanceCard } from '../lifestyle/MaintenanceCard';
-import { LearningBlockSheet } from '../foundations/LearningBlockSheet';
 import { SingleChipSelect } from '../components/SingleChipSelect';
 import { ArtLayer, MeterBar, ScreenTitle, SectionLabel, SystemWindow } from '../kit';
 import { useCountdown } from '../hooks/useCountdown';
@@ -613,7 +609,7 @@ export function Today() {
       </div>
 
       {arc && (
-        <MaintenanceCard today={today} arcId={arc.id} arcStartDate={arc.start_date} onChanged={() => void refreshXp(today)} />
+        <DomainChecklist domainId="maintenance" today={today} arcId={arc.id} arcStartDate={arc.start_date} onChanged={() => void refreshXp(today)} />
       )}
 
       {/* Learning Block Action Card */}
@@ -826,7 +822,8 @@ export function Today() {
       )}
 
       {sleepLogOpen && arc && (
-        <LogSleepSheet
+        <DomainLogSheet
+          domainId="sleep"
           today={today}
           arcId={arc.id}
           onClose={() => {
@@ -837,7 +834,8 @@ export function Today() {
       )}
 
       {attentionLogOpen && arc && (
-        <LogAttentionSheet
+        <DomainLogSheet
+          domainId="attention"
           today={today}
           arcId={arc.id}
           onClose={() => {
@@ -848,7 +846,8 @@ export function Today() {
       )}
 
       {learningBlockOpen && arc && (
-        <LearningBlockSheet
+        <DomainLogSheet
+          domainId="foundations"
           today={today}
           arcId={arc.id}
           onClose={() => {
