@@ -62,6 +62,14 @@ export function DomainLogSheet({ domainId, today, arcId, onClose }: DomainLogShe
   return <Sheet instrument={target.primary} domain={target.domain} siblings={target.siblings} today={today} arcId={arcId} onClose={onClose} />;
 }
 
+/** The domains that keep a checklist (the owner's: maintenance), in priority order. */
+export function checklistDomainIds(blueprint: SystemBlueprint): string[] {
+  return [...blueprint.domains]
+    .sort((a, b) => a.priority - b.priority)
+    .filter((domain) => domain.instrumentIds.some((id) => blueprint.instruments.some((instrument) => instrument.id === id && instrument.type === 'checklist')))
+    .map((domain) => domain.id);
+}
+
 interface DomainChecklistProps {
   domainId: string;
   today: string;

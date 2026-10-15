@@ -178,7 +178,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 7.6 | Progress SYSTEM/REALITY from the Blueprint; `/attributes/:groupId` with layout variants; legacy routes redirect | same |
 | ☑ 7.7 | Skills from trees + milestone panels; benchmark as a self_cert metric card | same |
 | ☑ 7.8 | Profile, checkpoint screen, bosses, achievements, evening-review priority options, settings reminders, PWA shortcut aliases (`/log/primary`, `/log/evidence`; legacy paths kept) | same |
-| ☐ 7.9 | Lint: no legacy domain-key literals in `src/ui/**` outside `ui/instruments/legacy`; `DEFAULT_CONFIG` import ban without allow-list (except legacy onboarding) | zero violations; a second (synthetic) Blueprint renders on every screen without errors — manual review of rich rendering |
+| ☑ 7.9 | Lint: no legacy domain-key literals in `src/ui/**` outside `ui/instruments/legacy`; `DEFAULT_CONFIG` import ban without allow-list (except legacy onboarding) | zero violations; a second (synthetic) Blueprint renders on every screen without errors — manual review of rich rendering |
 
 ### Phase 8 — Archetype library + generator
 

@@ -16,7 +16,7 @@ import { LevelUpMoment } from '../moments/LevelUpMoment';
 import { DayCompleteMoment } from '../moments/DayCompleteMoment';
 import { unlockTextForRange } from '../moments/levelUnlocks';
 import { EveningReview } from '../review/EveningReview';
-import { DomainChecklist, DomainLogSheet, logTargetFor } from '../instruments/registry';
+import { checklistDomainIds, DomainChecklist, DomainLogSheet, logTargetFor } from '../instruments/registry';
 import { coreQuestOrder, presentQuest } from '../presentation/quest';
 import { useSystem } from '../../store/SystemContext';
 import { getRevisitsDue, logRevisit, type RevisitDue } from '../../store/dsa';
@@ -111,6 +111,7 @@ export function Today() {
   const [logDomain, setLogDomain] = useState<string | null>(null);
   const { blueprint } = useSystem();
   const coreOrder = useMemo(() => coreQuestOrder(blueprint), [blueprint]);
+  const checklistDomains = useMemo(() => checklistDomainIds(blueprint), [blueprint]);
   // Support domains with a log sheet get an action card under the quests (the owner's: FOUNDATIONAL TRIAL).
   const supportCards = useMemo(
     () => blueprint.domains.filter((domain) => domain.role === 'support').flatMap((domain) => logTargetFor(blueprint, domain.id) ?? []),
@@ -604,9 +605,9 @@ export function Today() {
         })}
       </div>
 
-      {arc && (
-        <DomainChecklist domainId="maintenance" today={today} arcId={arc.id} arcStartDate={arc.start_date} onChanged={() => void refreshXp(today)} />
-      )}
+      {arc && checklistDomains.map((domainId) => (
+        <DomainChecklist key={domainId} domainId={domainId} today={today} arcId={arc.id} arcStartDate={arc.start_date} onChanged={() => void refreshXp(today)} />
+      ))}
 
       {/* Action cards for the support domains that keep a log (the owner's: Foundational Trial). */}
       {supportCards.map(({ domain, primary }) => (

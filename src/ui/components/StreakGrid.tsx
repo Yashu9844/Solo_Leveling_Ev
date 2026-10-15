@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSystem } from '../../store/SystemContext';
 import { Flame, CheckCircle, Warning, CalendarCheck, Sparkle } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parseISO, format, addDays } from 'date-fns';
@@ -28,11 +29,11 @@ interface StreakGridProps {
   compact?: boolean;
 }
 
-const CORE_QUEST_KEYS = new Set(['career', 'dsa', 'build', 'training', 'sleep', 'attention']);
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const ROW_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 
 export function StreakGrid({ compact = false }: StreakGridProps) {
+  const { blueprint } = useSystem();
   const [gridWeeks, setGridWeeks] = useState<(DayCell | null)[][]>([]);
   const [selectedCell, setSelectedCell] = useState<DayCell | null>(null);
   const [stats, setStats] = useState({ streak: 0, fullDays: 0, partialDays: 0, totalOpened: 0 });
@@ -50,12 +51,13 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
 
       const events = await getAllEvents();
       const state = applyEvents(events, getEngineConfig());
+      const coreQuestIds = new Set(blueprint.quests.filter((quest) => quest.type === 'core').map((quest) => quest.id));
 
       // Count core quest completions per date from state.quests
       const coreCompletionsByDate = new Map<string, Set<string>>();
 
       for (const record of Object.values(state.quests)) {
-        if (CORE_QUEST_KEYS.has(record.quest_key)) {
+        if (coreQuestIds.has(record.quest_key)) {
           const set = coreCompletionsByDate.get(record.local_date) ?? new Set();
           set.add(record.quest_key);
           coreCompletionsByDate.set(record.local_date, set);
@@ -71,7 +73,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
       let partialCount = 0;
       let openedCount = 0;
 
-      const totalArcDays = 120;
+      const totalArcDays = blueprint.arc.lengthDays;
       const arcStartDateObj = parseISO(arc.start_date);
 
       // Build 2D week grid: 7 rows (0=Mon, ..., 6=Sun) x W columns
@@ -154,7 +156,7 @@ export function StreakGrid({ compact = false }: StreakGridProps) {
       console.error('Failed to load streak grid data:', err);
       setLoading(false);
     }
-  }, [todayStr]);
+  }, [todayStr, blueprint]);
 
   useEffect(() => {
     void loadData();

@@ -82,9 +82,11 @@ export default tseslint.config(
   // which runs before any arc exists. Since loop 1.5 onboarding takes the
   // device's timezone; its date and boundary-hour defaults go when the
   // adaptive onboarding replaces it (platform/05 Phase 10).
+  // Loop 7.9: the screens have no exception but the legacy onboarding; the store has one, the
+  // runtime config store itself.
   {
-    files: ['src/ui/**/*.{ts,tsx}', 'src/store/**/*.{ts,tsx}'],
-    ignores: ['src/store/engineConfig.ts', 'src/ui/onboarding/**'],
+    files: ['src/ui/**/*.{ts,tsx}'],
+    ignores: ['src/ui/onboarding/**'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -93,9 +95,45 @@ export default tseslint.config(
             {
               group: ['**/engine/config', '**/engine'],
               importNames: ['DEFAULT_CONFIG'],
-              message: "Use the arc's config: getEngineConfig() / useEngineConfig() from store/engineConfig.",
+              message: "Use the arc's config: getEngineConfig() / useEngineConfig() from store/engineConfig, or the Blueprint from useSystem().",
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/store/**/*.{ts,tsx}'],
+    ignores: ['src/store/engineConfig.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/engine/config', '**/engine'],
+              importNames: ['DEFAULT_CONFIG'],
+              message: "Use the arc's config: getEngineConfig() / useEngineConfig() from store/engineConfig, or the Blueprint from useSystem().",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // ── Screens do not know domains (platform/03 §27.1.1, loop 7.9) ───────────────
+  // No file under src/ui may contain a legacy domain id as a string literal: the Blueprint says
+  // which domains exist, and a screen asks it. The owner's System keeps its bespoke wording and
+  // writers in ui/instruments/legacy, and the legacy onboarding (replaced in Phase 11) still
+  // names the three domains it asks intentions for.
+  {
+    files: ['src/ui/**/*.{ts,tsx}'],
+    ignores: ['src/ui/instruments/legacy/**', 'src/ui/onboarding/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Literal[value=/^(career|dsa|build|training|sleep|attention|foundations|maintenance)$/]:not(JSXAttribute[name.name='slot'] > Literal)",
+          message: 'A screen must not name a domain: read it from the Blueprint (useSystem), or put legacy wording in ui/instruments/legacy.',
         },
       ],
     },

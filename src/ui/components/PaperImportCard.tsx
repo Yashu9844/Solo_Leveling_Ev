@@ -8,7 +8,7 @@ import { getActiveArc } from '../../store/arc';
 
 type Pending =
   | { kind: 'daily'; fileName: string; entries: DailyLogEntry[]; errors: string[] }
-  | { kind: 'dsa'; fileName: string; entries: DsaLogEntry[]; errors: string[] };
+  | { kind: 'problems'; fileName: string; entries: DsaLogEntry[]; errors: string[] };
 
 /** docs/13-day0-baseline.md's paper protocol, Part 2 — the bridge for
  * days tracked on paper before the app existed (final/07 §6: "a V1
@@ -43,7 +43,7 @@ export function PaperImportCard() {
     setSummary(null);
     const text = await file.text();
     const { entries, errors } = parseDsaLog(text);
-    setPending({ kind: 'dsa', fileName: file.name, entries, errors });
+    setPending({ kind: 'problems', fileName: file.name, entries, errors });
   }
 
   async function handleImport() {
