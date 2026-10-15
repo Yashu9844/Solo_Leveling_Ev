@@ -174,3 +174,82 @@ describe('I11: deterministic and total', () => {
     expect(canonicalJson(generateBlueprint(BASE).blueprint)).toBe(canonicalJson(generateBlueprint(BASE).blueprint));
   });
 });
+
+// ── Loop 8.6: custom domains and the rest of the library ────────────────────
+import { checklistSignals } from '../../src/instruments/types/checklist';
+import { CUSTOM_PREFIX, CUSTOM_TYPES } from '../../src/library/archetypes/custom';
+
+describe('custom domains (custom:<instrument type>)', () => {
+  const withCustom = (type: string, answers: DraftState['domains'][number]['answers'] = { topic: 'My subject' }): DraftState => ({
+    ...BASE, lineageId: `custom-${type}`,
+    domains: [{ archetypeId: `${CUSTOM_PREFIX}${type}`, answers }, { archetypeId: 'deep-build' }, { archetypeId: 'strength-movement' }, { archetypeId: 'sleep-regularity' }, { archetypeId: 'attention-control' }],
+    priorityMode: 'ranked',
+  });
+
+  for (const type of CUSTOM_TYPES) {
+    it(`custom:${type} generates a System the validator accepts, named for what the person named`, () => {
+      const { blueprint, issues } = generateBlueprint(withCustom(type));
+      expect(issues.filter((issue) => issue.severity === 'error').map((issue) => `${issue.code} ${issue.path}`)).toEqual([]);
+      const domain = blueprint.domains[0]!;
+      expect(domain.name).toBe('My subject');
+      expect(domain.archetypeId).toBe(`custom:${type}`);
+      expect(blueprint.instruments.filter((instrument) => instrument.domainId === domain.id)).toHaveLength(1);
+      expect(blueprint.instruments.find((instrument) => instrument.domainId === domain.id)!.type).toBe(type);
+      expect(blueprint.attributes.defs.length).toBeGreaterThanOrEqual(3);
+      expect(blueprint.bosses.length).toBeGreaterThan(0);
+    });
+  }
+
+  it('takes the numbers a person gives: good day, hard day, success target, an hour, a routine', () => {
+    const practice = generateBlueprint(withCustom('practice_item', { topic: 'Anatomy', goodDay: 30, hardDay: 5, success: 900, topics: ['Bones', 'Muscles'] })).blueprint;
+    const quest = practice.quests[0]!;
+    expect((quest.criterion as { target: number }).target).toBe(30);
+    expect((quest.floor as { target: number }).target).toBe(5);
+    expect(practice.milestones.find((milestone) => milestone.domainId === practice.domains[0]!.id && milestone.ladder)!.ladder!.map((rung) => rung.threshold).pop()).toBe(900);
+    expect(practice.skills[0]!.nodes.map((node) => node.name)).toEqual(['Bones', 'Muscles']);
+
+    const hour = generateBlueprint(withCustom('time_window', { topic: 'Cold shower', time: '06:15' })).blueprint;
+    expect(hour.instruments.find((instrument) => instrument.type === 'time_window' && instrument.domainId === hour.domains[0]!.id)!.params.targetTime).toBe('06:15');
+
+    const routine = generateBlueprint(withCustom('checklist', { topic: 'Evening shutdown', items: ['Plan tomorrow', 'Clear desk', 'Plan tomorrow'] })).blueprint;
+    const checklist = routine.instruments.find((instrument) => instrument.type === 'checklist')!;
+    expect(checklist.params.items).toEqual([{ id: 'plan-tomorrow', label: 'Plan tomorrow' }, { id: 'clear-desk', label: 'Clear desk' }]);
+  });
+
+  it('a routine\'s quest is met on the day the whole routine is done', () => {
+    const items = [{ id: 'plan-tomorrow', label: 'Plan tomorrow' }, { id: 'clear-desk', label: 'Clear desk' }];
+    const record = (done: string[]) => [{ id: 'r', instrumentId: 'i', instrumentType: 'checklist' as const, domainId: 'd', localDate: '2026-09-02', eventId: 'e', blueprintVersion: 1, record: { done } }];
+    const context = { arcStartDate: '2026-09-01', from: '2026-09-02', to: '2026-09-02' } as never;
+    expect(checklistSignals(record(['plan-tomorrow', 'clear-desk']), { items }, context).all_done_days).toBe(1);
+    expect(checklistSignals(record(['plan-tomorrow']), { items }, context).all_done_days).toBe(0);
+  });
+
+  it('an unknown custom type is reported and skipped, not thrown', () => {
+    const { issues, blueprint } = generateBlueprint({ ...BASE, domains: [{ archetypeId: 'custom:telepathy' }, ...BASE.domains] });
+    expect(issues.map((issue) => issue.code)).toContain('G-ARCH-01');
+    expect(blueprint.domains).toHaveLength(6);
+  });
+});
+
+describe('the full library, together', () => {
+  it('every archetype can lead a System: four-domain Systems built around each validate clean', () => {
+    const engines = Object.values(ARCHETYPES).filter((archetype) => archetype.role === 'engine');
+    for (const lead of engines) {
+      const draft: DraftState = {
+        ...BASE, lineageId: `lead-${lead.id}`,
+        domains: [{ archetypeId: lead.id }, { archetypeId: lead.id === 'deep-build' ? 'strength-movement' : 'deep-build' }, { archetypeId: 'sleep-regularity' }, { archetypeId: 'attention-control' }],
+        priorityMode: 'ranked',
+      };
+      const { issues } = generateBlueprint(draft);
+      expect(issues.filter((issue) => issue.severity === 'error').map((issue) => `${issue.code} ${issue.path}`), lead.id).toEqual([]);
+    }
+  });
+
+  it('every guardrail can stand in for one: finance and health beside sleep and attention', () => {
+    const guardrails = Object.values(ARCHETYPES).filter((archetype) => archetype.role === 'guardrail');
+    expect(guardrails.map((archetype) => archetype.id).sort()).toEqual(['attention-control', 'finance-control', 'health-routine', 'sleep-regularity']);
+    const draft: DraftState = { ...BASE, domains: [{ archetypeId: 'deep-build' }, { archetypeId: 'software-practice' }, { archetypeId: 'finance-control' }, { archetypeId: 'health-routine' }] };
+    const { issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error').map((issue) => `${issue.code} ${issue.path}`)).toEqual([]);
+  });
+});

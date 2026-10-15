@@ -6,13 +6,17 @@ import type { Issue } from '../blueprint/validate';
 import { isValidDesignation } from '../library/lexicon';
 import type { InstrumentTemplate } from '../library/archetypes/types';
 import { generatorIssue, type BuiltDomains, type NormalizedDraft, type ResolvedDomain } from './types';
-import { shortHash, slug } from './util';
+import { minutesOf, shortHash, slug } from './util';
 
 /** The archetype's default parameters, adapted by what the person said. */
 function paramsFor(template: InstrumentTemplate, resolved: ResolvedDomain, draft: NormalizedDraft): InstrumentParams {
   const params: InstrumentParams = structuredClone(template.params);
   const { answers } = resolved;
-  if (template.type === 'time_window') params.targetTime = draft.rhythm.wakeTime;
+  if (template.type === 'time_window' && template.adapt === 'wake') params.targetTime = draft.rhythm.wakeTime;
+  if (template.type === 'time_window' && template.adapt === undefined && answers.time && minutesOf(answers.time) !== undefined) params.targetTime = answers.time.trim();
+  if (template.type === 'checklist' && answers.items && answers.items.length > 0) {
+    params.items = [...new Set(answers.items.map((item) => item.trim()).filter(Boolean))].slice(0, 12).map((label) => ({ id: slug(label), label }));
+  }
   if (template.type === 'threshold' && answers.limit !== undefined && Number.isFinite(answers.limit) && answers.limit > 0) {
     params.target = Math.round(answers.limit);
     if (typeof params.defaultValue === 'number') params.defaultValue = Math.max(1, Math.round(answers.limit * 0.75));
@@ -73,7 +77,7 @@ export function buildDomains(draft: NormalizedDraft, resolved: ResolvedDomain[])
     }
     instrumentIds[id] = ids;
 
-    const name = answers.topic ? `${archetype.name}: ${answers.topic}` : archetype.name;
+    const name = answers.topic ? (archetype.id.startsWith('custom:') ? answers.topic : `${archetype.name}: ${answers.topic}`) : archetype.name;
     domains.push({
       id, archetypeId: archetype.id, role: archetype.role, name, designation, description: archetype.description, priority: entry.priority,
       presentation: { ...archetype.presentation }, instrumentIds: Object.values(ids),

@@ -21,6 +21,10 @@ export interface DomainAnswers {
   limit?: number;
   /** A subject the domain is about ("Medical licensing"); part of its id and its name. */
   topic?: string;
+  /** A time of day (HH:MM) for a time window that is not the wake time: the hour a practice is kept. */
+  time?: string;
+  /** The rows of a routine (a checklist domain). */
+  items?: string[];
   /** "What would a successful arc look like?": the headline ladder's S target (problems solved, sessions done). */
   success?: number;
 }

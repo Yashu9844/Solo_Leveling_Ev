@@ -29,6 +29,8 @@ export interface InstrumentTemplate {
   logVerb: string;
   /** Defaults; the generator may override some from the person's answers (rhythm, topics, limits). */
   params: InstrumentParams;
+  /** 'wake': a time window whose target is the person's own wake time (rather than a time the archetype fixes). */
+  adapt?: 'wake';
 }
 
 /** One comparison of a signal to a target. `answer` says which of the person's numbers replaces `target`. */

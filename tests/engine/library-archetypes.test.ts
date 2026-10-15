@@ -4,13 +4,14 @@
 import { describe, expect, it } from 'vitest';
 import { INSTRUMENT_CATALOGUE, isKnownInstrumentSignal } from '../../src/instruments/catalog';
 import { ARCHETYPES } from '../../src/library/archetypes';
+import { CUSTOM_PREFIX, CUSTOM_TYPES, customArchetype } from '../../src/library/archetypes/custom';
 import type { ArchetypeDef, CriterionTemplate, InstrumentTemplate, SignalTemplate } from '../../src/library/archetypes/types';
 import { isHueToken } from '../../src/library/hues';
 import { isIconToken } from '../../src/library/icons';
 import { isValidDesignation, namesExternalOutcome } from '../../src/library/lexicon';
 import { ladderThresholds } from '../../src/generator/derive';
 
-const ALL = Object.values(ARCHETYPES);
+const ALL = [...Object.values(ARCHETYPES), ...CUSTOM_TYPES.map((type) => customArchetype(`${CUSTOM_PREFIX}${type}`)!)];
 const PLACEHOLDERS = new Set(['target', 'tolerance', 'wake', 'window']);
 /** The System never praises and never predicts (design/04 §25): none of this may appear in anything it says. */
 const PRAISE = /(great|awesome|amazing|crush|congrat|well done|fantastic|you got this|keep it up|!)/i;
@@ -47,8 +48,10 @@ describe('the library\'s archetypes', () => {
   });
 
   it('ids are unique kebab-case and each is keyed by its own id', () => {
+    const registered = Object.values(ARCHETYPES);
     expect(new Set(ALL.map((archetype) => archetype.id)).size).toBe(ALL.length);
-    for (const archetype of ALL) {
+    expect(registered.length).toBe(18);
+    for (const archetype of registered) {
       expect(ARCHETYPES[archetype.id]).toBe(archetype);
       expect(archetype.id).toMatch(/^[a-z]+(-[a-z]+)*$|^custom:[a-z_]+$/);
       expect(archetype.version, archetype.id).toBeGreaterThanOrEqual(1);
@@ -112,7 +115,8 @@ describe('the library\'s archetypes', () => {
       it('is complete for its role: engines climb a ladder with attribute, boss and metrics; guardrails keep a consistency condition', () => {
         if (archetype.role === 'engine') {
           expect(archetype.ladder, 'ladder').toBeDefined();
-          expect(archetype.attribute, 'attribute').toBeDefined();
+          // A custom domain's attribute is built by the generator from its ladder (generator/s8Attributes).
+          if (archetype.area !== 'custom') expect(archetype.attribute, 'attribute').toBeDefined();
           expect(archetype.bossAnchor, 'boss anchor').toBeDefined();
           expect((archetype.metrics ?? []).some((metric) => metric.kind === 'effort'), 'an effort metric').toBe(true);
           expect(ladderThresholds(archetype.ladder!.success).every((value, i, all) => i === 0 || value > all[i - 1]!)).toBe(true);
