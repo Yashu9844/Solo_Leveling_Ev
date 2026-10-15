@@ -20,6 +20,7 @@ import { App } from './App';
 import { BLOCKED_NOTICE } from './db/connection';
 import { ArcStatusProvider } from './store/ArcStatusContext';
 import { SettingsProvider } from './store/SettingsContext';
+import { SystemProvider } from './store/SystemContext';
 import { MotionRoot } from './ui/MotionRoot';
 import { OverlayStackProvider } from './ui/routing/OverlayStack';
 
@@ -55,7 +56,9 @@ createRoot(document.getElementById('root')!).render(
         >
           <OverlayStackProvider>
             <ArcStatusProvider>
-              <App />
+              <SystemProvider>
+                <App />
+              </SystemProvider>
             </ArcStatusProvider>
           </OverlayStackProvider>
         </BrowserRouter>

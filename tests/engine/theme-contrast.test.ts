@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { HUE_TOKENS } from '../../src/library/hues';
 
 /**
  * design/03-SETTINGS-AND-THEMING.md §5: every theme's body text must
@@ -119,6 +120,74 @@ describe('theme contrast — design/03 §5', () => {
           expect(hueApart, `${theme} ${name} are the same colour`).toBe(true);
           expect(apart >= 0 && Number.isFinite(apart)).toBe(true);
         }
+      });
+    });
+  }
+});
+
+// ── Domain hues (platform/05 loop 7.1, platform/03 §27.1.3) ──────────────────
+// A hue is a tile: a tinted ground with a glyph on it, and the same colour used
+// for the small label that sits on the page itself. Eight hues x five themes.
+
+const HUE_SECTION = TOKENS.indexOf('1b. DOMAIN HUES');
+const HUE_ROOT = TOKENS.slice(TOKENS.indexOf(':root {', HUE_SECTION), TOKENS.indexOf('\n}', TOKENS.indexOf(':root {', HUE_SECTION)));
+const HUE_FIELDS = ['bg', 'border', 'color', 'glow'] as const;
+
+/** A hue token in a theme: the theme's own override, else the shared dark set. */
+function hueValue(theme: string, hue: string, field: (typeof HUE_FIELDS)[number]): string {
+  const name = `--hue-${hue}-${field}`;
+  const pattern = new RegExp(`${name}:\\s*([^;]+);`);
+  const value = pattern.exec(blockFor(theme))?.[1] ?? pattern.exec(HUE_ROOT)?.[1];
+  expect(value, `${name} is not defined for ${theme}`).toBeDefined();
+  return value!.trim();
+}
+
+function parseRgba(value: string): [number, number, number, number] {
+  const m = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)$/.exec(value);
+  expect(m, `${value} is not an rgba() colour`).not.toBeNull();
+  return [Number(m![1]), Number(m![2]), Number(m![3]), Number(m![4])];
+}
+
+function toHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** The tile ground as it actually appears: the translucent tint laid over the page. */
+function tileOverVoid(tile: string, void_: string): string {
+  const [r, g, b, alpha] = parseRgba(tile);
+  const n = parseInt(void_.slice(1), 16);
+  const over = [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+  return toHex(r * alpha + over[0]! * (1 - alpha), g * alpha + over[1]! * (1 - alpha), b * alpha + over[2]! * (1 - alpha));
+}
+
+describe('domain hues - 8 hues x 5 themes', () => {
+  it('has the eight hues, each fully defined', () => {
+    expect(HUE_TOKENS).toHaveLength(8);
+    for (const hue of HUE_TOKENS) for (const field of HUE_FIELDS) expect(HUE_ROOT).toContain(`--hue-${hue}-${field}:`);
+  });
+
+  for (const theme of THEMES) {
+    describe(theme, () => {
+      const ground = hexOf(blockFor(theme), '--void');
+
+      for (const hue of HUE_TOKENS) {
+        it(`${hue}: the glyph clears 3:1 on its tile`, () => {
+          const glyph = hueValue(theme, hue, 'color');
+          const tile = tileOverVoid(hueValue(theme, hue, 'bg'), ground);
+          const ratio = contrast(glyph, tile);
+          expect(ratio, `${theme} ${hue}: ${glyph} on ${tile} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+        });
+
+        it(`${hue}: the label colour clears 4.5:1 on the page`, () => {
+          const glyph = hueValue(theme, hue, 'color');
+          const ratio = contrast(glyph, ground);
+          expect(ratio, `${theme} ${hue}: ${glyph} on ${ground} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+        });
+      }
+
+      it('keeps the eight hues apart', () => {
+        const colours = HUE_TOKENS.map((hue) => hueValue(theme, hue, 'color'));
+        expect(new Set(colours).size).toBe(HUE_TOKENS.length);
       });
     });
   }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getActiveArc } from './arc';
 import { setEngineConfigFromArc } from './engineConfig';
+import { refreshBlueprintVersions, resetBlueprintVersions } from './systemBlueprint';
 
 export type ArcStatus = 'loading' | 'yes' | 'no';
 
@@ -26,6 +27,8 @@ const ArcStatusContext = createContext<ArcStatusValue | null>(null);
 async function resolveArc(): Promise<ArcStatus> {
   const arc = await getActiveArc();
   setEngineConfigFromArc(arc);
+  // The Blueprint versions load before the arc is reported present, for the same reason as the config.
+  await refreshBlueprintVersions();
   return arc ? 'yes' : 'no';
 }
 
@@ -52,6 +55,7 @@ export function ArcStatusProvider({ children }: { children: ReactNode }) {
       },
       markArcReset: () => {
         setEngineConfigFromArc(undefined);
+        resetBlueprintVersions();
         setStatus('no');
       },
     }),

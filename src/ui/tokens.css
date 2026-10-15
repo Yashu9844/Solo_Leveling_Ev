@@ -60,6 +60,58 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+ * 1b. DOMAIN HUES — platform/03 §27.1.3. A Blueprint names one of these
+ * eight; it never carries a colour. Each hue is a tile: a tinted ground
+ * (-bg), its rim (-border), the glyph / label colour (-color) and a halo
+ * (-glow). The dark themes share one set (violet and blue are exactly what
+ * the Today rows have always drawn); daylight redefines all eight, below,
+ * because a light glyph on a light page is unreadable. theme-contrast.test.ts
+ * measures every hue against every theme: glyph on tile >= 3:1, label on
+ * the page >= 4.5:1. The names live in src/library/hues.ts.
+ * ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --hue-violet-bg: rgba(55, 20, 85, 0.65);
+  --hue-violet-border: rgba(192, 132, 252, 0.45);
+  --hue-violet-color: #c084fc;
+  --hue-violet-glow: 0 0 10px rgba(192, 132, 252, 0.35);
+
+  --hue-blue-bg: rgba(15, 45, 85, 0.65);
+  --hue-blue-border: rgba(77, 163, 255, 0.45);
+  --hue-blue-color: #5fb2ff;
+  --hue-blue-glow: 0 0 10px rgba(77, 163, 255, 0.35);
+
+  --hue-rose-bg: rgba(85, 18, 38, 0.65);
+  --hue-rose-border: rgba(251, 113, 133, 0.45);
+  --hue-rose-color: #fb7185;
+  --hue-rose-glow: 0 0 10px rgba(251, 113, 133, 0.35);
+
+  --hue-amber-bg: rgba(80, 52, 8, 0.65);
+  --hue-amber-border: rgba(251, 191, 36, 0.45);
+  --hue-amber-color: #fbbf24;
+  --hue-amber-glow: 0 0 10px rgba(251, 191, 36, 0.35);
+
+  --hue-green-bg: rgba(10, 62, 36, 0.65);
+  --hue-green-border: rgba(74, 222, 128, 0.45);
+  --hue-green-color: #4ade80;
+  --hue-green-glow: 0 0 10px rgba(74, 222, 128, 0.35);
+
+  --hue-teal-bg: rgba(8, 60, 58, 0.65);
+  --hue-teal-border: rgba(45, 212, 191, 0.45);
+  --hue-teal-color: #2dd4bf;
+  --hue-teal-glow: 0 0 10px rgba(45, 212, 191, 0.35);
+
+  --hue-coral-bg: rgba(80, 34, 10, 0.65);
+  --hue-coral-border: rgba(251, 146, 60, 0.45);
+  --hue-coral-color: #fb923c;
+  --hue-coral-glow: 0 0 10px rgba(251, 146, 60, 0.35);
+
+  --hue-slate-bg: rgba(30, 38, 52, 0.65);
+  --hue-slate-border: rgba(148, 163, 184, 0.45);
+  --hue-slate-color: #94a3b8;
+  --hue-slate-glow: 0 0 10px rgba(148, 163, 184, 0.35);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
  * 2. THEMES
  * ══════════════════════════════════════════════════════════════════════ */
 
@@ -336,6 +388,47 @@
      still read correctly per theme; here that means a pale wash.
      Multiplied with the user's art setting, never replacing it. */
   --art-theme-scale: 0.3;
+
+  /* Domain hues on the light ground: a pale tint, a deep glyph, no halo. */
+  --hue-violet-bg: rgba(124, 58, 237, 0.14);
+  --hue-violet-border: rgba(109, 40, 217, 0.4);
+  --hue-violet-color: #6d28d9;
+  --hue-violet-glow: none;
+
+  --hue-blue-bg: rgba(37, 99, 235, 0.12);
+  --hue-blue-border: rgba(29, 78, 216, 0.4);
+  --hue-blue-color: #1d4ed8;
+  --hue-blue-glow: none;
+
+  --hue-rose-bg: rgba(225, 29, 72, 0.12);
+  --hue-rose-border: rgba(190, 18, 60, 0.4);
+  --hue-rose-color: #be123c;
+  --hue-rose-glow: none;
+
+  --hue-amber-bg: rgba(217, 119, 6, 0.14);
+  --hue-amber-border: rgba(146, 64, 14, 0.4);
+  --hue-amber-color: #92400e;
+  --hue-amber-glow: none;
+
+  --hue-green-bg: rgba(22, 163, 74, 0.13);
+  --hue-green-border: rgba(22, 101, 52, 0.4);
+  --hue-green-color: #166534;
+  --hue-green-glow: none;
+
+  --hue-teal-bg: rgba(13, 148, 136, 0.13);
+  --hue-teal-border: rgba(15, 118, 110, 0.4);
+  --hue-teal-color: #0f766e;
+  --hue-teal-glow: none;
+
+  --hue-coral-bg: rgba(234, 88, 12, 0.13);
+  --hue-coral-border: rgba(194, 65, 12, 0.4);
+  --hue-coral-color: #c2410c;
+  --hue-coral-glow: none;
+
+  --hue-slate-bg: rgba(71, 85, 105, 0.12);
+  --hue-slate-border: rgba(71, 85, 105, 0.4);
+  --hue-slate-color: #475569;
+  --hue-slate-glow: none;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
