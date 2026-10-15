@@ -28,6 +28,7 @@ import { LEGACY_CAREER_PANEL, LEGACY_SELF_CERT, LEGACY_SKILLS_SCREEN, LEGACY_TRE
 import { canQuickPractice, quickPractice } from '../instruments/recorders/quickPractice';
 import { presentDomain } from '../presentation/domain';
 import { iconFor } from '../presentation/icons';
+import { FeatureGate } from '../components/FeatureGate';
 import { LegacyCareerPanel, MilestonePanel } from '../skills/Panels';
 import { genericSelfCertCopy, SelfCertCard } from '../skills/SelfCertCard';
 
@@ -157,7 +158,16 @@ function treeView(blueprint: SystemBlueprint, tree: SkillTreeDef): TreeCopy {
   };
 }
 
+/** The Skills screen opens at the level the System names for it (the owner's: always). */
 export function Skills() {
+  return (
+    <FeatureGate feature="skills">
+      <SkillsContent />
+    </FeatureGate>
+  );
+}
+
+function SkillsContent() {
   const { blueprint } = useSystem();
   const legacy = blueprint.origin === 'legacy';
   const trees = blueprint.skills;

@@ -16,6 +16,7 @@ import { LevelUpMoment } from '../moments/LevelUpMoment';
 import { DayCompleteMoment } from '../moments/DayCompleteMoment';
 import { unlockTextForRange } from '../moments/levelUnlocks';
 import { EveningReview } from '../review/EveningReview';
+import { FeatureGate } from '../components/FeatureGate';
 import { checklistDomainIds, DomainChecklist, DomainLogSheet, logTargetFor } from '../instruments/registry';
 import { coreQuestOrder, presentQuest } from '../presentation/quest';
 import { useSystem } from '../../store/SystemContext';
@@ -648,6 +649,7 @@ export function Today() {
       ))}
 
       {weeklyQuest && (
+        <FeatureGate feature="weekly_quests">
         <div
           className="cut-sm mt-3 relative overflow-hidden p-3.5"
           data-testid="weekly-quest-progress"
@@ -686,6 +688,7 @@ export function Today() {
             </div>
           </div>
         </div>
+        </FeatureGate>
       )}
 
       {revisitsDue.length > 0 && (

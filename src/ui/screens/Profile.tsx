@@ -18,6 +18,7 @@ import { getAllEvents } from '../../db/events';
 import { AttributeBars } from '../components/AttributeBars';
 import { CheckpointScreen } from '../checkpoint/CheckpointScreen';
 import { BossList } from '../components/BossList';
+import { FeatureGate } from '../components/FeatureGate';
 import { AchievementsList } from '../components/AchievementsList';
 import { BodyMetricsCard } from '../components/BodyMetricsCard';
 import { CheckpointInstrumentsCard } from '../components/CheckpointInstrumentsCard';
@@ -73,7 +74,9 @@ export function Profile() {
 
         <LevelSummary />
         <CheckpointRow />
-        <BossList />
+        <FeatureGate feature="bosses">
+          <BossList />
+        </FeatureGate>
         <AchievementsList />
         <AttributeBars />
         <DayZeroBaselineRow />

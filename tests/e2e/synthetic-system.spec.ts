@@ -16,6 +16,26 @@ async function settle(page: Page): Promise<void> {
 }
 
 test.describe('a second, synthetic Blueprint', () => {
+  test('features it gates by level stay behind a note until the level is reached', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.clock.install({ time: new Date(NOW) });
+    await seedDatabase(page, syntheticLog({ locks: true }), NOW);
+    await page.goto('/progress');
+    await settle(page);
+    await page.getByRole('button', { name: 'SYSTEM' }).click();
+    await expect(page.getByTestId('locked-attributes')).toContainText('OPENS AT LEVEL 60');
+    await expect(page.getByTestId('attribute-bars')).toHaveCount(0);
+    await expect(page.getByTestId('locked-weekly_review')).toBeVisible();
+    await page.goto('/profile');
+    await settle(page);
+    await expect(page.getByTestId('locked-bosses')).toBeVisible();
+    // Skills opens at level 10, which the seeded player has passed.
+    await page.goto('/skills');
+    await settle(page);
+    await expect(page.getByTestId('locked-skills')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'SKILLS' })).toBeVisible();
+  });
+
   test.use({ reducedMotion: 'reduce', viewport: { width: 390, height: 800 } });
 
   test('every screen shows its own names and tokens and raises no error', async ({ page }) => {

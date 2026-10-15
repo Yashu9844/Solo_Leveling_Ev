@@ -34,9 +34,11 @@ const REALITY_LABELS: Record<string, string> = {
   applications: 'Outreach sent', qualityRate: 'Outreach quality', followThroughRate: 'Follow-through', foundationsFluentOrBetter: 'Lore mastered',
 };
 
-export function syntheticBlueprint(): SystemBlueprint {
+/** `locks`: features that open at levels the seeded player has not reached (the 40-day log ends around level 19). */
+export function syntheticBlueprint({ locks = false }: { locks?: boolean } = {}): SystemBlueprint {
   const blueprint = legacyBlueprintFor({ ...OWNER_ARC_DEFAULTS, id: LEGACY_ARC_ID });
   delete blueprint.origin;
+  if (locks) blueprint.progression.unlocks = { attributes: 60, weekly_review: 60, bosses: 60, weekly_quests: 3, skills: 10 };
   blueprint.lineageId = 'synthetic-lineage';
   for (const domain of blueprint.domains) {
     const skin = SYNTHETIC_DOMAINS[domain.id]!;
@@ -70,9 +72,9 @@ export function syntheticBlueprint(): SystemBlueprint {
 }
 
 /** The owner's 40-day log with the synthetic Blueprint activated as version 1 on the arc's first day. */
-export function syntheticLog(): SystemEvent[] {
+export function syntheticLog(options: { locks?: boolean } = {}): SystemEvent[] {
   const events = legacyActivityLog({ seed: 42, days: 40 });
   const first = events[0]!;
-  const activation = activationEvent(syntheticBlueprint(), { id: `${first.id}a`, occurred_at: first.occurred_at, local_date: first.local_date });
+  const activation = activationEvent(syntheticBlueprint(options), { id: `${first.id}a`, occurred_at: first.occurred_at, local_date: first.local_date });
   return [first, activation, ...events.slice(1)];
 }

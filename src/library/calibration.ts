@@ -66,6 +66,9 @@ export function checkpointDaysFor(length: number): number[] {
   return days;
 }
 
+/** The level each feature opens at in a generated System (final/01 §3 "Level unlocks"). */
+export const FEATURE_UNLOCK_LEVELS = { weekly_quests: 3, attributes: 5, skills: 10, weekly_review: 12, bosses: 15, projection: 20 } as const;
+
 const RANKS: readonly Rank[] = ['D', 'C', 'B', 'A', 'S'];
 
 /** The rank each checkpoint day seals (the Blueprint's `rankSchedule`). */

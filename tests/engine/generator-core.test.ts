@@ -51,7 +51,10 @@ describe('generator S1-S5, legacy-shaped answers', () => {
 
   it('is the owner\'s progression: budget, cap, coefficient 84, checkpoints, the day boundary', () => {
     const owner = LEGACY_BLUEPRINT_V1.progression;
-    expect({ ...generated.progression, reducedMode: { ...generated.progression.reducedMode, collapsesQuests: false } }).toEqual(owner);
+    // Two things a generated System adds: its Reduced Mode collapses, and its features open by level (the owner's open from the start).
+    const { unlocks, ...withoutUnlocks } = generated.progression;
+    expect(unlocks).toBeDefined();
+    expect({ ...withoutUnlocks, reducedMode: { ...generated.progression.reducedMode, collapsesQuests: false } }).toEqual(owner);
     expect(generated.draft.arc).toMatchObject({ dayBoundaryHour: 4, dayCloseHour: 3, wakeTime: '08:30', sleepTime: '02:00', lengthDays: 120, endDate: '2026-12-29' });
     expect(generated.progression.reducedMode.collapsesQuests).toBe(true); // a generated System's Reduced Mode collapses to the floor
   });

@@ -19,6 +19,7 @@ import { resolveBlueprints, versionFor } from '../blueprint/resolve';
 import { db } from '../db/db';
 import { getAllEvents } from '../db/events';
 import type { EngineConfig, EngineDeps } from '../engine/types';
+import { getStreakState } from './streak';
 import { completeQuest } from './quests';
 
 export interface CompletionTrigger {
@@ -49,7 +50,10 @@ export async function autoCompleteQuest(
     const newest = (records.get(trigger.instrumentId) ?? []).filter((record) => record.localDate === today).at(-1);
     records.set(trigger.instrumentId, newest ? [newest] : []);
   }
-  if (evaluateCriterion(quest.criterion, signalEnv(blueprint, records, today)).met) {
+  // Reduced Mode (two missed days): where the System says so, each quest asks only for its floor until the person is back.
+  // The owner's System does not (collapsesQuests is false), and a manual tap never consults a criterion at all.
+  const reduced = blueprint.progression.reducedMode.collapsesQuests && (await getStreakState(today, config)).reduced_mode;
+  if (evaluateCriterion(reduced ? quest.floor : quest.criterion, signalEnv(blueprint, records, today)).met) {
     await completeQuest(instance, questKey, arcId, config, deps);
   }
 }

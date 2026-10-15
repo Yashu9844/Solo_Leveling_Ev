@@ -5,7 +5,7 @@
 // checkpoint days come from the arc's length. The owner's numbers fall out as a check, not as an input.
 import type { DomainDefinition, ProgressionSection, QuestTemplateDef } from '../blueprint/schema';
 import type { Issue } from '../blueprint/validate';
-import { checkpointDaysFor, coefficientFor, rankScheduleFor } from '../library/calibration';
+import { checkpointDaysFor, coefficientFor, FEATURE_UNLOCK_LEVELS, rankScheduleFor } from '../library/calibration';
 import { HEADROOM_MULTIPLE } from '../library/archetypes/types';
 import { generatorIssue, type NormalizedDraft, type ResolvedDomain } from './types';
 import { allocate } from './util';
@@ -95,6 +95,8 @@ export function priceEconomy(
     attributeWindowDays: 28,
     checkpointDays: checkpointDaysFor(lengthDays),
     rankSchedule: rankScheduleFor(lengthDays),
+    // A generated System opens up as it is earned: the loop first, then the rest (the owner's shows everything from the start).
+    unlocks: { ...FEATURE_UNLOCK_LEVELS },
   };
   return { domains: pricedDomains, quests: pricedQuests, progression, issues };
 }

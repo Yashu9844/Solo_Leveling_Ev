@@ -8,6 +8,7 @@ import { getTotalXp } from '../../store/playerState';
 import { getStreakState, type LiveStreakState } from '../../store/streak';
 import { getRealitySummary } from '../../store/reality';
 import { useSystem } from '../../store/SystemContext';
+import { FeatureGate } from '../components/FeatureGate';
 import { realityCells } from '../presentation/reality';
 import { AttributeBars } from '../components/AttributeBars';
 import { StreakGrid } from '../components/StreakGrid';
@@ -202,6 +203,7 @@ function SystemTab() {
       <StreakGrid />
 
       {/* Weekly Review Action Banner */}
+      <FeatureGate feature="weekly_review">
       <button
         type="button"
         onClick={() => setReviewOpen(true)}
@@ -227,8 +229,11 @@ function SystemTab() {
 
         <CaretRight size={16} weight="bold" className="text-ink-700 relative z-10" />
       </button>
+      </FeatureGate>
 
-      <AttributeBars />
+      <FeatureGate feature="attributes">
+        <AttributeBars />
+      </FeatureGate>
 
       {reviewOpen && <WeeklyReview today={today} onClose={() => setReviewOpen(false)} />}
     </div>

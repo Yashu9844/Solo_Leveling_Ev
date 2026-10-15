@@ -74,6 +74,8 @@ export interface ProgressionSection {
   bossXp: number; weeklyQuestXp: number; level: { base: number; coefficient: number; exponent: number; roundTo: number };
   grace: { daysPer28: number }; reducedMode: { triggerMisses: number; exitDays: number; collapsesQuests: boolean };
   attributeWindowDays: number; checkpointDays: number[]; rankSchedule: { day: number; rank: Rank }[];
+  /** The level at which each feature opens (blueprint/unlocks.ts). Absent: nothing is gated - the owner's System. */
+  unlocks?: Partial<Record<'weekly_quests' | 'attributes' | 'skills' | 'weekly_review' | 'bosses' | 'projection', number>>;
 }
 
 export interface SkillTreeDef {
