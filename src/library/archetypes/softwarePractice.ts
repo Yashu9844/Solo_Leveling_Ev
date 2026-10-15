@@ -41,7 +41,7 @@ export const softwarePractice: ArchetypeDef = {
     signal: { instrument: 'main', signal: 'count', aggregate: 'total', filter: { isRevisit: 'false' } },
   },
   conditions: [{
-    id: 'first-attempt-m', label: 'First-attempt M {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
+    id: 'first-attempt-m', short: 'First-attempt rate (M)', label: 'First-attempt M {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
     signal: { instrument: 'main', signal: 'first_attempt_rate', aggregate: 'window_28', filter: FIRST_ATTEMPT_M },
     at: { B: 0.5, A: 0.6, S: 0.6 },
   }],
@@ -62,4 +62,18 @@ export const softwarePractice: ArchetypeDef = {
     id: 'gauntlet', title: 'LOGIC GAUNTLET', milestone: 'Mediums solved first try, at volume',
     uses: { ladder: true, conditions: ['first-attempt-m'] }, verifiability: 'count',
   },
+
+  checkpoint: { selfEfficacy: 'Solve an unseen medium problem in 25 minutes, in front of an interviewer?', enjoyment: 'Practice' },
+  reviewPrompt: { prompt: 'Where did practice stall today?', options: ['Understanding the problem', 'Finding the approach', 'Writing it correctly', 'Nothing stalled'] },
+  reflectionThemes: ['practice', 'patience'],
+  achievements: [
+    { id: 'century', label: 'Century', verifiability: 'count', clauses: [{ signal: { instrument: 'main', signal: 'count', aggregate: 'total', filter: { isRevisit: 'false' } }, comparator: '>=', threshold: 100 }] },
+    {
+      id: 'problem-solver', label: 'Problem Solver', kind: 'identity', verifiability: 'count',
+      clauses: [
+        { signal: { instrument: 'main', signal: 'count', aggregate: 'total', filter: { isRevisit: 'false' } }, comparator: '>=', threshold: 100 },
+        { signal: { instrument: 'main', signal: 'first_attempt_rate', aggregate: 'window_28', filter: { difficulty: 'M', isRevisit: 'false' } }, comparator: '>=', threshold: 0.45 },
+      ],
+    },
+  ],
 };

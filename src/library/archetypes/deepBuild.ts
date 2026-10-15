@@ -34,19 +34,19 @@ export const deepBuild: ArchetypeDef = {
   },
   conditions: [
     {
-      id: 'public-feature', label: 'A feature in a public repo', verifiability: 'public_url', comparator: '>=',
+      id: 'public-feature', short: 'Public features', label: 'A feature in a public repo', verifiability: 'public_url', comparator: '>=',
       signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'feature', hasUrl: 'true' } }, at: { C: 1 },
     },
     {
-      id: 'project-with-eval', label: 'A public project with its README and eval suite', verifiability: 'public_url', comparator: '>=',
+      id: 'project-with-eval', short: 'Public projects with evals', label: 'A public project with its README and eval suite', verifiability: 'public_url', comparator: '>=',
       signal: { instrument: 'artifacts', signal: 'projects_with_all_kinds', aggregate: 'total', filter: { kinds: 'project,eval' } }, at: { B: 1, S: 3 },
     },
     {
-      id: 'deployed', label: 'A project deployed and reachable', verifiability: 'public_url', comparator: '>=',
+      id: 'deployed', short: 'Deployed projects', label: 'A project deployed and reachable', verifiability: 'public_url', comparator: '>=',
       signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'deployment' } }, at: { A: 1, S: 1 },
     },
     {
-      id: 'writeup', label: 'A published technical write-up', verifiability: 'public_url', comparator: '>=',
+      id: 'writeup', short: 'Published write-ups', label: 'A published technical write-up', verifiability: 'public_url', comparator: '>=',
       signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'writeup' } }, at: { A: 1, S: 1 },
     },
   ],
@@ -62,4 +62,19 @@ export const deepBuild: ArchetypeDef = {
     id: 'first-release', title: 'FIRST PUBLIC RELEASE', milestone: 'A project anyone can open',
     uses: { ladder: true, conditions: ['public-feature', 'project-with-eval'] }, verifiability: 'public_url',
   },
+
+  checkpoint: { selfEfficacy: 'Design an evaluation suite for an agent from a blank file?', enjoyment: 'Building' },
+  reviewPrompt: { prompt: 'What slowed the build today?', options: ['Unclear next step', 'A bug I could not place', 'Context switching', 'Nothing slowed it'] },
+  reflectionThemes: ['craft', 'shipping'],
+  achievements: [
+    { id: 'shipped', label: 'Shipped', verifiability: 'public_url', clauses: [{ signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'feature', hasUrl: 'true' } }, comparator: '>=', threshold: 1 }] },
+    {
+      id: 'in-public', label: 'In Public', verifiability: 'public_url', clauseMode: 'any',
+      clauses: [
+        { signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'deployment' } }, comparator: '>=', threshold: 1 },
+        { signal: { instrument: 'artifacts', signal: 'count', aggregate: 'total', filter: { kind: 'writeup' } }, comparator: '>=', threshold: 1 },
+      ],
+    },
+    { id: 'builder', label: 'Builder', kind: 'identity', verifiability: 'public_url', clauses: [{ signal: { instrument: 'artifacts', signal: 'projects_with', aggregate: 'total', filter: { kind: 'project' } }, comparator: '>=', threshold: 2 }] },
+  ],
 };

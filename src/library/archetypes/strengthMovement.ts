@@ -46,11 +46,11 @@ export const strengthMovement: ArchetypeDef = {
   },
   conditions: [
     {
-      id: 'strength-gain', label: 'Estimated strength gain {0} (need +{t0})', verifiability: 'recorded', comparator: '>=', format: 'percent',
+      id: 'strength-gain', short: 'Strength gain', label: 'Estimated strength gain {0} (need +{t0})', verifiability: 'recorded', comparator: '>=', format: 'percent',
       signal: { instrument: 'main', signal: 'strength_gain_pct', aggregate: 'total' }, at: { A: 0.06, S: 0.12 },
     },
     {
-      id: 'mean-steps', label: 'Mean steps {0} (need >= {t0})', verifiability: 'recorded', comparator: '>=', format: 'locale',
+      id: 'mean-steps', short: 'Mean steps', label: 'Mean steps {0} (need >= {t0})', verifiability: 'recorded', comparator: '>=', format: 'locale',
       signal: { instrument: 'steps', signal: 'mean_value', aggregate: 'window_28' }, at: { S: { param: 'target', instrument: 'steps' } },
     },
   ],
@@ -65,4 +65,11 @@ export const strengthMovement: ArchetypeDef = {
     id: 'steady-strength', title: 'STEADY STRENGTH', milestone: 'A training habit that has held',
     uses: { ladder: true, conditions: ['mean-steps'] }, verifiability: 'recorded',
   },
+
+  checkpoint: { selfEfficacy: "Complete your planned training session on a day you don't feel like it?", enjoyment: 'Training' },
+  reviewPrompt: { prompt: 'How did training feel today?', options: ['Strong', 'Fine', 'Heavy', 'Skipped'] },
+  reflectionThemes: ['body', 'strength'],
+  achievements: [
+    { id: 'trains', label: 'Someone Who Trains', kind: 'identity', verifiability: 'recorded', clauses: [{ signal: { instrument: 'main', signal: 'count', aggregate: 'total' }, comparator: '>=', threshold: 40 }] },
+  ],
 };

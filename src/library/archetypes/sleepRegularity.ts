@@ -25,7 +25,14 @@ export const sleepRegularity: ArchetypeDef = {
   ],
   // Consistency is the evidence a guardrail has: it is judged from A.
   conditions: [{
-    id: 'wake-sd', label: 'Wake SD {0}min (need < {t0})', verifiability: 'recorded', comparator: '<', format: 'round',
+    id: 'wake-sd', short: 'Wake SD', label: 'Wake SD {0}min (need < {t0})', verifiability: 'recorded', comparator: '<', format: 'round',
     signal: { instrument: 'main', signal: 'sd_minutes_failsafe', aggregate: 'window_28' }, at: { A: 60, S: 45 },
   }],
+
+  checkpoint: { selfEfficacy: 'Hold your wake time within 30 minutes for the next 14 days?', enjoyment: 'Mornings' },
+  reviewPrompt: { prompt: 'What moved your wake time?', options: ['Slept late', 'Woke early', 'Disturbed night', 'Right on time'] },
+  reflectionThemes: ['rest', 'rhythm'],
+  achievements: [
+    { id: 'regular', label: 'Regular', verifiability: 'recorded', clauses: [{ signal: { instrument: 'main', signal: 'sd_minutes_failsafe', aggregate: 'window_28' }, comparator: '<', threshold: 45 }] },
+  ],
 };

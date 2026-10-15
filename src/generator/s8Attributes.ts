@@ -51,12 +51,37 @@ function discipline(contexts: DomainContext[], quests: QuestTemplateDef[]): Attr
   return { id: 'DISCIPLINE', name: 'DISCIPLINE', groupId: 'mind', description: 'Showing up: minimum-viable days, and the guardrails kept.', combine: 'sum', terms };
 }
 
+/**
+ * An engine whose archetype names no attribute of its own, or whose attribute another domain already took (two
+ * domains of one kind), still shows up in the attribute set: steady volume of its headline count, and days worked.
+ */
+function fallbackAttribute(ctx: DomainContext, quests: QuestTemplateDef[], taken: Set<string>): AttributeDef | undefined {
+  const ladder = ctx.resolved.archetype.ladder;
+  const quest = quests.find((candidate) => candidate.domainId === ctx.domain.id);
+  if (!ladder || !quest) return undefined;
+  let id = ctx.domain.designation.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'WORK';
+  while (taken.has(id)) id = `${id}_2`;
+  const group = ctx.resolved.archetype.area === 'body' ? 'body' : ['craft', 'career'].includes(ctx.resolved.archetype.area) ? 'craft' : 'mind';
+  return {
+    id, name: ctx.domain.designation, groupId: group, description: `Steady work in ${ctx.domain.name.toLowerCase()}: how much of it, and on how many days.`, combine: 'sum',
+    terms: [
+      { id: 'volume', label: ladder.noun.charAt(0).toUpperCase() + ladder.noun.slice(1), weight: 0.6, signal: signalOf({ ...ladder.signal, aggregate: E28 }, ctx.ids), transform: { kind: 'ratio', denominator: Math.max(1, Math.round(ladder.success / 4)) } },
+      { id: 'days', label: 'Days worked', weight: 0.4, signal: ratio({ source: 'quest', questId: quest.id, signal: 'completed_days', aggregate: E28 }, WINDOW_DAYS), transform: { kind: 'rate' } },
+    ],
+  };
+}
+
 export function buildAttributes(contexts: DomainContext[], quests: QuestTemplateDef[]): { groups: AttributeGroupDef[]; defs: AttributeDef[] } {
   const defs: AttributeDef[] = [discipline(contexts, quests)];
   const used = new Set(['DISCIPLINE']);
   for (const ctx of contexts) {
     const template = ctx.resolved.archetype.attribute;
-    if (!template || ctx.resolved.archetype.role !== 'engine' || defs.length >= MAX_ATTRIBUTES || used.has(template.id)) continue;
+    if (ctx.resolved.archetype.role !== 'engine' || defs.length >= MAX_ATTRIBUTES) continue;
+    if (!template || used.has(template.id)) {
+      const fallback = fallbackAttribute(ctx, quests, used);
+      if (fallback) { used.add(fallback.id); defs.push(fallback); }
+      continue;
+    }
     used.add(template.id);
     defs.push({
       id: template.id, name: template.name, groupId: template.group, description: template.description, combine: template.combine,

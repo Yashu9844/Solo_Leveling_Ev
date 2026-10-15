@@ -91,6 +91,11 @@ export interface ArchetypeDef {
   skillTree?: SkillTreeTemplate;
   attribute?: AttributeTemplate;
   bossAnchor?: BossAnchorTemplate;
+  /** Loop 8.4: checkpoint items, one evening-review prompt, achievements and the themes its reflections draw on. */
+  checkpoint?: { selfEfficacy: string; enjoyment: string };
+  reviewPrompt?: { prompt: string; options: readonly string[] };
+  achievements?: readonly AchievementTemplate[];
+  reflectionThemes?: readonly string[];
 }
 
 // ── What loops 8.3-8.4 read: metrics, the headline ladder, gate conditions, skills, attributes, bosses ──
@@ -137,6 +142,8 @@ export interface LadderTemplate {
 export interface ConditionTemplate {
   id: string;
   label: string;
+  /** The name the checkpoint comparison uses for this number ("Wake SD"); default: the label without its placeholders. */
+  short?: string;
   verifiability: 'public_url' | 'recorded' | 'self_cert' | 'count';
   signal: SignalTemplate;
   comparator: '>=' | '<=' | '<';
@@ -180,4 +187,14 @@ export interface BossAnchorTemplate {
   verifiability: 'public_url' | 'recorded' | 'count';
   /** Outcomes only other people decide: recorded on the REALITY panel, never gating anything. */
   external?: { key: string; label: string; source: SignalTemplate };
+}
+
+/** A domain-derived achievement or identity (02 §15.4): "Century", "Shipped", "Someone Who Trains". */
+export interface AchievementTemplate {
+  id: string;
+  label: string;
+  kind?: 'identity';
+  verifiability: 'public_url' | 'recorded' | 'self_cert' | 'count' | 'structural';
+  clauses: { signal: SignalTemplate; comparator: '>=' | '<=' | '<'; threshold: number; format?: ConditionFormat }[];
+  clauseMode?: 'any';
 }

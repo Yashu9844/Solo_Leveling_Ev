@@ -42,19 +42,19 @@ export const careerPipeline: ArchetypeDef = {
   },
   conditions: [
     {
-      id: 'resume-on-file', label: 'Resume versions on file {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      id: 'resume-on-file', short: 'Resume versions', label: 'Resume versions on file {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
       signal: { instrument: 'resumes', signal: 'count', aggregate: 'total' }, at: { C: 1, B: 2 },
     },
     {
-      id: 'resume-reviewed', label: 'Resumes reviewed by someone else {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      id: 'resume-reviewed', short: 'Reviewed resumes', label: 'Resumes reviewed by someone else {0} (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
       signal: { instrument: 'resumes', signal: 'count', aggregate: 'total', filter: { externalReview: 'true' } }, at: { B: 1, A: 1, S: 1 },
     },
     {
-      id: 'follow-through', label: 'Follow-through {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
+      id: 'follow-through', short: 'Follow-through', label: 'Follow-through {0} (need {t0})', verifiability: 'count', comparator: '>=', format: 'percent',
       signal: { instrument: 'main', signal: 'followthrough_rate', aggregate: 'total' }, at: { A: 0.7, S: 0.7 },
     },
     {
-      id: 'mocks', label: '{0} recorded mocks (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      id: 'mocks', short: 'Recorded mocks', label: '{0} recorded mocks (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
       signal: { instrument: 'substitute', signal: 'mode_counts', aggregate: 'total', filter: { mode: 'mock' } }, at: { A: 2, S: 4 },
     },
   ],
@@ -72,4 +72,11 @@ export const careerPipeline: ArchetypeDef = {
     uses: { ladder: true, conditions: ['mocks', 'resume-reviewed'] }, verifiability: 'recorded',
     external: { key: 'interview-loops', label: 'Interview loops reached', source: { instrument: 'main', signal: 'stage_counts', aggregate: 'total', filter: { stage: 'loops' } } },
   },
+
+  checkpoint: { selfEfficacy: 'Apply to 5 roles above your current level this week?', enjoyment: 'The job search' },
+  reviewPrompt: { prompt: 'What got in the way of the search today?', options: ['No fitting roles', 'The application itself', 'Waiting on replies', 'Nothing in the way'] },
+  reflectionThemes: ['persistence', 'rejection'],
+  achievements: [
+    { id: 'despatcher', label: 'Despatcher', verifiability: 'count', clauses: [{ signal: { instrument: 'main', signal: 'quality_count', aggregate: 'total' }, comparator: '>=', threshold: 50 }] },
+  ],
 };
