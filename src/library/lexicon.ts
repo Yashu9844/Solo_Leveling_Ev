@@ -68,3 +68,13 @@ export const REALITY_VERBS: Readonly<Record<string, string>> = {
   checklist: 'routine kept',
   study_block: 'study blocks',
 };
+
+/**
+ * Rule B5 (02 §15.2): a boss title never names an outcome other people decide. "INTERVIEW READY" is the
+ * person's own readiness; "FIRST INTERVIEW LOOP" would be the market's verdict. A title matching this is refused.
+ */
+export const EXTERNAL_OUTCOME_TITLE = /\b(FIRST (CUSTOMER|CLIENT|SALE|HIRE|OFFER|INTERVIEW)|INTERVIEW LOOP|OFFER (RECEIVED|SIGNED|ACCEPTED)|HIRED|PROMOTED|PROMOTION|ADMITTED|ACCEPTED|REVENUE|PAYING CUSTOMER)\b/;
+
+export function namesExternalOutcome(title: string): boolean {
+  return EXTERNAL_OUTCOME_TITLE.test(title.toUpperCase());
+}

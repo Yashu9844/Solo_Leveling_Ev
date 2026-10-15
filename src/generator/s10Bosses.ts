@@ -5,6 +5,7 @@
 import { clause, condition, flag, glob, need } from '../blueprint/build';
 import type { BossDef, GateCondition, MilestoneDef, ProgressionSection, Rank } from '../blueprint/schema';
 import type { ConditionTemplate, RankStep } from '../library/archetypes/types';
+import { namesExternalOutcome } from '../library/lexicon';
 import { signalOf, thresholdOf, type DomainContext } from './derive';
 
 const ROMAN = ['I', 'II', 'III', 'IV'] as const;
@@ -99,6 +100,8 @@ export function buildBosses(
       conditions.push(condition(`${id}.consistency`, 'Core completion {0} (need {t0})', 'count', [clause(glob('consistency_28'), '>=', 0.7, 'percent')]));
       milestone = { id: `${lead.domain.id}.consistency-${id}`, domainId: lead.domain.id, label: 'Four weeks keeping the floor', condition: conditions[0]!, declaredBy: 'archetype' };
     }
+    // B5: whatever the archetype offered, a title that names an outcome other people decide is never used.
+    if (namesExternalOutcome(title)) title = 'LONG CONSISTENCY TRIAL';
     conditions.push(flag(`${id}.checkpoint`, `Day-${rung.checkpointDay} checkpoint sealed`, 'structural', glob('checkpoint_sealed', String(rung.checkpointDay))));
     milestones.push(milestone);
     const gatesRank = bossGatesRank(index, count);
