@@ -6,11 +6,13 @@ import type { DraftState } from '../../../generator/types';
 import { generateBlueprint } from '../../../generator/generate';
 import { QUESTIONS } from '../../../onboarding/content';
 import { clearDraft, loadDraft, loadPins, savePins, saveDraft } from '../../../onboarding/draftStorage';
+import { reportFor, canActivate, type Fix } from '../../../onboarding/activationIssues';
 import { clearAnswer, livePlan } from '../../../onboarding/engine';
 import { interviewToDraft, questIntentions, type Intention } from '../../../onboarding/mapping';
 import { NO_PINS, adjustables, applyPins, withArcLength, withPin, type Pins } from '../../../onboarding/pins';
 import { provenanceFor } from '../../../onboarding/provenance';
 import type { InterviewDraft, Tier } from '../../../onboarding/types';
+import { ActivationError } from '../../../blueprint/activation';
 import { activateNewSystem } from '../../../store/activation';
 import { useArcStatus } from '../../../store/ArcStatusContext';
 import { realDeps } from '../../../store/deps';
@@ -39,7 +41,9 @@ export function NewOnboarding() {
 
   function generate(interview: InterviewDraft) {
     const timezone = detectTimeZone(DEFAULT_CONFIG.arc.timezone);
-    const { draft: input, baseline, intentions } = interviewToDraft(interview, QUESTIONS, { lineageId: realDeps.newId(), today, timezone });
+    // Today as it is at this moment: a rebuild after the Reveal stood open must not reuse the date it was first built on.
+    const now = localDate(realDeps.now(), timezone, DEFAULT_CONFIG.arc.dayBoundaryHour);
+    const { draft: input, baseline, intentions } = interviewToDraft(interview, QUESTIONS, { lineageId: realDeps.newId(), today: now, timezone });
     setPhase({ kind: 'reveal', interview, input, baseline, intentions });
   }
 
@@ -63,10 +67,10 @@ export function NewOnboarding() {
 
   if (phase.kind === 'tier') return <TierChoice onChoose={choose} />;
   if (phase.kind === 'interview') return <AdaptiveInterview key={round} questions={QUESTIONS} initial={initial} today={today} onDraftChange={saveDraft} onComplete={generate} />;
-  return <Awakened phase={phase} pins={pins} onPins={setPins} onChange={() => reopen(phase.interview)} />;
+  return <Awakened phase={phase} pins={pins} onPins={setPins} onChange={() => reopen(phase.interview)} onRebuild={() => generate(phase.interview)} />;
 }
 
-function Awakened({ phase, pins, onPins, onChange }: { phase: Extract<Phase, { kind: 'reveal' }>; pins: Pins; onPins: (pins: Pins) => void; onChange: () => void }) {
+function Awakened({ phase, pins, onPins, onChange, onRebuild }: { phase: Extract<Phase, { kind: 'reveal' }>; pins: Pins; onPins: (pins: Pins) => void; onChange: () => void; onRebuild: () => void }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -76,11 +80,29 @@ function Awakened({ phase, pins, onPins, onChange }: { phase: Extract<Phase, { k
   const pinned = useMemo(() => applyPins(phase.input, pins), [phase.input, pins]);
   const built = useMemo(() => generateBlueprint(pinned), [pinned]);
   const provenance = useMemo(() => provenanceFor(phase.interview, QUESTIONS, pinned, pins), [phase.interview, pinned, pins]);
-  const errors = useMemo(() => built.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.plain), [built]);
+  // The date the validator judges against is the date NOW: a Reveal left open (or resumed days later) can fall outside the activation window.
+  const [now, setNow] = useState(() => realDeps.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(realDeps.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const { timezone, dayBoundaryHour } = built.blueprint.arc;
+  const report = useMemo(() => reportFor(built.blueprint, built.issues, localDate(now, timezone, dayBoundaryHour), pins), [built, now, timezone, dayBoundaryHour, pins]);
+  const [acknowledged, setAcknowledged] = useState(false);
   useEffect(() => { savePins(pins); }, [pins]);
+
+  function fix(applied: Fix) {
+    if (applied.kind === 'rebuild') onRebuild();
+    else if (applied.kind === 'release-arc') onPins(withArcLength(pins, undefined));
+    else onPins(withPin(pins, applied.key, 'designation', undefined));
+  }
 
   async function activate() {
     if (busy) return;
+    // Judged once more at the moment of the tap, against the clock as it is now.
+    const current = realDeps.now();
+    setNow(current);
+    if (!canActivate(reportFor(built.blueprint, built.issues, localDate(current, timezone, dayBoundaryHour), pins), acknowledged)) return;
     setBusy(true);
     setFailure(null);
     try {
@@ -90,15 +112,16 @@ function Awakened({ phase, pins, onPins, onChange }: { phase: Extract<Phase, { k
       // Resolves once the new arc's config and versions are installed, so Today never renders against the defaults.
       await markArcCreated();
       navigate('/today', { replace: true });
-    } catch {
-      setFailure('Could not bring the System online. Nothing was saved — try again.');
+    } catch (error) {
+      // The validator refused: the reasons are on the Reveal, in the System's voice, not here.
+      setFailure(error instanceof ActivationError ? 'THE SYSTEM CANNOT COME ONLINE YET. SEE THE REASONS ABOVE.' : 'Could not bring the System online. Nothing was saved — try again.');
       setBusy(false);
     }
   }
 
   return (
     <Reveal
-      blueprint={built.blueprint} name={pinned.identity.displayName} provenance={provenance} pins={pins} adjustables={adjustables(pinned)} errors={errors} busy={busy} failure={failure}
+      blueprint={built.blueprint} name={pinned.identity.displayName} provenance={provenance} pins={pins} adjustables={adjustables(pinned)} report={report} busy={busy} failure={failure} acknowledged={acknowledged} onAcknowledge={setAcknowledged} onFix={fix}
       onPinDomain={(key, values) => {
         let next = pins;
         for (const [field, value] of Object.entries(values) as ['goodDay' | 'hardDay' | 'designation', number | string][]) next = withPin(next, key, field, value);

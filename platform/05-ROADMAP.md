@@ -220,7 +220,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 11.1 | Guided stages, echo lines, exam-date alignment | e2e P2 aligns the arc to the exam date |
 | ☑ 11.2 | Custom domain flow (03 §26) | e2e P7 builds five custom domains; validator clean |
 | ☑ 11.3 | Reveal Moment + Codex cards + Adjust sheets + pinning + provenance lines | pinned fields survive re-generation (property) |
-| ☐ 11.4 | Activation UX: issues in System voice, one-tap fixes, acknowledgement | invalid drafts cannot activate (e2e) |
+| ☑ 11.4 | Activation UX: issues in System voice, one-tap fixes, acknowledgement | invalid drafts cannot activate (e2e) |
 | ☐ 11.5 | Full journeys P1–P7 through the UI; **stop-point review** | written go/no-go in `platform/decisions/0002-stranger-build.md` |
 
 ### Phase 12 — Configurable System messaging

@@ -1,10 +1,11 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { Criterion, QuestTemplateDef, SystemBlueprint } from '../../../blueprint/schema';
+import { canActivate, type ActivationReport, type Fix, type IssueView } from '../../../onboarding/activationIssues';
 import { clampPin, domainKey, type Adjustable, type Pins } from '../../../onboarding/pins';
 import type { Provenance } from '../../../onboarding/provenance';
 import { PrimaryButton, SafeTop, ScreenShell, SecondaryButton, Sheet } from '../../kit';
 import { presentDomain } from '../../presentation/domain';
-import { Instrument, StepConsole } from '../shared';
+import { Instrument, SlotField, StepConsole } from '../shared';
 import { Cards, NumberField } from './QuestionView';
 
 export interface RevealProps {
@@ -13,19 +14,49 @@ export interface RevealProps {
   provenance: Provenance;
   pins: Pins;
   adjustables: Adjustable[];
-  /** Why the System cannot be brought online yet, in the System's voice. */
-  errors: string[];
+  /** What stands between this System and being online: errors block, warnings need one acknowledgement, info is only shown. */
+  report: ActivationReport;
+  acknowledged: boolean;
+  onAcknowledge: (value: boolean) => void;
   busy: boolean;
   failure: string | null;
   onPinDomain: (key: string, values: { goodDay?: number; hardDay?: number; designation?: string }) => void;
   onPinArc: (days: number) => void;
   onUnpin: () => void;
+  onFix: (fix: Fix) => void;
   onChange: () => void;
   onActivate: () => void;
 }
 
 const leaves = (criterion: Criterion): number[] => (criterion.kind === 'signal' ? [criterion.target] : criterion.of.flatMap(leaves));
 const floorLine = (quest: QuestTemplateDef): string => `ON A HARD DAY: ${leaves(quest.floor).join(' · ')}`;
+
+/** BIND THE SYSTEM (03 §28.4): errors in the System's voice with the plain line beneath and a one-tap fix; warnings behind one acknowledgement. */
+function IssuesPanel({ report, acknowledged, onAcknowledge, onFix, busy }: { report: ActivationReport; acknowledged: boolean; onAcknowledge: (value: boolean) => void; onFix: (fix: Fix) => void; busy: boolean }) {
+  if (report.errors.length + report.warnings.length + report.info.length === 0) return null;
+  const row = (view: IssueView, tone: string) => (
+    <li key={`${view.issue.code}|${view.issue.path}`} className="space-y-1" data-testid={`issue-${view.issue.code}`}>
+      <p className={`font-mono text-[11px] font-bold uppercase tracking-[0.12em] ${tone}`}>{view.issue.system}</p>
+      <p className="text-sm leading-snug text-ink-500">{view.issue.plain}</p>
+      {view.fix && <SecondaryButton onClick={() => onFix(view.fix!)} disabled={busy} className="w-full">{view.fix.label}</SecondaryButton>}
+    </li>
+  );
+  return (
+    <div className="space-y-4" data-testid="issues">
+      {report.errors.length > 0 && <ul className="space-y-3" role="alert" aria-label="Errors">{report.errors.map((view) => row(view, 'text-state-alert'))}</ul>}
+      {report.warnings.length > 0 && (
+        <div className="space-y-3">
+          <ul className="space-y-3" aria-label="Warnings">{report.warnings.map((view) => row(view, 'text-accent-mid'))}</ul>
+          <label className="flex min-h-[44px] items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-100">
+            <input type="checkbox" checked={acknowledged} onChange={(event) => onAcknowledge(event.target.checked)} className="h-5 w-5 shrink-0" />
+            Proceed anyway
+          </label>
+        </div>
+      )}
+      {report.info.length > 0 && <ul className="space-y-2" aria-label="Notes">{report.info.map((view) => row(view, 'text-ink-500'))}</ul>}
+    </div>
+  );
+}
 
 /** A section of the Reveal: it rises in its turn (the order is the sequence), then stays as a card of the Codex. */
 function Section({ seq, children, testId }: { seq: number; children: ReactNode; testId?: string }) {
@@ -39,7 +70,7 @@ const Because = ({ children }: { children: ReactNode }) => <p className="mt-2 fo
  * quest and its hard-day floor, the attributes, the skill trees, the checkpoints, the bosses - settling into a Codex whose cards can be adjusted.
  * Every card says which answer it came from. Motion is CSS only and reduced motion shows the settled Codex at once.
  */
-export function Reveal({ blueprint, name, provenance, pins, adjustables, errors, busy, failure, onPinDomain, onPinArc, onUnpin, onChange, onActivate }: RevealProps) {
+export function Reveal({ blueprint, name, provenance, pins, adjustables, report, acknowledged, onAcknowledge, busy, failure, onPinDomain, onPinArc, onUnpin, onFix, onChange, onActivate }: RevealProps) {
   const [adjusting, setAdjusting] = useState<string | 'arc' | null>(null);
   const domains = [...blueprint.domains].sort((a, b) => a.priority - b.priority);
   const keyOf = (domain: SystemBlueprint['domains'][number]) => domainKey(domain.archetypeId ?? domain.id, domain.name);
@@ -158,17 +189,13 @@ export function Reveal({ blueprint, name, provenance, pins, adjustables, errors,
               </button>
             )}
 
-            {errors.length > 0 && (
-              <ul className="space-y-1" role="alert">
-                {errors.map((error) => <li key={error} className="font-mono text-[11px] uppercase tracking-[0.12em] text-state-alert">{error}</li>)}
-              </ul>
-            )}
+            <IssuesPanel report={report} acknowledged={acknowledged} onAcknowledge={onAcknowledge} onFix={onFix} busy={busy} />
           </div>
 
           {failure && <p className="px-gutter pb-2 text-sm text-state-alert" role="alert">{failure}</p>}
           <div className="relative flex gap-3 px-gutter pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
             <SecondaryButton onClick={onChange} disabled={busy} className="flex-[0_0_31%]">Change</SecondaryButton>
-            <PrimaryButton size="md" disabled={busy || errors.length > 0} onClick={onActivate} className="flex-1">{busy ? 'Initialising…' : 'Initialise system'}</PrimaryButton>
+            <PrimaryButton size="md" disabled={busy || !canActivate(report, acknowledged)} onClick={onActivate} className="flex-1">{busy ? 'Initialising…' : 'Initialise system'}</PrimaryButton>
           </div>
         </div>
       </div>
@@ -204,13 +231,14 @@ function DomainSheet({ adjustable, title, currentDesignation, onClose, onPin }: 
   const [good, setGood] = useState<number | string>(adjustable.goodDay ?? '');
   const [hard, setHard] = useState<number | string>(adjustable.hardDay ?? '');
   const [designation, setDesignation] = useState<string>(currentDesignation && adjustable.designations.includes(currentDesignation) ? currentDesignation : (adjustable.designations[0] ?? ''));
+  const [own, setOwn] = useState('');
   const bounds = adjustable.bounds;
   const goodNow = typeof good === 'number' ? clampPin(adjustable.archetypeId, good) : undefined;
   const hardNow = typeof hard === 'number' ? Math.min(clampPin(adjustable.archetypeId, hard), goodNow ?? Infinity) : undefined;
   return (
     <Sheet
       open onClose={onClose} title={`ADJUST — ${title}`}
-      footer={<PrimaryButton size="md" className="w-full" onClick={() => onPin({ ...(goodNow !== undefined ? { goodDay: goodNow } : {}), ...(hardNow !== undefined ? { hardDay: hardNow } : {}), ...(designation ? { designation } : {}) })}>Pin these</PrimaryButton>}
+      footer={<PrimaryButton size="md" className="w-full" onClick={() => onPin({ ...(goodNow !== undefined ? { goodDay: goodNow } : {}), ...(hardNow !== undefined ? { hardDay: hardNow } : {}), ...((own.trim() || designation) ? { designation: own.trim() ? own.trim().toUpperCase() : designation } : {}) })}>Pin these</PrimaryButton>}
     >
       <div className="space-y-4 p-4">
         {bounds && (
@@ -228,9 +256,12 @@ function DomainSheet({ adjustable, title, currentDesignation, onClose, onPin }: 
         {adjustable.designations.length > 1 && (
           <div>
             <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-700">WHAT THE SYSTEM CALLS IT</p>
-            <Cards options={adjustable.designations.map((value) => ({ value, label: value }))} selected={[designation]} multiple={false} onToggle={setDesignation} />
+            <Cards options={adjustable.designations.map((value) => ({ value, label: value }))} selected={own.trim() ? [] : [designation]} multiple={false} onToggle={(value) => { setOwn(''); setDesignation(value); }} />
           </div>
         )}
+        <SlotField label="OR YOUR OWN" hint="Capitals, 18 characters at most, and not a word the System already uses.">
+          <input type="text" value={own} onChange={(event) => setOwn(event.target.value)} maxLength={40} autoCapitalize="characters" data-testid="own-designation" />
+        </SlotField>
         <p className="text-xs text-faint">Pinned values stay as they are when you change your answers. The System moves the rest around them.</p>
       </div>
     </Sheet>

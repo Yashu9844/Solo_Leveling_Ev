@@ -227,3 +227,56 @@ test.describe('Adjusting the Reveal', () => {
     expect(await page.evaluate(() => [localStorage.getItem('onboarding_draft'), localStorage.getItem('onboarding_pins')])).toEqual([null, null]);
   });
 });
+
+test.describe('Binding the System', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('a warning needs one acknowledgement, and its fix is one tap', async ({ page }) => {
+    test.setTimeout(MAX_SCRIPTED_MS);
+    await begin(page, 'quick');
+    await interview(page, ['career', 'body'], {}, {}, {});
+    const first = page.getByTestId('reveal-card').first();
+    const designation = await first.getAttribute('data-designation');
+    await first.getByRole('button', { name: `Adjust ${designation}` }).click();
+    await page.getByTestId('own-designation').fill('a designation far too long to use');
+    await page.getByRole('button', { name: 'Pin these' }).click();
+
+    await expect(page.getByTestId('issue-G-DOM-02')).toContainText('THAT DESIGNATION IS NOT AVAILABLE.');
+    const initialise = page.getByRole('button', { name: 'Initialise system' });
+    await expect(initialise).toBeDisabled();
+    await page.getByRole('checkbox', { name: 'Proceed anyway' }).check();
+    await expect(initialise).toBeEnabled();
+    await page.getByRole('checkbox', { name: 'Proceed anyway' }).uncheck();
+    await expect(initialise).toBeDisabled();
+
+    await page.getByTestId('issue-G-DOM-02').getByRole('button', { name: /^Use / }).click();
+    await expect(page.getByTestId('issue-G-DOM-02')).toHaveCount(0);
+    await expect(initialise).toBeEnabled();
+    await initialise.click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+  });
+
+  test('an invalid System cannot be activated: a Reveal left open past the window is refused, and one tap rebuilds it', async ({ page }) => {
+    test.setTimeout(MAX_SCRIPTED_MS);
+    await page.clock.install({ time: new Date('2026-09-01T09:00:00Z') });
+    await begin(page, 'quick');
+    await interview(page, ['career', 'body'], {}, {}, {});
+    const initialise = page.getByRole('button', { name: 'Initialise system' });
+    await expect(initialise).toBeEnabled();
+    await expect(page.getByTestId('issues')).toHaveCount(0);
+
+    // Forty-nine days pass with the Reveal open; the System is judged against the date it is now.
+    // (In steps: the clock takes a 32-bit number of milliseconds, about 24 days, at a time.)
+    for (const days of [20, 20, 9]) await page.clock.fastForward(days * 24 * 60 * 60 * 1000);
+    await expect(page.getByTestId('issue-V-ARC-03')).toContainText('THE ARC START IS OUTSIDE THE ACTIVATION WINDOW.');
+    await expect(initialise).toBeDisabled();
+    await expect(page.getByRole('checkbox', { name: 'Proceed anyway' })).toHaveCount(0); // an error is not acknowledged away
+
+    await page.getByTestId('issue-V-ARC-03').getByRole('button', { name: 'Begin today' }).click();
+    await expect(page.getByTestId('issue-V-ARC-03')).toHaveCount(0);
+    await expect(initialise).toBeEnabled();
+    await expect(page.getByTestId('reveal-arc')).toContainText('from 2026-10-20');
+    await initialise.click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+  });
+});
