@@ -86,3 +86,40 @@ test.describe('Quick Awakening', () => {
     await expect(page).toHaveURL(/\/today/);
   });
 });
+
+test.describe('Resuming the interview', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('an app kill mid-interview loses nothing, and the draft is gone once the System is online', async ({ context, page }) => {
+    await page.goto('/onboarding');
+    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    await page.getByTestId('answer').fill('Ada');
+    await next(page);
+    await expect(page.getByTestId('question-areas')).toBeVisible();
+    for (const area of ['career', 'body', 'creativity']) await page.locator(`[role="checkbox"][data-value="${area}"]`).click();
+    await next(page);
+    await expect(page.getByTestId('question-priorities')).toBeVisible();
+    await next(page);
+    await expect(page.getByTestId('question-resolution@career')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('onboarding_draft'))).toContain('"career"');
+
+    // The kill: the tab goes away entirely and the app is opened again.
+    await page.close();
+    const reopened = await context.newPage();
+    await reopened.goto('/onboarding');
+    await expect(reopened.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    await expect(reopened.getByTestId('question-resolution@career')).toBeVisible();
+
+    // Going back finds the earlier answers where they were left.
+    await reopened.getByRole('button', { name: 'Back' }).click();
+    await expect(reopened.getByTestId('question-priorities')).toBeVisible();
+    await reopened.getByRole('button', { name: 'Back' }).click();
+    await expect(reopened.locator('[role="checkbox"][data-value="creativity"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(reopened.locator('[role="checkbox"][data-value="knowledge"]')).toHaveAttribute('aria-checked', 'false');
+
+    await interview(reopened, [], {});
+    await reopened.getByRole('button', { name: 'Initialise system' }).click();
+    await expect(reopened).toHaveURL(/\/today/, { timeout: 30_000 });
+    expect(await reopened.evaluate(() => localStorage.getItem('onboarding_draft'))).toBeNull();
+  });
+});

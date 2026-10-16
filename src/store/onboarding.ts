@@ -18,6 +18,7 @@ import { localDate } from '../engine/time';
 import { db } from '../db/db';
 import { appendEvent } from '../db/events';
 import type { ArcRow, CheckpointRow, ProfileRow } from '../db/schema';
+import { clearDraft } from '../onboarding/draftStorage';
 import { getActiveArc } from './arc';
 
 export interface OnboardingIntentions {
@@ -230,6 +231,8 @@ export async function resetArc(): Promise<void> {
       await db.profile.clear();
     }
   );
+  // The interview's draft is personal detail the log never held; a wipe takes it too (platform/04 §36).
+  clearDraft();
 }
 
 function makeEvent<T extends object>(

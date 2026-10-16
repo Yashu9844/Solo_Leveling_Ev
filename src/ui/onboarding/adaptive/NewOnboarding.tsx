@@ -6,6 +6,7 @@ import { QUESTIONS } from '../../../onboarding/content';
 import { interviewToDraft } from '../../../onboarding/mapping';
 import type { InterviewDraft } from '../../../onboarding/types';
 import { DEFAULT_CONFIG } from '../../../engine/config';
+import { clearDraft, loadDraft, saveDraft } from '../../../onboarding/draftStorage';
 import { clearAnswer, livePlan } from '../../../onboarding/engine';
 import { realDeps } from '../../../store/deps';
 import { activateNewSystem } from '../../../store/activation';
@@ -24,7 +25,7 @@ type Phase = { kind: 'interview' } | { kind: 'reveal'; draft: InterviewDraft; bl
  */
 export function NewOnboarding() {
   const [phase, setPhase] = useState<Phase>({ kind: 'interview' });
-  const [initial, setInitial] = useState<InterviewDraft>({ tier: 'quick', answers: {} });
+  const [initial, setInitial] = useState<InterviewDraft>(() => loadDraft() ?? { tier: 'quick', answers: {} });
   const [round, setRound] = useState(0);
   const today = useMemo(() => localDate(realDeps.now(), detectTimeZone(DEFAULT_CONFIG.arc.timezone), DEFAULT_CONFIG.arc.dayBoundaryHour), []);
 
@@ -38,12 +39,14 @@ export function NewOnboarding() {
   // Changing the answers reopens the interview on its last question, with everything before it kept.
   function reopen(draft: InterviewDraft) {
     const last = livePlan(draft, QUESTIONS).at(-1);
-    setInitial(last ? clearAnswer(draft, last.writes) : draft);
+    const reopened = last ? clearAnswer(draft, last.writes) : draft;
+    saveDraft(reopened);
+    setInitial(reopened);
     setRound((value) => value + 1);
     setPhase({ kind: 'interview' });
   }
 
-  if (phase.kind === 'interview') return <AdaptiveInterview key={round} questions={QUESTIONS} initial={initial} today={today} onComplete={generate} />;
+  if (phase.kind === 'interview') return <AdaptiveInterview key={round} questions={QUESTIONS} initial={initial} today={today} onDraftChange={saveDraft} onComplete={generate} />;
   return <Reveal blueprint={phase.blueprint} name={phase.name} baseline={phase.baseline} errors={phase.errors} onRedo={() => reopen(phase.draft)} />;
 }
 
@@ -61,6 +64,8 @@ function Reveal({ blueprint, name, baseline, errors, onRedo }: { blueprint: Syst
     setFailure(null);
     try {
       await activateNewSystem({ blueprint, name, baseline }, realDeps);
+      // The answers have done their work: the Blueprint is the record, and the raw answers go.
+      clearDraft();
       // Resolves once the new arc's config and versions are installed, so Today never renders against the defaults.
       await markArcCreated();
       navigate('/today', { replace: true });
