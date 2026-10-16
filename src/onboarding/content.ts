@@ -165,14 +165,14 @@ export const QUESTIONS: QuestionDef[] = [
   // 2 · INTENT
   {
     id: 'areas', stage: 'INTENT', tier: 'quick', heading: 'WHAT ARE YOU HERE TO CHANGE?', subline: 'Choose up to six. The System builds one domain for each, and adds the guardrails that protect your capacity.',
-    kind: 'multi_card', options: AREAS.filter((area) => area.id in AREA_OPTIONS).map((area) => AREA_OPTIONS[area.id]!), count: { min: 1, max: 6 },
+    kind: 'multi_card', options: AREAS.filter((area) => area.id in AREA_OPTIONS).map((area) => AREA_OPTIONS[area.id]!), count: { min: 1, max: 6 }, limitBy: { total: 6 },
     eligibility: { always: true }, writes: 'areas', noPrefill: true, default: { firstOption: true, count: 3 }, echo: 'AREAS REGISTERED: {answer}.',
   },
 
   {
     id: 'customs', stage: 'INTENT', tier: 'guided', heading: 'ANYTHING ELSE YOU ARE TRYING TO BECOME BETTER AT?', skippable: true,
     subline: 'Name up to five things of your own, separated by commas. For each, the System asks what action proves progress. Six domains in all.',
-    kind: 'text_list', eligibility: { has: 'areas' }, writes: 'customs', bounds: { maxLength: 24 }, count: { min: 1, max: 5 }, limitBy: { total: 6, minus: 'areas' },
+    kind: 'text_list', eligibility: { has: 'areas' }, writes: 'customs', bounds: { maxLength: 24 }, count: { min: 1, max: 5 }, limitBy: { total: 6 },
     default: { const: SKIP }, echo: 'REGISTERED: {answer}.',
   },
 
@@ -187,6 +187,11 @@ export const QUESTIONS: QuestionDef[] = [
     id: 'resolution', stage: 'RESOLUTION', tier: 'quick', heading: '{area} — FOR WHAT?', subline: 'The System picks the instruments and the quest from this.',
     kind: 'single_card', each: 'area', budgeted: true, options: { from: '{area}', map: RESOLUTIONS }, eligibility: { has: 'areas', value: '{area}' },
     writes: 'area.{area}.resolution', default: { firstOption: true }, echo: '{area}: {answer}.',
+  },
+  {
+    id: 'also', stage: 'RESOLUTION', tier: 'guided', each: 'area', budgeted: false, skippable: true, heading: '{area} — ANYTHING ELSE IN IT?',
+    subline: 'Each one you add becomes a domain of its own, with its own measure. You can skip this.', kind: 'multi_card', options: { from: '{area}', map: RESOLUTIONS },
+    excludeValueOf: 'area.{area}.resolution', count: { max: 2 }, limitBy: { total: 6 }, eligibility: { has: 'area.{area}.resolution' }, writes: 'area.{area}.also', default: { const: SKIP }, echo: '{area}: ALSO {answer}.',
   },
   {
     id: 'examDate', stage: 'RESOLUTION', tier: 'guided', heading: '{area} — WHEN IS THE EXAM?', subline: 'The arc can end on it.', kind: 'date', each: 'area', budgeted: true,
@@ -248,7 +253,7 @@ export const QUESTIONS: QuestionDef[] = [
   // 6 · GUARDRAILS
   {
     id: 'guardrails', stage: 'GUARDRAILS', tier: 'guided', heading: 'WHAT PROTECTS YOUR CAPACITY?', subline: 'Held, not pushed: they earn little, and the System reads them from the second checkpoint.',
-    kind: 'multi_card', count: { min: 1, max: 3 }, eligibility: { has: 'areas' }, writes: 'guardrails', default: { firstOption: true, count: 2 },
+    kind: 'multi_card', count: { min: 1, max: 3 }, limitBy: { total: 8 }, eligibility: { has: 'areas' }, writes: 'guardrails', default: { firstOption: true, count: 2 },
     options: [
       { value: 'sleep-regularity', label: 'Sleep window', hint: 'Waking inside a window' },
       { value: 'attention-control', label: 'Attention', hint: 'Screen time under a limit' },

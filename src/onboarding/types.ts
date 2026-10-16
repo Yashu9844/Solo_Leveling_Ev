@@ -73,10 +73,12 @@ export interface QuestionDef {
   budgeted?: boolean;
   /** Set for archetype question packs. */
   archetypeId?: string;
+  /** Offer every option but the one already answered at this path ("anything else in it?" leaves out what the area was already resolved to). */
+  excludeValueOf?: DraftPath;
   /** A multi_card, rank or text_list answer must hold at least / at most this many values. */
   count?: { min?: number; max?: number };
-  /** The most a text_list may hold is `total` less the number of values already in `minus` (six domains in all: areas and the things of their own). */
-  limitBy?: { total: number; minus: DraftPath };
+  /** Domains are counted across everything that makes one - areas, what is added to them, the person's own things - and may not pass `total` (six in all). */
+  limitBy?: { total: number };
   /** A rank question orders the values of this answer (the chosen areas). */
   rankFrom?: DraftPath;
   /** For a per-area question: asked only for the person's top N areas (the if-then triggers are for the top three). */

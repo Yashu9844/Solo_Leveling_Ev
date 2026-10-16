@@ -5,7 +5,7 @@ import type { DraftState } from '../generator/types';
 import { ARCHETYPES } from '../library/archetypes';
 import { measureBounds } from './content';
 import { archetypeOf } from './mapping';
-import { activeAnswers, chosenAreas, customNames, isCustomArea, rankedAreas } from './engine';
+import { activeAnswers, baseAreaOf, chosenAreas, customNames, isCustomArea, isVirtualArea, rankedAreas } from './engine';
 import { domainKey, type Pins } from './pins';
 import type { InterviewDraft, QuestionDef } from './types';
 
@@ -23,6 +23,7 @@ export function provenanceFor(interview: InterviewDraft, questions: readonly Que
   const answers = activeAnswers(interview, questions);
   const areaOptions = questions.find((question) => question.writes === 'areas')?.options;
   const labelOfArea = (area: string): string => {
+    if (isVirtualArea(area)) return `${labelOfArea(baseAreaOf(area))} — ${area.slice(area.indexOf('~') + 1).replace(/-/g, ' ').toUpperCase()}`;
     if (isCustomArea(area)) return (customNames(answers)[Number(area.slice('custom'.length)) - 1] ?? area).toUpperCase();
     return (Array.isArray(areaOptions) ? areaOptions.find((option) => option.value === area)?.label : undefined)?.toUpperCase() ?? area.toUpperCase();
   };

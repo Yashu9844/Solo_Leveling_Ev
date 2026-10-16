@@ -188,7 +188,16 @@ describe('any walk through the interview ends in a valid System', () => {
           if (random() < 0.5) own[`area.custom${index + 1}.holds`] = 'hold';
         });
       }
-      const draft = run(tier, { 'identity.displayName': 'Ada', areas: areas.slice(0, 6 - (own.customs ? 3 : 0)), ...resolutions, ...own });
+      // ...and sometimes something added to an area, within the six domains the System can price.
+      const kept = areas.slice(0, 6 - (own.customs ? 3 : 0));
+      let room = 6 - kept.length - (own.customs ? String(own.customs).split(',').length : 0);
+      if (tier === 'guided') {
+        for (const area of kept) {
+          const others = RESOLUTIONS[area]!.filter((option) => option.value !== resolutions[`area.${area}.resolution`]);
+          if (room > 0 && others.length > 0 && random() < 0.4) { own[`area.${area}.also`] = [others[0]!.value]; room--; }
+        }
+      }
+      const draft = run(tier, { 'identity.displayName': 'Ada', areas: kept, ...resolutions, ...own });
       expect(isComplete(draft, QUESTIONS), `seed ${seed}`).toBe(true);
       const { draft: input } = interviewToDraft(draft, QUESTIONS, mapping);
       const { issues, blueprint } = generateBlueprint(input);
@@ -307,5 +316,80 @@ describe('things of their own (Guided, 03 §26)', () => {
     expect(isComplete(half, QUESTIONS)).toBe(true);
     const { draft } = interviewToDraft(half, QUESTIONS, mapping);
     expect(generateBlueprint(draft).issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+  });
+});
+
+describe('more than one thing in an area', () => {
+  const answers = {
+    'identity.displayName': 'Maya', areas: ['creativity', 'body', 'career'],
+    'area.creativity.resolution': 'creative-practice', 'area.creativity.also': ['writing', 'public-speaking'],
+    'area.body.resolution': 'strength-movement', 'area.body.also': ['endurance'],
+  };
+  const interview = run('guided', answers);
+  const plan = livePlan(interview, QUESTIONS);
+
+  it('offers "anything else" only where there is something else, and never the thing already chosen', () => {
+    const keys = plan.map((instance) => instance.key);
+    expect(keys).toContain('also@creativity');
+    expect(keys).toContain('also@body');
+    expect(keys).not.toContain('also@career'); // one thing it can be
+    expect(keys).not.toContain('also@body~endurance'); // an added thing has no "anything else" of its own
+    const body = plan.find((instance) => instance.key === 'also@body')!;
+    expect(optionsFor(body, interview.answers).map((option) => option.value)).toEqual(['endurance']);
+    const creativity = plan.find((instance) => instance.key === 'also@creativity')!;
+    expect(optionsFor(creativity, interview.answers).map((option) => option.value)).toEqual(['writing', 'public-speaking']);
+  });
+
+  it('each thing added is a domain of its own with its own measure, ranked beside its area', () => {
+    const keys = plan.map((instance) => instance.key);
+    for (const key of ['goodDay.endurance@body~endurance', 'goodDay.writing@creativity~writing', 'goodDay.public-speaking@creativity~public-speaking']) expect(keys, key).toContain(key);
+    expect(interview.answers.priorities).toEqual(['creativity', 'creativity~writing', 'creativity~public-speaking', 'body', 'body~endurance', 'career']);
+    const { draft } = interviewToDraft(interview, QUESTIONS, mapping);
+    expect(draft.domains.slice(0, 6).map((choice) => choice.archetypeId)).toEqual(['creative-practice', 'writing', 'public-speaking', 'strength-movement', 'endurance', 'career-pipeline']);
+    const { blueprint, issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    expect(blueprint.domains.filter((domain) => domain.role === 'engine')).toHaveLength(6);
+  });
+
+  it('changing the area’s own resolution never leaves the same thing twice', () => {
+    const swapped = run('guided', { ...answers, 'area.body.resolution': 'endurance' }); // endurance is now both the resolution and an "also"
+    const { draft } = interviewToDraft(swapped, QUESTIONS, mapping);
+    expect(draft.domains.filter((choice) => choice.archetypeId === 'endurance')).toHaveLength(1);
+  });
+
+  it('choosing nothing is not an answer; a skippable card is skipped instead', () => {
+    const body = plan.find((instance) => instance.key === 'also@body')!;
+    expect(validateAnswer(body, interview.answers, []).ok).toBe(false);
+    expect(validateAnswer(body, interview.answers, '__skipped__')).toEqual({ ok: true, value: '__skipped__' });
+    const skipped = run('guided', { ...answers, 'area.body.also': '__skipped__' });
+    expect(chosenAreasOf(skipped)).not.toContain('body~endurance');
+  });
+});
+
+function chosenAreasOf(draft: ReturnType<typeof run>): string[] {
+  return livePlan(draft, QUESTIONS).filter((instance) => instance.area).map((instance) => instance.area!);
+}
+
+describe('the System is never given more domains than it can price', () => {
+  it('six in all across areas, what is added to them and their own things; eight with the guardrails', () => {
+    const base = { 'identity.displayName': 'Ada', areas: ['career', 'body', 'knowledge', 'creativity'], 'area.body.resolution': 'strength-movement', 'area.creativity.resolution': 'creative-practice' };
+    const draft = run('guided', base);
+    const plan = livePlan(draft, QUESTIONS);
+    const also = plan.find((instance) => instance.key === 'also@body')!;
+    expect(validateAnswer(also, draft.answers, ['endurance']).ok).toBe(true);
+    // 4 areas + 2 customs would be 6; a third cannot be added
+    const customs = plan.find((instance) => instance.key === 'customs')!;
+    expect(validateAnswer(customs, draft.answers, 'a, b').ok).toBe(true);
+    expect(validateAnswer(customs, draft.answers, 'a, b, c').ok).toBe(false);
+    // 4 areas, and two more taken by "anything else": no room for a fifth or sixth area
+    const crowded = run('guided', { ...base, 'area.body.also': ['endurance'], 'area.creativity.also': ['writing'] });
+    const areasQuestion = livePlan(crowded, QUESTIONS).find((instance) => instance.key === 'areas')!;
+    expect(validateAnswer(areasQuestion, crowded.answers, ['career', 'body', 'knowledge', 'creativity']).ok).toBe(true);
+    expect(validateAnswer(areasQuestion, crowded.answers, ['career', 'body', 'knowledge', 'creativity', 'health']).ok).toBe(false);
+    const guardrails = livePlan(crowded, QUESTIONS).find((instance) => instance.key === 'guardrails')!;
+    expect(validateAnswer(guardrails, crowded.answers, ['sleep-regularity', 'attention-control']).ok).toBe(true);
+    expect(validateAnswer(guardrails, crowded.answers, ['sleep-regularity', 'attention-control', 'health-routine']).ok).toBe(false); // 6 + 3 > 8
+    const { draft: input } = interviewToDraft(crowded, QUESTIONS, mapping);
+    expect(generateBlueprint(input).blueprint.domains.length).toBeLessThanOrEqual(8);
   });
 });

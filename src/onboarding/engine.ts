@@ -78,10 +78,35 @@ export function splitList(text: string): string[] {
 export const customAreaId = (index: number): string => `custom${index + 1}`;
 export const isCustomArea = (area: string): boolean => /^custom\d+$/.test(area);
 
-/** Every area in play, in the order chosen: the standard ones, then the person's own things. */
+/**
+ * An area can resolve to more than one thing (Body: strength and endurance). The first is the area's own resolution; each one added after
+ * it is a domain of its own, in a virtual area `body~endurance` that sits beside the area and has its own measure questions.
+ */
+export const virtualAreaId = (area: string, archetypeId: string): string => `${area}~${archetypeId}`;
+export const isVirtualArea = (area: string): boolean => area.includes('~');
+export const baseAreaOf = (area: string): string => area.split('~')[0]!;
+
+const alsoOf = (answers: Answers, area: string): string[] => {
+  const value = answers[`area.${area}.also`];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+};
+
+const standardAreas = (answers: Answers): string[] =>
+  Array.isArray(answers.areas) ? (answers.areas as unknown[]).filter((area): area is string => typeof area === 'string') : [];
+
+/** Every area in play, in the order chosen: each standard area with the things added to it, then the person's own things. */
 export function chosenAreas(answers: Answers): string[] {
-  const standard = Array.isArray(answers.areas) ? (answers.areas as unknown[]).filter((area): area is string => typeof area === 'string') : [];
+  const standard = standardAreas(answers).flatMap((area) => [area, ...alsoOf(answers, area).map((id) => virtualAreaId(area, id))]);
   return [...new Set([...standard, ...customNames(answers).map((_, index) => customAreaId(index))])];
+}
+
+/** The answers with those the interview implies filled in: a virtual area's resolution is the thing it was added as. Idempotent and cheap. */
+export function materialize(answers: Answers): Answers {
+  let extra: Record<string, unknown> | undefined;
+  for (const area of standardAreas(answers)) {
+    for (const id of alsoOf(answers, area)) (extra ??= {})[`area.${virtualAreaId(area, id)}.resolution`] = id;
+  }
+  return extra ? { ...answers, ...extra } : answers;
 }
 
 /** The chosen areas in the order the person ranked them; areas they have not ranked follow in the order they were chosen. */
@@ -96,6 +121,7 @@ export function rankedAreas(answers: Answers): string[] {
 const stageIndex = (stage: StageId): number => STAGES.indexOf(stage);
 
 function areaLabel(area: string, questions: readonly QuestionDef[], answers: Answers): string {
+  if (isVirtualArea(area)) return `${areaLabel(baseAreaOf(area), questions, answers)} — ${area.slice(area.indexOf('~') + 1).replace(/-/g, ' ').toUpperCase()}`;
   if (isCustomArea(area)) return (customNames(answers)[Number(area.slice('custom'.length)) - 1] ?? area).toUpperCase();
   const intent = questions.find((question) => question.writes === 'areas');
   const option = Array.isArray(intent?.options) ? intent!.options.find((candidate) => candidate.value === area) : undefined;
@@ -124,12 +150,17 @@ export function expand(questions: readonly QuestionDef[], answers: Answers): Que
 const tierAllows = (questionTier: Tier, draftTier: Tier): boolean => draftTier === 'guided' || questionTier === 'quick';
 
 /** The questions that are in play for this draft: right tier, eligible, and within each area's budget. */
+const CARD_KINDS: readonly string[] = ['single_card', 'multi_card', 'action_card'];
+
 export function livePlan(draft: InterviewDraft, questions: readonly QuestionDef[]): QuestionInstance[] {
   const used = new Map<string, number>();
   const plan: QuestionInstance[] = [];
-  for (const instance of expand(questions, draft.answers)) {
+  const answers = materialize(draft.answers);
+  for (const instance of expand(questions, answers)) {
     if (!tierAllows(instance.def.tier, draft.tier)) continue;
-    if (!evaluate(bindPredicate(instance.def.eligibility, instance.area), draft.answers)) continue;
+    if (!evaluate(bindPredicate(instance.def.eligibility, instance.area), answers)) continue;
+    // A choice with nothing to choose from is not asked (an area with only one thing it can be has no "anything else?").
+    if (CARD_KINDS.includes(instance.def.kind) && optionsFor(instance, answers).length === 0) continue;
     if (instance.area !== undefined && instance.def.budgeted !== false) {
       const count = used.get(instance.area) ?? 0;
       if (count >= AREA_BUDGET[draft.tier]) continue;
@@ -152,24 +183,42 @@ export const isComplete = (draft: InterviewDraft, questions: readonly QuestionDe
 /** The answers that count now. An answer to a question that has become ineligible (or out of budget) is kept in the draft but not returned. */
 export function activeAnswers(draft: InterviewDraft, questions: readonly QuestionDef[]): Answers {
   const live = new Set(livePlan(draft, questions).map((instance) => instance.writes));
-  return Object.fromEntries(Object.entries(draft.answers).filter(([path]) => live.has(path)));
+  return materialize(Object.fromEntries(Object.entries(draft.answers).filter(([path]) => live.has(path))));
 }
 
 // ── Options, defaults, validation ───────────────────────────────────────────
 
-export function optionsFor(instance: QuestionInstance, answers: Answers): OptionDef[] {
+/**
+ * How many more values this answer may hold before the System has more domains than it can price (`limitBy.total`): the total, less every
+ * domain already in play from other answers. What the question itself currently holds is not counted against it.
+ */
+function roomFor(instance: QuestionInstance, rawAnswers: Answers): number {
+  const limit = instance.def.limitBy;
+  if (!limit) return Infinity;
+  const answers = materialize(rawAnswers);
+  const own = instance.def.writes === 'customs' ? customNames(answers).length
+    : instance.def.writes === 'areas' ? standardAreas(answers).length
+      : instance.area ? alsoOf(answers, instance.area).length : 0;
+  return limit.total - (chosenAreas(answers).length - own);
+}
+
+export function optionsFor(instance: QuestionInstance, rawAnswers: Answers): OptionDef[] {
   const { options } = instance.def;
   if (!options) return [];
+  const answers = materialize(rawAnswers);
   if (Array.isArray(options)) {
-    // The ranking lists the person's own things beside the areas they ticked, under the names they gave them.
+    // The ranking lists what was added to an area and the person's own things beside the areas they ticked, under the names they gave them.
     if (instance.def.kind === 'rank' && instance.def.rankFrom === 'areas') {
-      return [...options, ...customNames(answers).map((name, index): OptionDef => ({ value: customAreaId(index), label: name }))];
+      const added = chosenAreas(answers).filter(isVirtualArea).map((area): OptionDef => ({ value: area, label: `${baseAreaOf(area)} — ${area.slice(area.indexOf('~') + 1).replace(/-/g, ' ')}`.replace(/^./, (c) => c.toUpperCase()) }));
+      return [...options, ...added, ...customNames(answers).map((name, index): OptionDef => ({ value: customAreaId(index), label: name }))];
     }
     return options;
   }
   // `from: '{area}'` keys the options by the area itself (each area offers its own resolutions).
   const key = options.from === '{area}' ? instance.area : answers[bindPath(options.from, instance.area)];
-  return typeof key === 'string' ? (options.map[key] ?? []) : [];
+  const offered = typeof key === 'string' ? (options.map[key] ?? []) : [];
+  const taken = instance.def.excludeValueOf ? answers[bindPath(instance.def.excludeValueOf, instance.area)] : undefined;
+  return taken === undefined ? offered : offered.filter((option) => option.value !== taken);
 }
 
 export function defaultFor(instance: QuestionInstance, answers: Answers, context: EngineContext): unknown {
@@ -216,8 +265,10 @@ export function validateAnswer(instance: QuestionInstance, answers: Answers, raw
     case 'multi_card': {
       if (!Array.isArray(raw) || raw.some((item) => typeof item !== 'string' || !values.has(item))) return fail('Choose from the cards.');
       const unique = [...new Set(raw as string[])];
-      if (def.count?.min !== undefined && unique.length < def.count.min) return fail(`Choose at least ${def.count.min}.`);
+      const least = def.count?.min ?? 1; // choosing nothing is not an answer (a skippable card is skipped instead)
+      if (unique.length < least) return fail(`Choose at least ${least}.`);
       if (def.count?.max !== undefined && unique.length > def.count.max) return fail(`Choose at most ${def.count.max}.`);
+      if (unique.length > roomFor(instance, answers)) return fail(`That would be more than ${def.limitBy?.total ?? 0} domains in all.`);
       return { ok: true, value: unique };
     }
     case 'rank': {
@@ -244,10 +295,9 @@ export function validateAnswer(instance: QuestionInstance, answers: Answers, raw
       if (typeof raw !== 'string') return fail('Enter some text.');
       // eslint-disable-next-line no-control-regex
       const names = splitList(raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/ +/g, ' ')).map((name) => name.slice(0, def.bounds?.maxLength ?? 24));
-      const taken = def.limitBy ? (Array.isArray(answers[def.limitBy.minus]) ? (answers[def.limitBy.minus] as unknown[]).length : 0) : 0;
-      const max = Math.min(def.count?.max ?? Infinity, def.limitBy ? def.limitBy.total - taken : Infinity);
+      const max = Math.min(def.count?.max ?? Infinity, roomFor(instance, answers));
       if (names.length < (def.count?.min ?? 1)) return fail('Name at least one.');
-      if (names.length > max) return fail(max > 0 ? `At most ${max}: ${def.limitBy ? `${def.limitBy.total} in all.` : ''}`.trim() : `That is ${def.limitBy?.total ?? 0} already; none more.`);
+      if (names.length > max) return fail(max > 0 ? `At most ${max}: ${def.limitBy?.total ?? 0} domains in all.` : `That is ${def.limitBy?.total ?? 0} domains already; none more.`);
       return { ok: true, value: names.join(', ') };
     }
     case 'text_short': {
