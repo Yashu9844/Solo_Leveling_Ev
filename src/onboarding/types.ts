@@ -69,7 +69,14 @@ export interface QuestionDef {
   count?: { min?: number; max?: number };
   /** A rank question orders the values of this answer (the chosen areas). */
   rankFrom?: DraftPath;
+  /** For a per-area question: asked only for the person's top N areas (the if-then triggers are for the top three). */
+  topN?: number;
+  /** The person may decline to answer (a body measurement): the answer is then SKIP, which counts as answered and as nothing. */
+  skippable?: boolean;
 }
+
+/** The answer recorded when a skippable question is declined. */
+export const SKIP = '__skipped__';
 
 /** The persisted draft: nothing but answers and the tier. Raw answers never enter the event log (03 §23.2). */
 export interface InterviewDraft {

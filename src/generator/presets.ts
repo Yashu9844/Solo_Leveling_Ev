@@ -28,7 +28,7 @@ function baseDraft(context: DraftContext, domains: DomainChoice[], lengthDays: n
 }
 
 /** Engines and guardrails beside them, never fewer than two engines or more than eight core domains. */
-function withGuardrails(domains: DomainChoice[], guardrails: readonly string[]): DomainChoice[] {
+export function withGuardrails(domains: DomainChoice[], guardrails: readonly string[]): DomainChoice[] {
   const present = new Set(domains.map((choice) => choice.archetypeId));
   const isGuardrail = (id: string) => ARCHETYPES[id]?.role === 'guardrail';
   const chosen = [...domains];

@@ -8,7 +8,7 @@
 // asked per area, one area at a time in the order the person ranked them. A person's answers are never discarded: switching an
 // area off makes its answers inert, switching it back on makes them count again.
 import {
-  AREA_BUDGET, AREA_COUNT, STAGES,
+  AREA_BUDGET, AREA_COUNT, SKIP, STAGES,
   type DefaultRule, type DraftPath, type InterviewDraft, type OptionDef, type Predicate, type QuestionDef, type QuestionInstance, type StageId, type Tier,
 } from './types';
 
@@ -83,8 +83,8 @@ export function expand(questions: readonly QuestionDef[], answers: Answers): Que
     for (const question of inStage.filter((candidate) => candidate.each === undefined)) {
       out.push({ key: question.id, def: question, writes: question.writes, heading: question.heading });
     }
-    for (const area of areas) {
-      for (const question of inStage.filter((candidate) => candidate.each === 'area')) {
+    for (const [rank, area] of areas.entries()) {
+      for (const question of inStage.filter((candidate) => candidate.each === 'area' && (candidate.topN === undefined || rank < candidate.topN))) {
         out.push({ key: `${question.id}@${area}`, def: question, area, writes: bindPath(question.writes, area), heading: question.heading.replace(/\{area\}/g, areaLabel(area, questions)) });
       }
     }
@@ -170,6 +170,7 @@ function isIsoDate(value: string): boolean {
 /** Checks an answer against its question and returns the value to store (numbers clamped and snapped, text trimmed). */
 export function validateAnswer(instance: QuestionInstance, answers: Answers, raw: unknown): Validation {
   const { def } = instance;
+  if (raw === SKIP) return def.skippable ? { ok: true, value: SKIP } : fail('This one cannot be skipped.');
   const options = optionsFor(instance, answers);
   const values = new Set(options.map((option) => option.value));
   switch (def.kind) {
