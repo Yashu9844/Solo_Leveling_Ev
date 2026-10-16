@@ -12,7 +12,7 @@ import { applyEvents } from '../../engine/reduce';
 import { streakFrom } from '../../engine/streak';
 import { levelFor } from '../../engine/level';
 import { isDayClosed } from '../../engine/time';
-import { bandFor, phaseFor, type SystemMessageContext } from '../../engine/systemVoice';
+import { bandFor, phaseFor, phaseMarksFor, LEGACY_PHASE_MARKS, type SystemMessageContext } from '../../engine/systemVoice';
 import type { Rank, SystemEvent } from '../../engine/types';
 import { engineConfigFromBlueprint } from '../engineConfig';
 import { buildProjectionsV2 } from '../engine/projections';
@@ -183,7 +183,7 @@ export function systemMessageContextFor(input: SystemContextInputs): SystemMessa
     localDate: today,
     arcDay,
     minutesOfDay,
-    phase: phaseFor(minutesOfDay, dayClosed),
+    phase: phaseFor(minutesOfDay, dayClosed, blueprint.origin === 'legacy' ? LEGACY_PHASE_MARKS : phaseMarksFor(blueprint.arc)),
     dayClosed,
     arcState: today < arc.start_date ? 'before' : today > arc.end_date ? 'after' : 'active',
     xpEarned, xpTarget, progressPct,
@@ -203,6 +203,6 @@ export function systemMessageContextFor(input: SystemContextInputs): SystemMessa
     yesterdayCleared: yesterdayRollup ? yesterdayRollup.core_total > 0 && yesterdayRollup.core_completed >= yesterdayRollup.core_total : null,
     daysSinceLastOpen: lastOpen ? differenceInCalendarDays(parseISO(today), parseISO(lastOpen)) : null,
     // A generated System tells the static voice pack what it is; the owner's does not, and so hears the pack as written (platform/02 §18.3).
-    ...(blueprint.origin === 'legacy' ? {} : { designations: blueprint.domains.map((domain) => domain.designation), boundaryHour: config.arc.dayBoundaryHour }),
+    ...(blueprint.origin === 'legacy' ? {} : { designations: blueprint.domains.map((domain) => domain.designation), boundaryHour: config.arc.dayBoundaryHour, arcLength: blueprint.arc.lengthDays }),
   };
 }

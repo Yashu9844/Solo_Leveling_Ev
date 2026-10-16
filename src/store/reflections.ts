@@ -13,10 +13,11 @@ export async function pickReflection(
   context: ReflectionContext,
   arcDay: number,
   isPostLapse: boolean,
-  today: string
+  today: string,
+  system?: { themes: readonly string[]; arcLength: number; coreTotal: number }
 ): Promise<Reflection | null> {
   const states = await loadShowStates();
-  return selectReflection(REFLECTIONS, states, { context, arcDay, isPostLapse, today });
+  return selectReflection(REFLECTIONS, states, { context, arcDay, isPostLapse, today, ...system });
 }
 
 /**

@@ -103,6 +103,8 @@ export interface SystemMessage {
   when?: (ctx: SystemMessageContext) => boolean;
   minStreak?: number;
   minArcDay?: number;
+  /** Eligible from this fraction of the arc on (113/120 = the final segment of the owner's 120 days), whatever the arc's length. */
+  minArcFraction?: number;
   /** Days before this line may be shown again. Default DEFAULT_COOLDOWN. */
   cooldownDays?: number;
   /** Authoring preference only — never a measured score. Default 1. */
@@ -168,6 +170,8 @@ export interface SystemMessageContext {
   designations?: readonly string[];
   /** The hour the System's day rolls over; a line that names a clock time is eligible only when it matches. */
   boundaryHour?: number;
+  /** The arc's length in days; absent means the owner's 120. Arc-position lines scale by it. */
+  arcLength?: number;
 }
 
 export interface ShowState {
@@ -185,27 +189,54 @@ export interface Selection {
  * Derivations
  * ════════════════════════════════════════════════════════════════════ */
 
-/** Minute-of-day boundaries. CLOSED is decided by the caller, not here. */
-const PHASE_BOUNDS: { phase: DayPhase; from: number; to: number }[] = [
-  { phase: 'MORNING', from: 4 * 60, to: 11 * 60 },
-  { phase: 'MIDDAY', from: 11 * 60, to: 14 * 60 },
-  { phase: 'AFTERNOON', from: 14 * 60, to: 18 * 60 },
-  { phase: 'EVENING', from: 18 * 60, to: 22 * 60 },
-];
+/**
+ * Where the four live windows of a day sit: `origin` is the minute of day the day starts (MORNING begins there) and `ends` are the minutes
+ * since `origin` at which MORNING, MIDDAY, AFTERNOON and EVENING end. Everything after the last mark is NIGHT.
+ */
+export interface PhaseMarks {
+  origin: number;
+  ends: readonly [number, number, number, number];
+}
+
+/** The owner's day: it starts at the 04:00 boundary and its windows are fixed clock hours (11:00, 14:00, 18:00, 22:00). */
+export const LEGACY_PHASE_MARKS: PhaseMarks = { origin: 4 * 60, ends: [7 * 60, 10 * 60, 14 * 60, 18 * 60] };
+
+const DAY_MINUTES = 24 * 60;
+const clock = (time: string): number => {
+  const [hh, mm] = time.split(':');
+  return (Number(hh ?? 0) * 60 + Number(mm ?? 0)) % DAY_MINUTES;
+};
 
 /**
- * The phase for an IST minute-of-day.
+ * The windows of a generated System's day (platform/02 §18.1, 12.3): the day starts at its boundary, as it always does, but the windows are
+ * laid over the waking hours - MORNING runs to 40% of the way from waking to sleeping, MIDDAY to 55%, AFTERNOON to 75%, EVENING until the
+ * sleep time; the rest (sleep, up to the boundary) is NIGHT. A night-shift worker who wakes at 16:00 therefore has the MORNING lines after waking.
+ */
+export function phaseMarksFor(arc: { dayBoundaryHour: number; wakeTime: string; sleepTime: string }): PhaseMarks {
+  const origin = arc.dayBoundaryHour * 60;
+  const since = (minute: number): number => (minute - origin + DAY_MINUTES) % DAY_MINUTES;
+  const wake = since(clock(arc.wakeTime));
+  let sleep = since(clock(arc.sleepTime));
+  if (sleep <= wake) sleep += DAY_MINUTES;
+  const waking = sleep - wake;
+  const at = (fraction: number): number => Math.min(DAY_MINUTES, Math.round(wake + waking * fraction));
+  return { origin, ends: [at(0.4), at(0.55), at(0.75), Math.min(DAY_MINUTES, sleep)] };
+}
+
+/**
+ * The phase for a wall-clock minute-of-day.
  *
  * `dayClosed` wins outright: between dayCloseHour and the next boundary
  * nothing can be logged, so no amount of clock-reading should produce an
- * urgency message. Everything outside the four windows above is NIGHT —
- * which is 22:00 through the close hour, and (on a config whose close
+ * urgency message. Everything outside the four windows is NIGHT - for the
+ * owner that is 22:00 through the close hour, and (on a config whose close
  * hour is earlier than 04:00) the small hours before the boundary too.
  */
-export function phaseFor(minutesOfDay: number, dayClosed: boolean): DayPhase {
+export function phaseFor(minutesOfDay: number, dayClosed: boolean, marks: PhaseMarks = LEGACY_PHASE_MARKS): DayPhase {
   if (dayClosed) return 'CLOSED';
-  const hit = PHASE_BOUNDS.find((b) => minutesOfDay >= b.from && minutesOfDay < b.to);
-  return hit ? hit.phase : 'NIGHT';
+  const since = (minutesOfDay - marks.origin + DAY_MINUTES) % DAY_MINUTES;
+  const index = marks.ends.findIndex((end) => since < end);
+  return (['MORNING', 'MIDDAY', 'AFTERNOON', 'EVENING'] as const)[index] ?? 'NIGHT';
 }
 
 /**
@@ -315,6 +346,11 @@ function daysBetween(fromDate: string | undefined, toDate: string): number {
   return Math.round((to - from) / 86_400_000);
 }
 
+/** The first day of the arc at or after a fraction of its length (the rounding absorbs 113/120 * 120 = 113.00000000000001). */
+export function arcDayAt(fraction: number, ctx: Pick<SystemMessageContext, 'arcLength'>): number {
+  return Math.ceil(Math.round(fraction * (ctx.arcLength ?? 120) * 1e6) / 1e6);
+}
+
 export function eligible(message: SystemMessage, ctx: SystemMessageContext, tier: MessageTier): boolean {
   if (message.tier !== tier) return false;
   if (message.requiresDesignation && ctx.designations && !ctx.designations.includes(message.requiresDesignation)) return false;
@@ -322,6 +358,7 @@ export function eligible(message: SystemMessage, ctx: SystemMessageContext, tier
   if (message.bands && !message.bands.includes(ctx.band)) return false;
   if (message.minStreak !== undefined && ctx.streak < message.minStreak) return false;
   if (message.minArcDay !== undefined && ctx.arcDay < message.minArcDay) return false;
+  if (message.minArcFraction !== undefined && ctx.arcDay < arcDayAt(message.minArcFraction, ctx)) return false;
   if (message.when && !message.when(ctx)) return false;
   return true;
 }

@@ -53,6 +53,13 @@ export interface Reflection {
    * line in this first pass — there is no basis yet to weight one
    * original line over another. */
   weight: number;
+  /**
+   * What kind of life the line is about (an archetype's reflection themes). Untagged lines suit every System; a tagged line is eligible only
+   * for a System that has one of its themes. The owner's System (no themes in the context) hears the whole library, as it always has.
+   */
+  themes?: readonly string[];
+  /** Extra guard for a line that states a number: it is eligible only where the number is true. */
+  when?: (ctx: ReflectionSelectionContext) => boolean;
 }
 
 const DEFAULT_COOLDOWN = 21;
@@ -77,7 +84,7 @@ function r(
  * is worse than none"). `times_shown`/`last_shown_at` live in
  * db.reflection_state, not here — this array is static content.
  */
-export const REFLECTIONS: Reflection[] = [
+const LIBRARY: Reflection[] = [
   // discipline
   r('discipline-1', 'The decision was made last night. This morning is execution.', 'discipline', 'calm', ['MORNING']),
   r('discipline-2', "Motivation is unreliable by design. The plan doesn't need it to work.", 'discipline', 'direct', ['MORNING']),
@@ -167,7 +174,42 @@ export const REFLECTIONS: Reflection[] = [
   r('level-up-2', 'Levels are a record of hours, not a judgment of talent.', 'self_efficacy', 'calm', ['LEVEL_UP']),
   r('boss-1', 'This one took weeks, not minutes. That is what real evidence costs.', 'courage', 'celebratory', ['BOSS']),
   r('boss-2', 'Four milestones like this are the actual shape of the arc, more than any single day was.', 'long_horizon', 'reflective', ['BOSS'], { min_day: 14 }),
+  // Generic counterparts for a System whose arc, day or milestones are not the owner's (they say what the lines above say without the number).
+  r('long-horizon-6', "The last day of the arc doesn't need today to be dramatic. It needs today to be ordinary and done.", 'long_horizon', 'calm', ['MORNING'], { min_day: 14 }),
+  r('long-horizon-7', 'The weeks ahead run through this exact afternoon.', 'long_horizon', 'reflective', ['PRE_DEEP'], { min_day: 7 }),
+  r('consistency-6', 'A partial day is a day that happened, and it counts.', 'consistency', 'calm', ['EVENING']),
+  r('boss-3', 'The milestones along the way are the actual shape of the arc, more than any single day was.', 'long_horizon', 'reflective', ['BOSS'], { min_day: 14 }),
 ];
+
+/** Lines whose subject belongs to one kind of life (archetype reflection themes, see library/archetypes). */
+const THEMED: Record<string, readonly string[]> = {
+  ...Object.fromEntries(['career-1', 'career-2', 'career-3', 'career-4', 'career-5', 'courage-4'].map((id) => [id, ['rejection']])),
+  ...Object.fromEntries(['training-1', 'training-2', 'training-3', 'training-4', 'training-5'].map((id) => [id, ['strength', 'body', 'endurance', 'pace', 'health']])),
+  ...Object.fromEntries(['study-1', 'study-2', 'study-3', 'study-4', 'study-5'].map((id) => [id, ['study', 'recall', 'language', 'reading', 'practice']])),
+  ...Object.fromEntries(['focus-1', 'focus-2', 'focus-3', 'focus-4', 'focus-5'].map((id) => [id, ['attention', 'craft', 'finishing', 'shipping', 'writing', 'study', 'reading', 'venture', 'practice', 'recall']])),
+  'self-efficacy-3': ['study', 'craft', 'shipping', 'practice', 'recall'],
+};
+
+/** The owner's numbers, in lines written for them: a line that says 120 days, twelve weeks, "four of six" or four milestones is true of one System only. */
+const OWN_ARC = (ctx: ReflectionSelectionContext): boolean => (ctx.arcLength ?? 120) === 120;
+const GUARDS: Record<string, (ctx: ReflectionSelectionContext) => boolean> = {
+  'long-horizon-1': OWN_ARC,
+  'long-horizon-5': OWN_ARC,
+  'training-4': (ctx) => (ctx.arcLength ?? 120) >= 90,
+  'consistency-1': (ctx) => (ctx.coreTotal ?? 6) === 6,
+  'boss-2': (ctx) => ctx.themes === undefined,
+  // the generic counterparts are for generated Systems; the owner's rotation is the library it had
+  'long-horizon-6': (ctx) => ctx.themes !== undefined,
+  'long-horizon-7': (ctx) => ctx.themes !== undefined,
+  'consistency-6': (ctx) => ctx.themes !== undefined,
+  'boss-3': (ctx) => ctx.themes !== undefined,
+};
+
+export const REFLECTIONS: Reflection[] = LIBRARY.map((reflection) => ({
+  ...reflection,
+  ...(THEMED[reflection.id] ? { themes: THEMED[reflection.id] } : {}),
+  ...(GUARDS[reflection.id] ? { when: GUARDS[reflection.id] } : {}),
+}));
 
 /** Per-reflection mutable show-state (db.reflection_state's live shape),
  * keyed by reflection id. */
@@ -183,6 +225,21 @@ export interface ReflectionSelectionContext {
    * calm/reflective tone." */
   isPostLapse: boolean;
   today: string; // local_date
+  /** A generated System's own facts. All absent for the owner's System, which keeps the library and its 120-day ranges as written. */
+  themes?: readonly string[];
+  arcLength?: number;
+  coreTotal?: number;
+}
+
+/**
+ * A line's day range is written for a 120-day arc and read as a fraction of the arc, so a 90-day System meets the same stages at the same
+ * points. The start scales down for a shorter arc but not up for a longer one (a line that needs three weeks of evidence needs them in a
+ * 365-day arc too); the end scales both ways, so a line does not expire on day 120 of 365.
+ */
+export function dayRangeFor(reflection: Pick<Reflection, 'min_day' | 'max_day'>, arcLength = 120): { from: number; to: number } {
+  const from = reflection.min_day <= 1 ? 1 : Math.max(1, Math.ceil((reflection.min_day * Math.min(arcLength, 120)) / 120));
+  const to = Math.max(from, Math.floor((reflection.max_day * arcLength) / 120));
+  return { from, to };
 }
 
 function daysSinceShown(lastShownAt: string | undefined, today: string): number {
@@ -210,7 +267,10 @@ export function selectReflection(
 ): Reflection | null {
   const eligible = reflections.filter((refl) => {
     if (!refl.context.includes(ctx.context)) return false;
-    if (ctx.arcDay < refl.min_day || ctx.arcDay > refl.max_day) return false;
+    const range = dayRangeFor(refl, ctx.arcLength);
+    if (ctx.arcDay < range.from || ctx.arcDay > range.to) return false;
+    if (refl.themes && ctx.themes && !refl.themes.some((theme) => ctx.themes!.includes(theme))) return false;
+    if (refl.when && !refl.when(ctx)) return false;
     if (ctx.isPostLapse && (refl.category !== 'setbacks' || (refl.tone !== 'calm' && refl.tone !== 'reflective'))) return false;
     const state = states.get(refl.id);
     if (daysSinceShown(state?.last_shown_at, ctx.today) < refl.cooldown_days) return false;

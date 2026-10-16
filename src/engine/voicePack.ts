@@ -18,7 +18,7 @@
  * this array is immutable content, the same arrangement
  * engine/reflections.ts uses for its own library.
  */
-import type { SystemMessage, SystemMessageContext } from './systemVoice';
+import { arcDayAt, type SystemMessage, type SystemMessageContext } from './systemVoice';
 
 const m = (
   id: string,
@@ -39,6 +39,11 @@ const P = 'PROGRESS' as const;
  */
 const ofTotal = (count: number) => (c: SystemMessageContext) => c.coreTotal === count;
 const rolloverAt04 = (c: SystemMessageContext) => (c.boundaryHour ?? 4) === 4;
+/** The day after half of the arc, whatever its length (60 and 61 of the owner's 120). */
+const atMidpoint = (c: SystemMessageContext) => {
+  const half = arcDayAt(0.5, c);
+  return c.arcDay === half || c.arcDay === half + 1;
+};
 /** A generated System's context carries its own boundary hour; the owner's does not. */
 const generated = (c: SystemMessageContext) => c.boundaryHour !== undefined;
 
@@ -148,9 +153,9 @@ export const VOICE_PACK: SystemMessage[] = [
   m('milestone-streak-30-001', 'THIRTY CONSECUTIVE CLEARS. THIS IS BECOMING WHO YOU ARE.', 'MILESTONE', 'STREAK 30', 'verdict', { when: (c) => c.streak === 30, cooldownDays: 5 }),
   m('milestone-streak-30-002', 'A MONTH WITHOUT A BREAK. THE SYSTEM HAS NOTHING TO ADD.', 'MILESTONE', 'STREAK 30', 'verdict', { when: (c) => c.streak === 30, cooldownDays: 5 }),
 
-  m('milestone-midarc-001', 'THE ARC IS PAST ITS MIDPOINT. THE SECOND HALF IS SHORTER THAN IT LOOKS.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcDay: 60, when: (c) => c.arcDay === 60 || c.arcDay === 61, cooldownDays: 6 }),
-  m('milestone-final-001', 'THE FINAL SEGMENT HAS BEGUN. EVERY DAY NOW CARRIES MORE WEIGHT.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcDay: 113, cooldownDays: 3 }),
-  m('milestone-final-002', 'THE ARC ENDS SOON. WHAT IS UNLOGGED WILL STAY UNLOGGED.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcDay: 113, cooldownDays: 3 }),
+  m('milestone-midarc-001', 'THE ARC IS PAST ITS MIDPOINT. THE SECOND HALF IS SHORTER THAN IT LOOKS.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcFraction: 0.5, when: atMidpoint, cooldownDays: 6 }),
+  m('milestone-final-001', 'THE FINAL SEGMENT HAS BEGUN. EVERY DAY NOW CARRIES MORE WEIGHT.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcFraction: 113 / 120, cooldownDays: 3 }),
+  m('milestone-final-002', 'THE ARC ENDS SOON. WHAT IS UNLOGGED WILL STAY UNLOGGED.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcFraction: 113 / 120, cooldownDays: 3 }),
 
   /* ══════════════════════════════════════════════════════════════════
    * PROGRESS — the everyday matrix. Phase decides the pressure, band
@@ -386,11 +391,11 @@ export const VOICE_PACK: SystemMessage[] = [
   m('milestone-streak-30-003', 'THIRTY DAYS HELD WITHOUT A GAP.', 'MILESTONE', 'STREAK 30', 'verdict', { when: (c) => c.streak === 30, cooldownDays: 5 }),
   m('milestone-streak-30-004', 'A MONTH OF EVIDENCE. THE SYSTEM HAS NOTHING TO ADD.', 'MILESTONE', 'STREAK 30', 'verdict', { when: (c) => c.streak === 30, cooldownDays: 5 }),
 
-  m('milestone-midarc-002', 'THE MIDPOINT IS BEHIND YOU. THE REMAINDER IS SHORTER.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcDay: 60, when: (c) => c.arcDay === 60 || c.arcDay === 61, cooldownDays: 6 }),
-  m('milestone-midarc-003', 'HALF THE ARC IS SPENT. HALF IS STILL WRITABLE.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcDay: 60, when: (c) => c.arcDay === 60 || c.arcDay === 61, cooldownDays: 6 }),
-  m('milestone-final-003', 'THE LAST SEGMENT IS RUNNING. DAYS COST MORE NOW.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcDay: 113, cooldownDays: 3 }),
-  m('milestone-final-004', 'THE ARC IS CLOSING. THE LEDGER CLOSES WITH IT.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcDay: 113, cooldownDays: 3 }),
-  m('milestone-final-005', 'FEW DAYS REMAIN. EACH ONE IS A LARGER FRACTION.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcDay: 113, cooldownDays: 3 }),
+  m('milestone-midarc-002', 'THE MIDPOINT IS BEHIND YOU. THE REMAINDER IS SHORTER.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcFraction: 0.5, when: atMidpoint, cooldownDays: 6 }),
+  m('milestone-midarc-003', 'HALF THE ARC IS SPENT. HALF IS STILL WRITABLE.', 'MILESTONE', 'MIDPOINT', 'neutral', { minArcFraction: 0.5, when: atMidpoint, cooldownDays: 6 }),
+  m('milestone-final-003', 'THE LAST SEGMENT IS RUNNING. DAYS COST MORE NOW.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcFraction: 113 / 120, cooldownDays: 3 }),
+  m('milestone-final-004', 'THE ARC IS CLOSING. THE LEDGER CLOSES WITH IT.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcFraction: 113 / 120, cooldownDays: 3 }),
+  m('milestone-final-005', 'FEW DAYS REMAIN. EACH ONE IS A LARGER FRACTION.', 'MILESTONE', 'FINAL SEGMENT', 'pressure', { minArcFraction: 113 / 120, cooldownDays: 3 }),
 
   /* ── PROGRESS · MORNING ──────────────────────────────────────────── */
   m('morning-zero-008', 'THE DAY IS OPEN AND UNMARKED.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),

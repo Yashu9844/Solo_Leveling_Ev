@@ -142,3 +142,11 @@ export async function blueprintVersionStampV2(today: string): Promise<number | u
   const { versions } = resolveBlueprints(await getAllEvents());
   return stampsVersions(versions) ? (versionFor(versions, today) ?? versions[0])?.version : undefined;
 }
+
+/** What the reflection library needs to know about a generated System; undefined for the owner's (it hears the whole library). */
+export async function reflectionFactsV2(today: string): Promise<{ themes: readonly string[]; arcLength: number; coreTotal: number } | undefined> {
+  const { versions } = resolveBlueprints(await getAllEvents());
+  const blueprint = versionFor(versions, today) ?? versions[0];
+  if (!blueprint || blueprint.origin === 'legacy') return undefined;
+  return { themes: blueprint.messaging.reflectionThemes ?? [], arcLength: blueprint.arc.lengthDays, coreTotal: blueprint.quests.filter((quest) => quest.type === 'core').length };
+}

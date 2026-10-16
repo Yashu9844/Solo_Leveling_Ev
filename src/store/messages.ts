@@ -13,7 +13,7 @@ import { applyEvents } from '../engine/reduce';
 import { getAllEvents } from '../db/events';
 import { db } from '../db/db';
 import { engineV2Enabled } from '../flags';
-import { messageContextV2 } from './v2Reads';
+import { messageContextV2, reflectionFactsV2 } from './v2Reads';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -186,7 +186,8 @@ export async function getTodaySystemLine(
   const specific = selectSpecificMessage(context);
   if (specific) return { text: specific, source: 'system_message' };
 
-  const reflection = await pickReflection(reflectionContext, arcDay, isPostLapse, today);
+  const system = engineV2Enabled() ? await reflectionFactsV2(today) : undefined;
+  const reflection = await pickReflection(reflectionContext, arcDay, isPostLapse, today, system);
   if (reflection) return { text: reflection.text, source: 'reflection', reflectionId: reflection.id };
 
   return { text: selectMessage(context), source: 'system_message' };
