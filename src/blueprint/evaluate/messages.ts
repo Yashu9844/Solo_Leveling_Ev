@@ -202,5 +202,7 @@ export function systemMessageContextFor(input: SystemContextInputs): SystemMessa
     leveledUpToday: level.level > levelBefore.level,
     yesterdayCleared: yesterdayRollup ? yesterdayRollup.core_total > 0 && yesterdayRollup.core_completed >= yesterdayRollup.core_total : null,
     daysSinceLastOpen: lastOpen ? differenceInCalendarDays(parseISO(today), parseISO(lastOpen)) : null,
+    // A generated System tells the static voice pack what it is; the owner's does not, and so hears the pack as written (platform/02 §18.3).
+    ...(blueprint.origin === 'legacy' ? {} : { designations: blueprint.domains.map((domain) => domain.designation), boundaryHour: config.arc.dayBoundaryHour }),
   };
 }

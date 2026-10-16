@@ -35,7 +35,7 @@ const leaves = (criterion: Criterion): Extract<Criterion, { kind: 'signal' }>[] 
 const OWNER_WORDS = ['DSA', 'ASCENSION', 'LOGIC TRIAL', 'FORGE', 'RECONSTITUTION', 'WILL TRIAL', 'VITALITY TRIAL'];
 const BODY_AND_MARKET = /\b(weight|waist|body ?fat|kilograms|interview offer|hired|customers?|revenue|forecast|you will|will reach|projected)\b/i;
 
-/** Voice-pack lines that name a designation of the owner's System. A generated System must not hear them; Phase 12 (12.2) retires them. */
+/** Voice-pack lines that name a designation of the owner's System. Each carries `requiresDesignation` (12.2), so a System without it never hears them. */
 export const KNOWN_OWNER_WORDING_IN_VOICE_PACK = ['morning-zero-004'];
 
 export function describePersona(persona: Persona): void {

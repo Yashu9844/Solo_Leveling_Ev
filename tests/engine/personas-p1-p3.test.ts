@@ -19,9 +19,10 @@ describe('persona specifics', () => {
     expect(p3.expect.domains.filter((domain) => domain.startsWith('guardrail:'))).toHaveLength(1);
   });
 
-  it('the voice pack names the owner\'s designations in exactly the known lines (Phase 12 retires them)', () => {
+  it('the voice pack names the owner\'s designations in exactly the known lines, and each requires that designation (12.2)', () => {
     const owner = ['ASCENSION', 'LOGIC TRIAL', 'FORGE', 'RECONSTITUTION', 'WILL TRIAL', 'VITALITY TRIAL'];
-    const named = VOICE_PACK.filter((message) => owner.some((word) => message.text.toUpperCase().includes(word))).map((message) => message.id);
-    expect(named).toEqual(KNOWN_OWNER_WORDING_IN_VOICE_PACK);
+    const named = VOICE_PACK.filter((message) => owner.some((word) => message.text.toUpperCase().includes(word)));
+    expect(named.map((message) => message.id)).toEqual(KNOWN_OWNER_WORDING_IN_VOICE_PACK);
+    for (const message of named) expect(message.text.toUpperCase()).toContain(message.requiresDesignation);
   });
 });

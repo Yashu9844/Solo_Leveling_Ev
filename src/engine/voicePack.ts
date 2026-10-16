@@ -18,7 +18,7 @@
  * this array is immutable content, the same arrangement
  * engine/reflections.ts uses for its own library.
  */
-import type { SystemMessage } from './systemVoice';
+import type { SystemMessage, SystemMessageContext } from './systemVoice';
 
 const m = (
   id: string,
@@ -32,12 +32,22 @@ const m = (
 /** Shorthands for the PROGRESS matrix, which is most of the library. */
 const P = 'PROGRESS' as const;
 
+/**
+ * Lines that state a number or a clock time are true of one System only, so each is guarded by the fact it states (platform/02 §18.3, F11).
+ * The line for SIX keeps its original id and clip; the others carry `@<count>`. The owner's System has six core quests and rolls over at
+ * 04:00, so it hears exactly the lines it always heard.
+ */
+const ofTotal = (count: number) => (c: SystemMessageContext) => c.coreTotal === count;
+const rolloverAt04 = (c: SystemMessageContext) => (c.boundaryHour ?? 4) === 4;
+/** A generated System's context carries its own boundary hour; the owner's does not. */
+const generated = (c: SystemMessageContext) => c.boundaryHour !== undefined;
+
 export const VOICE_PACK: SystemMessage[] = [
   /* ══════════════════════════════════════════════════════════════════
    * EXCEPTION — the day cannot be acted on, or the arc is not running.
    * Never an urgency line: there is nothing the Player could do with it.
    * ════════════════════════════════════════════════════════════════ */
-  m('exception-closed-001', 'THE DAY IS SEALED. THE NEXT BEGINS AT 04:00.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], cooldownDays: 3 }),
+  m('exception-closed-001', 'THE DAY IS SEALED. THE NEXT BEGINS AT 04:00.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], when: rolloverAt04, cooldownDays: 3 }),
   m('exception-closed-002', 'LOGGING IS CLOSED. THE RECORD FOR TODAY IS FINAL.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], cooldownDays: 3 }),
   m('exception-closed-003', 'THIS DAY HAS BEEN FILED. REST IS PART OF THE PROTOCOL.', 'EXCEPTION', 'DAY SEALED', 'restraint', { phases: ['CLOSED'], cooldownDays: 3 }),
   m('exception-closed-004', 'THE WINDOW HAS SHUT. NOTHING FURTHER IS REQUIRED TONIGHT.', 'EXCEPTION', 'DAY SEALED', 'restraint', { phases: ['CLOSED'], cooldownDays: 3 }),
@@ -99,7 +109,11 @@ export const VOICE_PACK: SystemMessage[] = [
    * ════════════════════════════════════════════════════════════════ */
   m('cleared-001', 'DAILY CONDITIONS SATISFIED.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
   m('cleared-002', 'DAY CLEARED. THE RECORD IS COMPLETE.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
-  m('cleared-003', 'ALL SIX CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
+  m('cleared-003', 'ALL SIX CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'], when: ofTotal(6) }),
+  m('cleared-003@4', 'ALL FOUR CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'], when: ofTotal(4) }),
+  m('cleared-003@5', 'ALL FIVE CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'], when: ofTotal(5) }),
+  m('cleared-003@7', 'ALL SEVEN CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'], when: ofTotal(7) }),
+  m('cleared-003@8', 'ALL EIGHT CONDITIONS ARE MET. NOTHING REMAINS OUTSTANDING.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'], when: ofTotal(8) }),
   m('cleared-004', 'THE DAY HAS BEEN CLEARED IN FULL.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
   m('cleared-005', 'REQUIREMENT MET. THE REST OF THE DAY IS YOURS.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
   m('cleared-006', 'STATUS UPDATED: CLEARED.', 'CLEARED', 'DAY CLEARED', 'verdict', { bands: ['CLEARED'] }),
@@ -147,8 +161,12 @@ export const VOICE_PACK: SystemMessage[] = [
   m('morning-zero-001', 'A NEW DAY HAS BEEN REGISTERED.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
   m('morning-zero-002', 'THE RECORD FOR TODAY IS EMPTY. THAT IS NORMAL AT THIS HOUR.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
   m('morning-zero-003', 'THE DAY HAS JUST BEGUN. NOTHING IS DECIDED YET.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
-  m('morning-zero-004', 'YOUR NEXT ASCENSION BEGINS NOW.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
-  m('morning-zero-005', 'SIX CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
+  m('morning-zero-004', 'YOUR NEXT ASCENSION BEGINS NOW.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], requiresDesignation: 'ASCENSION' }),
+  m('morning-zero-005', 'SIX CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], when: ofTotal(6) }),
+  m('morning-zero-005@4', 'FOUR CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], when: ofTotal(4) }),
+  m('morning-zero-005@5', 'FIVE CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], when: ofTotal(5) }),
+  m('morning-zero-005@7', 'SEVEN CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], when: ofTotal(7) }),
+  m('morning-zero-005@8', 'EIGHT CONDITIONS ARE OPEN. THE FIRST ONE IS THE ONLY ONE THAT MATTERS.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'], when: ofTotal(8) }),
   m('morning-zero-006', 'THE DAY IS UNWRITTEN. BEGIN.', P, 'DAY OPEN', 'awakening', { phases: ['MORNING'], bands: ['ZERO'] }),
   m('morning-zero-007', 'STATUS: DAY OPEN. NO ACTION REGISTERED.', P, 'DAY OPEN', 'neutral', { phases: ['MORNING'], bands: ['ZERO'] }),
 
@@ -172,7 +190,11 @@ export const VOICE_PACK: SystemMessage[] = [
 
   /* ── MIDDAY · moving ────────────────────────────────────────────── */
   m('midday-started-001', 'MOVEMENT REGISTERED. THE RATE IS BELOW REQUIREMENT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'] }),
-  m('midday-started-002', 'ONE CONDITION IS CLEARED. FIVE ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'] }),
+  m('midday-started-002', 'ONE CONDITION IS CLEARED. FIVE ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'], when: (c) => ofTotal(6)(c) && c.coreCompleted === 1 }),
+  m('midday-started-002@4', 'ONE CONDITION IS CLEARED. THREE ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'], when: (c) => ofTotal(4)(c) && c.coreCompleted === 1 }),
+  m('midday-started-002@5', 'ONE CONDITION IS CLEARED. FOUR ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'], when: (c) => ofTotal(5)(c) && c.coreCompleted === 1 }),
+  m('midday-started-002@7', 'ONE CONDITION IS CLEARED. SIX ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'], when: (c) => ofTotal(7)(c) && c.coreCompleted === 1 }),
+  m('midday-started-002@8', 'ONE CONDITION IS CLEARED. SEVEN ARE NOT.', P, 'UNDER RATE', 'neutral', { phases: ['MIDDAY'], bands: ['STARTED'], when: (c) => ofTotal(8)(c) && c.coreCompleted === 1 }),
   m('midday-started-003', 'THE DAY IS OPEN AND THE FIRST ENTRY EXISTS. CONTINUE.', P, 'UNDER RATE', 'momentum', { phases: ['MIDDAY'], bands: ['STARTED'] }),
   m('midday-building-001', 'PROGRESS IS ACCUMULATING.', P, 'MOMENTUM', 'momentum', { phases: ['MIDDAY'], bands: ['BUILDING'] }),
   m('midday-building-002', 'THE RECORD IS FILLING. THE DAY IS NOT HALF SPENT.', P, 'MOMENTUM', 'momentum', { phases: ['MIDDAY'], bands: ['BUILDING'] }),
@@ -244,6 +266,10 @@ export const VOICE_PACK: SystemMessage[] = [
   m('final-condition-001', 'ONE REQUIREMENT SEPARATES YOU FROM A CLEARED DAY.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal > 0 && c.coreTotal - c.coreCompleted === 1, weight: 3, cooldownDays: 4 }),
   m('final-condition-002', 'A SINGLE CONDITION REMAINS OUTSTANDING.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal > 0 && c.coreTotal - c.coreCompleted === 1, weight: 3, cooldownDays: 4 }),
   m('final-condition-003', 'FIVE OF SIX. THE LAST ONE IS THE ONLY ONE LEFT TO ARGUE WITH.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal === 6 && c.coreCompleted === 5, weight: 3, cooldownDays: 4 }),
+  m('final-condition-003@4', 'THREE OF FOUR. THE LAST ONE IS THE ONLY ONE LEFT TO ARGUE WITH.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal === 4 && c.coreCompleted === 3, weight: 3, cooldownDays: 4 }),
+  m('final-condition-003@5', 'FOUR OF FIVE. THE LAST ONE IS THE ONLY ONE LEFT TO ARGUE WITH.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal === 5 && c.coreCompleted === 4, weight: 3, cooldownDays: 4 }),
+  m('final-condition-003@7', 'SIX OF SEVEN. THE LAST ONE IS THE ONLY ONE LEFT TO ARGUE WITH.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal === 7 && c.coreCompleted === 6, weight: 3, cooldownDays: 4 }),
+  m('final-condition-003@8', 'SEVEN OF EIGHT. THE LAST ONE IS THE ONLY ONE LEFT TO ARGUE WITH.', P, 'FINAL CONDITION', 'pressure', { when: (c) => c.coreTotal === 8 && c.coreCompleted === 7, weight: 3, cooldownDays: 4 }),
 
   /* ── PROLONGED ZERO — late in the day, still nothing ─────────────── */
   m('prolonged-zero-001', 'NO ACTION HAS BEEN REGISTERED. THE SYSTEM IS WAITING.', P, 'AWAITING INPUT', 'pressure', { bands: ['ZERO'], phases: ['AFTERNOON', 'EVENING', 'NIGHT'], weight: 2, cooldownDays: 6 }),
@@ -285,7 +311,10 @@ export const VOICE_PACK: SystemMessage[] = [
 
   /* ── EXCEPTION ───────────────────────────────────────────────────── */
   m('exception-closed-005', 'THE DAY IS CLOSED. NOTHING MORE IS COUNTED TONIGHT.', 'EXCEPTION', 'DAY SEALED', 'restraint', { phases: ['CLOSED'], cooldownDays: 3 }),
-  m('exception-closed-006', 'THE LEDGER FOR TODAY IS SHUT. THE NEXT OPENS AT 04:00.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], cooldownDays: 3 }),
+  m('exception-closed-006', 'THE LEDGER FOR TODAY IS SHUT. THE NEXT OPENS AT 04:00.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], when: rolloverAt04, cooldownDays: 3 }),
+  // Time-free, for a System whose day rolls over at its own hour. The owner's System (boundaryHour absent) keeps the pool it always had.
+  m('exception-closed-008', 'THE DAY IS SEALED. THE NEXT BEGINS WHEN THE CLOCK ROLLS OVER.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], when: generated, cooldownDays: 3 }),
+  m('exception-closed-009', 'THE LEDGER FOR TODAY IS SHUT. THE NEXT ONE OPENS ON SCHEDULE.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], when: generated, cooldownDays: 3 }),
   m('exception-closed-007', 'RECORDING HAS STOPPED. WHAT STANDS IS WHAT STANDS.', 'EXCEPTION', 'DAY SEALED', 'closing', { phases: ['CLOSED'], cooldownDays: 3 }),
 
   m('exception-before-003', 'THE ARC IS ARMED AND NOT YET RUNNING.', 'EXCEPTION', 'STANDBY', 'neutral', { when: (c) => c.arcState === 'before', cooldownDays: 2 }),

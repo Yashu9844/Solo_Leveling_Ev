@@ -243,9 +243,11 @@ describe('I20 - messages never mention a domain absent from the Blueprint', () =
     expect(said).toBeGreaterThan(0);
   });
 
-  it('the voice pack\'s only owner-specific line is the one Phase 12 retires', () => {
+  it('the voice pack\'s only owner-specific line is bound to its designation (12.2), so a System without it never hears it', () => {
     const owner = ['ASCENSION', 'LOGIC TRIAL', 'FORGE', 'RECONSTITUTION', 'WILL TRIAL', 'VITALITY TRIAL'];
-    expect(VOICE_PACK.filter((message) => owner.some((word) => message.text.toUpperCase().includes(word))).map((message) => message.id)).toEqual(['morning-zero-004']);
+    const named = VOICE_PACK.filter((message) => owner.some((word) => message.text.toUpperCase().includes(word)));
+    expect(named.map((message) => message.id)).toEqual(['morning-zero-004']);
+    expect(named.map((message) => message.requiresDesignation)).toEqual(['ASCENSION']);
   });
 });
 

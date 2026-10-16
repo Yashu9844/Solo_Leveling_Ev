@@ -107,6 +107,11 @@ export interface SystemMessage {
   cooldownDays?: number;
   /** Authoring preference only — never a measured score. Default 1. */
   weight?: number;
+  /**
+   * Vocabulary-bound lines: eligible only when a domain of the System carries this designation. The owner's System (context.designations
+   * absent) keeps every line it has always had.
+   */
+  requiresDesignation?: string;
 }
 
 export const DEFAULT_COOLDOWN = 9;
@@ -156,6 +161,13 @@ export interface SystemMessageContext {
   yesterdayCleared: boolean | null;
   /** Gap since the previous APP_OPENED, or null on the first ever open. */
   daysSinceLastOpen: number | null;
+  /**
+   * What a generated System says about itself, which the static voice pack must not contradict (platform/02 §18.3). Both are absent for the
+   * owner's System, whose original lines (04:00, ASCENSION) are true of it.
+   */
+  designations?: readonly string[];
+  /** The hour the System's day rolls over; a line that names a clock time is eligible only when it matches. */
+  boundaryHour?: number;
 }
 
 export interface ShowState {
@@ -303,8 +315,9 @@ function daysBetween(fromDate: string | undefined, toDate: string): number {
   return Math.round((to - from) / 86_400_000);
 }
 
-function eligible(message: SystemMessage, ctx: SystemMessageContext, tier: MessageTier): boolean {
+export function eligible(message: SystemMessage, ctx: SystemMessageContext, tier: MessageTier): boolean {
   if (message.tier !== tier) return false;
+  if (message.requiresDesignation && ctx.designations && !ctx.designations.includes(message.requiresDesignation)) return false;
   if (message.phases && !message.phases.includes(ctx.phase)) return false;
   if (message.bands && !message.bands.includes(ctx.band)) return false;
   if (message.minStreak !== undefined && ctx.streak < message.minStreak) return false;
