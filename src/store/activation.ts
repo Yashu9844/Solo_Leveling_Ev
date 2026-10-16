@@ -22,6 +22,8 @@ export interface NewSystemInput {
   name: string;
   /** Starting measurements by metric id (weight_kg, ...). Those the Blueprint does not track are dropped. */
   baseline?: Record<string, number>;
+  /** Each if-then the person wrote, by the core quest it belongs to; written as PLAN_AMENDED, as the owner's three always were. */
+  intentions?: { questId: string; time: string; place: string; first_action: string }[];
 }
 
 const UNITS: Record<string, string> = { weight_kg: 'kg', waist_cm: 'cm', bodyfat_pct: '%' };
@@ -56,6 +58,11 @@ export async function activateNewSystem(input: NewSystemInput, deps: EngineDeps)
     makeEvent(deps, blueprint, today, 'ARC_STARTED', started, `arc-started:${blueprint.arcId}`),
     activationEvent(blueprint, { id: deps.newId(), occurred_at: deps.now(), local_date: today }),
   ];
+  const quests = new Set(blueprint.quests.map((quest) => quest.id));
+  for (const { questId, ...sentence } of input.intentions ?? []) {
+    if (!quests.has(questId)) continue;
+    genesis.push(makeEvent(deps, blueprint, today, 'PLAN_AMENDED', { questKey: questId, implementationIntention: sentence }, `plan:${blueprint.arcId}:${questId}`));
+  }
   for (const [kind, value] of baseline) {
     const payload: MetricRecordedPayload = { kind, value, unit: UNITS[kind] ?? '' };
     genesis.push(makeEvent(deps, blueprint, today, 'METRIC_RECORDED', payload, `baseline:${blueprint.arcId}:${kind}`));

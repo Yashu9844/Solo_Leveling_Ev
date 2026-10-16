@@ -143,7 +143,7 @@ function Control({ instance, options, value, onChange }: Pick<QuestionViewProps,
 }
 
 /** Cards you tap. One tap selects (single) or toggles (multi); the state has a shape as well as a colour (a filled node against an empty one). */
-function Cards({ options, selected, multiple, onToggle, footer }: { options: OptionDef[]; selected: string[]; multiple: boolean; onToggle: (value: string) => void; footer?: ReactNode }) {
+export function Cards({ options, selected, multiple, onToggle, footer }: { options: OptionDef[]; selected: string[]; multiple: boolean; onToggle: (value: string) => void; footer?: ReactNode }) {
   return (
     <div>
       <div role={multiple ? 'group' : 'radiogroup'} className="grid gap-2">

@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import type { SystemBlueprint } from '../../../blueprint/schema';
 import { generateBlueprint } from '../../../generator/generate';
 import { QUESTIONS } from '../../../onboarding/content';
-import { interviewToDraft } from '../../../onboarding/mapping';
-import type { InterviewDraft } from '../../../onboarding/types';
+import { interviewToDraft, questIntentions, type QuestIntention } from '../../../onboarding/mapping';
+import type { InterviewDraft, Tier } from '../../../onboarding/types';
+import { TierChoice } from './TierChoice';
 import { DEFAULT_CONFIG } from '../../../engine/config';
 import { clearDraft, loadDraft, saveDraft } from '../../../onboarding/draftStorage';
 import { clearAnswer, livePlan } from '../../../onboarding/engine';
@@ -17,23 +18,24 @@ import { Instrument, Rise, StepConsole } from '../shared';
 import { detectTimeZone } from '../timezone';
 import { AdaptiveInterview } from './AdaptiveInterview';
 
-type Phase = { kind: 'interview' } | { kind: 'reveal'; draft: InterviewDraft; blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; errors: string[] };
+type Phase = { kind: 'tier' } | { kind: 'interview' } | { kind: 'reveal'; draft: InterviewDraft; blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; intentions: QuestIntention[]; errors: string[] };
 
 /**
  * The new arc's way in (flag NEW_ONBOARDING): the Quick interview, the System it describes, and the one tap that brings it into being.
  * The Reveal here is the minimum - what was built, in the person's own terms - and 11.3 makes it a moment.
  */
 export function NewOnboarding() {
-  const [phase, setPhase] = useState<Phase>({ kind: 'interview' });
-  const [initial, setInitial] = useState<InterviewDraft>(() => loadDraft() ?? { tier: 'quick', answers: {} });
+  // A person who left part-way is returned to their question; a person arriving fresh chooses how much to say first.
+  const [initial, setInitial] = useState<InterviewDraft>(() => loadDraft() ?? { tier: 'guided', answers: {} });
+  const [phase, setPhase] = useState<Phase>(() => (Object.keys(initial.answers).length > 0 ? { kind: 'interview' } : { kind: 'tier' }));
   const [round, setRound] = useState(0);
   const today = useMemo(() => localDate(realDeps.now(), detectTimeZone(DEFAULT_CONFIG.arc.timezone), DEFAULT_CONFIG.arc.dayBoundaryHour), []);
 
   function generate(draft: InterviewDraft) {
     const timezone = detectTimeZone(DEFAULT_CONFIG.arc.timezone);
-    const { draft: input, baseline } = interviewToDraft(draft, QUESTIONS, { lineageId: realDeps.newId(), today, timezone });
+    const { draft: input, baseline, intentions } = interviewToDraft(draft, QUESTIONS, { lineageId: realDeps.newId(), today, timezone });
     const { blueprint, issues } = generateBlueprint(input);
-    setPhase({ kind: 'reveal', draft, blueprint, name: input.identity.displayName, baseline, errors: issues.filter((issue) => issue.severity === 'error').map((issue) => issue.plain) });
+    setPhase({ kind: 'reveal', draft, blueprint, name: input.identity.displayName, baseline, intentions: questIntentions(blueprint, intentions), errors: issues.filter((issue) => issue.severity === 'error').map((issue) => issue.plain) });
   }
 
   // Changing the answers reopens the interview on its last question, with everything before it kept.
@@ -46,11 +48,18 @@ export function NewOnboarding() {
     setPhase({ kind: 'interview' });
   }
 
+  function choose(tier: Tier) {
+    setInitial({ tier, answers: {} });
+    setRound((value) => value + 1);
+    setPhase({ kind: 'interview' });
+  }
+
+  if (phase.kind === 'tier') return <TierChoice onChoose={choose} />;
   if (phase.kind === 'interview') return <AdaptiveInterview key={round} questions={QUESTIONS} initial={initial} today={today} onDraftChange={saveDraft} onComplete={generate} />;
-  return <Reveal blueprint={phase.blueprint} name={phase.name} baseline={phase.baseline} errors={phase.errors} onRedo={() => reopen(phase.draft)} />;
+  return <Reveal blueprint={phase.blueprint} name={phase.name} baseline={phase.baseline} intentions={phase.intentions} errors={phase.errors} onRedo={() => reopen(phase.draft)} />;
 }
 
-function Reveal({ blueprint, name, baseline, errors, onRedo }: { blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; errors: string[]; onRedo: () => void }) {
+function Reveal({ blueprint, name, baseline, intentions, errors, onRedo }: { blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; intentions: QuestIntention[]; errors: string[]; onRedo: () => void }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -63,7 +72,7 @@ function Reveal({ blueprint, name, baseline, errors, onRedo }: { blueprint: Syst
     setBusy(true);
     setFailure(null);
     try {
-      await activateNewSystem({ blueprint, name, baseline }, realDeps);
+      await activateNewSystem({ blueprint, name, baseline, intentions }, realDeps);
       // The answers have done their work: the Blueprint is the record, and the raw answers go.
       clearDraft();
       // Resolves once the new arc's config and versions are installed, so Today never renders against the defaults.

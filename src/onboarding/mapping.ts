@@ -1,5 +1,6 @@
 // From the interview's answers to the generator's input (platform/03 §23.4). Pure and total: a draft with nothing answered still yields a
 // DraftState the generator can turn into a valid Blueprint, because every field the interview did not fill has the library's own default.
+import type { SystemBlueprint } from '../blueprint/schema';
 import { withGuardrails } from '../generator/presets';
 import type { DomainAnswers, DomainChoice, DraftState } from '../generator/types';
 import { ARCHETYPES } from '../library/archetypes';
@@ -69,8 +70,9 @@ function arcLength(answers: Answers, startDate: string, examDates: string[]): nu
   const chosen = Number(answers['arc.lengthDays']);
   let length = Number.isFinite(chosen) && chosen > 0 ? chosen : 120;
   if (answers['arc.alignToExam'] === 'yes' && examDates.length > 0) {
+    // The arc's last day is start + length - 1, so ending ON the exam date takes one day more than the days between.
     const toExam = Math.round(isoDay([...examDates].sort()[0]!) - isoDay(startDate));
-    if (toExam > 0) length = toExam;
+    if (toExam > 0) length = toExam + 1;
   }
   return Math.min(ARC_BOUNDS.max, Math.max(ARC_BOUNDS.min, Math.round(length)));
 }
@@ -125,4 +127,23 @@ export function interviewToDraft(interview: InterviewDraft, questions: readonly 
     arc: { startDate, lengthDays: arcLength(answers, startDate, examDates), timezone: context.timezone },
   };
   return { draft, intentions: triggers, baseline };
+}
+
+/** An if-then sentence bound to the quest that carries it. */
+export interface QuestIntention {
+  questId: string;
+  time: string;
+  place: string;
+  first_action: string;
+}
+
+/** The person's triggers, resolved to the core quests of the generated System; a domain that does not allow one, or lost its quest, drops it. */
+export function questIntentions(blueprint: SystemBlueprint, intentions: readonly Intention[]): QuestIntention[] {
+  const out = new Map<string, QuestIntention>();
+  for (const intention of intentions) {
+    const domain = blueprint.domains.find((candidate) => candidate.archetypeId === intention.archetypeId && candidate.intention?.allowed);
+    const quest = domain && blueprint.quests.find((candidate) => candidate.domainId === domain.id && candidate.type === 'core');
+    if (quest && !out.has(quest.id)) out.set(quest.id, { questId: quest.id, time: intention.time, place: intention.place, first_action: intention.action });
+  }
+  return [...out.values()];
 }

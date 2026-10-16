@@ -268,11 +268,22 @@ export function answerInWords(instance: QuestionInstance, answers: Answers): str
   return value === undefined ? '' : String(value);
 }
 
+/** Whole days from today to an ISO date; null when either is not one. */
+function daysUntil(value: unknown, context: EngineContext | undefined): number | null {
+  if (typeof value !== 'string' || !context || !isIsoDate(value) || !isIsoDate(context.today)) return null;
+  return Math.round((Date.parse(`${value}T00:00:00Z`) - Date.parse(`${context.today}T00:00:00Z`)) / 86_400_000);
+}
+
 /** One line reflecting the answer back, in the System register, using the person's own facts. Never praises, never predicts. */
-export function echoFor(instance: QuestionInstance, answers: Answers, questions: readonly QuestionDef[]): string | null {
-  const template = instance.def.echo;
+export function echoFor(instance: QuestionInstance, answers: Answers, questions: readonly QuestionDef[], context?: EngineContext): string | null {
+  const chosen = optionsFor(instance, answers).find((option) => option.value === answers[instance.writes]);
+  const template = chosen?.echo ?? instance.def.echo;
   if (!template || !isAnswered(instance, answers)) return null;
+  const days = daysUntil(answers[instance.writes], context);
+  // A date is echoed as a count of days ahead; one that is not ahead is said plainly rather than as "-3 DAYS".
+  if (template.includes('{days}') && (days === null || days < 1)) return 'THAT DATE IS TODAY OR HAS PASSED.';
   return template
+    .replace(/\{days\}/g, String(days))
     .replace(/\{answer\}/g, answerInWords(instance, answers).toUpperCase())
     .replace(/\{area\}/g, instance.area ? areaLabel(instance.area, questions) : '')
     .replace(/\{n\}/g, String(answers[instance.writes] ?? ''));

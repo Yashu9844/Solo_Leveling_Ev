@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { generateBlueprint } from '../../src/generator/generate';
 import { ARCHETYPES } from '../../src/library/archetypes';
 import { QUESTIONS, RESOLUTIONS } from '../../src/onboarding/content';
-import { applyAnswer, activeAnswers, expand, isComplete, livePlan, newDraft, nextQuestion, withDefaults } from '../../src/onboarding/engine';
-import { interviewToDraft } from '../../src/onboarding/mapping';
+import { applyAnswer, activeAnswers, echoFor, expand, isComplete, livePlan, newDraft, nextQuestion, withDefaults } from '../../src/onboarding/engine';
+import { interviewToDraft, questIntentions } from '../../src/onboarding/mapping';
 import { AREA_BUDGET, SKIP, STAGES, type InterviewDraft } from '../../src/onboarding/types';
 import { mulberry32 } from './support/randomEventLog';
 
@@ -133,7 +133,7 @@ describe('the Guided tier', () => {
 
   it('ends the arc on the exam date when asked, within bounds', () => {
     const { draft } = result();
-    expect(draft.arc.lengthDays).toBe(94);
+    expect(draft.arc.lengthDays).toBe(95);
     const far = interviewToDraft(run('guided', { ...rich, 'area.knowledge.examDate': '2029-01-01' }), QUESTIONS, mapping).draft;
     expect(far.arc.lengthDays).toBe(365);
     const near = interviewToDraft(run('guided', { ...rich, 'area.knowledge.examDate': '2026-09-10' }), QUESTIONS, mapping).draft;
@@ -152,7 +152,8 @@ describe('the Guided tier', () => {
     const { draft } = result();
     const { blueprint, issues } = generateBlueprint(draft);
     expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
-    expect(blueprint.arc.lengthDays).toBe(94);
+    expect(blueprint.arc.lengthDays).toBe(95);
+    expect(blueprint.arc.endDate).toBe('2026-12-04');
   });
 
   it('never asks more than the budget per area, and an answer taken away leaves the rest inert', () => {
@@ -187,5 +188,49 @@ describe('any walk through the interview ends in a valid System', () => {
   it('expands to something for every area at every stage it belongs to', () => {
     const instances = expand(QUESTIONS, { areas: ['career', 'body'] });
     expect(instances.some((instance) => instance.key === 'resolution@career')).toBe(true);
+  });
+});
+
+describe('the System’s replies (Guided)', () => {
+  const rich = { areas: ['knowledge', 'body'], 'area.knowledge.resolution': 'exam-prep', 'area.knowledge.examDate': '2026-12-04', 'arc.alignToExam': 'yes' };
+  const draft = run('guided', { 'identity.displayName': 'Ada', ...rich });
+  const plan = livePlan(draft, QUESTIONS);
+
+  it('counts the days to an exam date and says the arc will end on it', () => {
+    const exam = plan.find((instance) => instance.key === 'examDate@knowledge')!;
+    expect(echoFor(exam, draft.answers, QUESTIONS, ctx)).toBe('KNOWLEDGE: EXAM REGISTERED. 94 DAYS TO THE EXAM DATE.');
+    const align = plan.find((instance) => instance.key === 'alignExam')!;
+    expect(echoFor(align, draft.answers, QUESTIONS, ctx)).toBe('THE ARC WILL END ON THE EXAM DATE.');
+    expect(echoFor(align, { ...draft.answers, 'arc.alignToExam': 'no' }, QUESTIONS, ctx)).toBe('THE ARC KEEPS THE LENGTH YOU CHOSE.');
+  });
+
+  it('says plainly when the date is not ahead, and never prints a negative count', () => {
+    const exam = plan.find((instance) => instance.key === 'examDate@knowledge')!;
+    for (const date of ['2026-09-01', '2026-01-01']) expect(echoFor(exam, { ...draft.answers, 'area.knowledge.examDate': date }, QUESTIONS, ctx)).toBe('THAT DATE IS TODAY OR HAS PASSED.');
+    expect(echoFor(exam, draft.answers, QUESTIONS)).toBe('THAT DATE IS TODAY OR HAS PASSED.'); // no clock, no count
+  });
+
+  it('every echo follows the voice rules', () => {
+    for (const instance of plan) {
+      const line = echoFor(instance, draft.answers, QUESTIONS, ctx);
+      if (line === null) continue;
+      expect(line, instance.key).toBe(line.toUpperCase());
+      expect(line, instance.key).not.toMatch(/!|\bwill (improve|succeed|achieve)\b/i);
+    }
+  });
+});
+
+describe('triggers become intentions on the System’s own quests', () => {
+  it('only a domain that allows one keeps it, once per quest', () => {
+    const { draft: input, intentions } = interviewToDraft(run('guided', {
+      'identity.displayName': 'Ada', areas: ['career', 'financial', 'body'], 'area.career.triggerTime': '08:00', 'area.career.triggerPlace': 'the desk', 'area.career.triggerAction': 'open the tracker',
+      'area.financial.triggerTime': '09:00', 'area.financial.triggerPlace': 'the kitchen', 'area.financial.triggerAction': 'log the spend',
+    }), QUESTIONS, mapping);
+    expect(intentions.map((intention) => intention.archetypeId)).toEqual(['career-pipeline']);
+    const { blueprint } = generateBlueprint(input);
+    const resolved = questIntentions(blueprint, [...intentions, ...intentions, { archetypeId: 'finance-control', time: '09:00', place: 'x', action: 'y' }]);
+    expect(resolved).toHaveLength(1);
+    expect(blueprint.quests.find((quest) => quest.id === resolved[0]!.questId)?.type).toBe('core');
+    expect(resolved[0]).toMatchObject({ time: '08:00', place: 'the desk', first_action: 'open the tracker' });
   });
 });

@@ -153,7 +153,7 @@ export const QUESTIONS: QuestionDef[] = [
   },
   {
     id: 'examDate', stage: 'RESOLUTION', tier: 'guided', heading: '{area} — WHEN IS THE EXAM?', subline: 'The arc can end on it.', kind: 'date', each: 'area', budgeted: true,
-    eligibility: resolvedTo('exam-prep'), writes: 'area.{area}.examDate', default: { today: true, days: 94 }, echo: '{area}: EXAM ON {answer}.', archetypeId: 'exam-prep',
+    eligibility: resolvedTo('exam-prep'), writes: 'area.{area}.examDate', default: { today: true, days: 94 }, echo: '{area}: EXAM REGISTERED. {days} DAYS TO THE EXAM DATE.', archetypeId: 'exam-prep',
   },
   {
     id: 'subjects', stage: 'RESOLUTION', tier: 'guided', heading: '{area} — WHAT ARE THE SUBJECTS?', subline: 'Up to twelve, separated by commas. Each becomes a topic you practise and a node in the skill tree.',
@@ -207,8 +207,8 @@ export const QUESTIONS: QuestionDef[] = [
   },
   {
     id: 'alignExam', stage: 'ARC', tier: 'guided', heading: 'END THE ARC ON THE EXAM DATE?', subline: 'The arc then runs from its start to that day.', kind: 'single_card',
-    eligibility: anyAreaResolvedTo(['exam-prep']), writes: 'arc.alignToExam', default: { const: 'yes' }, echo: 'ARC END: {answer}.',
-    options: [{ value: 'yes', label: 'End it on the exam date' }, { value: 'no', label: 'Keep the length I chose' }],
+    eligibility: anyAreaResolvedTo(['exam-prep']), writes: 'arc.alignToExam', default: { const: 'yes' }, echo: 'ARC LENGTH UNCHANGED.',
+    options: [{ value: 'yes', label: 'End it on the exam date', echo: 'THE ARC WILL END ON THE EXAM DATE.' }, { value: 'no', label: 'Keep the length I chose', echo: 'THE ARC KEEPS THE LENGTH YOU CHOSE.' }],
   },
   {
     id: 'startDate', stage: 'ARC', tier: 'guided', heading: 'WHEN DOES THE ARC BEGIN?', subline: 'Today is the usual answer. Up to two weeks back or a month ahead.',

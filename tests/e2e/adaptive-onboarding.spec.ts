@@ -29,11 +29,22 @@ async function currentKey(page: Page): Promise<string> {
   return (await question.getAttribute('data-testid'))!.replace('question-', '');
 }
 
-async function interview(page: Page, areas: string[], resolution: Record<string, string>): Promise<void> {
+/** Opens the new arc's way in and says how much to tell. */
+async function begin(page: Page, tier: 'quick' | 'guided'): Promise<void> {
+  await page.goto('/onboarding');
+  await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByTestId('tier-choice')).toBeVisible();
+  await page.locator(`[role="radio"][data-value="${tier}"]`).click();
+  await page.getByRole('button', { name: 'Begin' }).click();
+}
+
+/** Answers by what is asked; anything not named takes the System's own default. */
+async function interview(page: Page, areas: string[], resolution: Record<string, string>, fill: Record<string, string> = {}): Promise<void> {
   for (let guard = 0; guard < 40; guard++) {
     if (await page.getByTestId('reveal').isVisible()) return;
     const key = await currentKey(page);
     if (key === 'name') await page.getByTestId('answer').fill('Ada');
+    else if (key in fill) await page.getByTestId('answer').fill(fill[key]!);
     else if (key === 'areas') for (const area of areas) await page.locator(`[role="checkbox"][data-value="${area}"]`).click();
     else if (key.startsWith('resolution@')) {
       const wanted = resolution[key.split('@')[1]!];
@@ -58,8 +69,7 @@ test.describe('Quick Awakening', () => {
       page.on('console', (message) => { if (message.type() === 'error') problems.push(`console: ${message.text()}`); });
 
       const { areas, resolution } = choicesFor(preset.id);
-      await page.goto('/onboarding');
-      await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+      await begin(page, 'quick');
       await interview(page, areas, resolution);
 
       const designations = await page.getByTestId('reveal-card').evaluateAll((cards) => cards.map((card) => card.getAttribute('data-designation') ?? ''));
@@ -77,8 +87,7 @@ test.describe('Quick Awakening', () => {
 
   test('an arc that exists is never re-interviewed', async ({ page }) => {
     const { areas, resolution } = choicesFor('fitness');
-    await page.goto('/onboarding');
-    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    await begin(page, 'quick');
     await interview(page, areas, resolution);
     await page.getByRole('button', { name: 'Initialise system' }).click();
     await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
@@ -91,8 +100,7 @@ test.describe('Resuming the interview', () => {
   test.use({ reducedMotion: 'reduce' });
 
   test('an app kill mid-interview loses nothing, and the draft is gone once the System is online', async ({ context, page }) => {
-    await page.goto('/onboarding');
-    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    await begin(page, 'quick');
     await page.getByTestId('answer').fill('Ada');
     await next(page);
     await expect(page.getByTestId('question-areas')).toBeVisible();
@@ -121,5 +129,33 @@ test.describe('Resuming the interview', () => {
     await reopened.getByRole('button', { name: 'Initialise system' }).click();
     await expect(reopened).toHaveURL(/\/today/, { timeout: 30_000 });
     expect(await reopened.evaluate(() => localStorage.getItem('onboarding_draft'))).toBeNull();
+  });
+});
+
+test.describe('Guided', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('P2, a student with an exam: the arc is aligned to the exam date and the trigger is kept', async ({ page }) => {
+    test.setTimeout(MAX_SCRIPTED_MS * 2);
+    const exam = new Date();
+    exam.setUTCDate(exam.getUTCDate() + 100);
+    const examDate = exam.toISOString().slice(0, 10);
+    await begin(page, 'guided');
+    await interview(page, ['knowledge', 'body', 'relationships'], { knowledge: 'exam-prep' }, {
+      'examDate@knowledge': examDate,
+      'subjects@knowledge': 'Anatomy, Physiology, Pathology',
+      'triggerTime@knowledge': '07:30',
+      'triggerPlace@knowledge': 'the desk',
+      'triggerAction@knowledge': 'open the question bank',
+    });
+    // The System said what it did with the date.
+    await expect(page.getByTestId('reveal')).toContainText(`to ${examDate}`);
+    await page.getByRole('button', { name: 'Initialise system' }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+
+    // The sentence is part of the arc: it is on the reminder for the exam quest.
+    await page.goto('/profile/settings/system');
+    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByText('open the question bank', { exact: false }).first()).toBeVisible();
   });
 });

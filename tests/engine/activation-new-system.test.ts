@@ -83,3 +83,16 @@ describe('activateNewSystem', () => {
     expect(await db.event.count()).toBe(0);
   });
 });
+
+describe('intentions', () => {
+  it('are written as PLAN_AMENDED on the quest, and the quest template carries the sentence', async () => {
+    const { blueprint } = generated();
+    const quest = blueprint.quests.find((candidate) => candidate.type === 'core')!;
+    await activateNewSystem({ blueprint, name: 'Ada', intentions: [{ questId: quest.id, time: '07:30', place: 'the desk', first_action: 'open the question bank' }, { questId: 'not-a-quest', time: '08:00', place: 'x', first_action: 'y' }] }, deps);
+    const events = await getAllEvents();
+    expect(events.map((event) => event.type)).toEqual(['ARC_STARTED', 'BLUEPRINT_ACTIVATED', 'PLAN_AMENDED']);
+    expect(events[2]!.payload).toEqual({ questKey: quest.id, implementationIntention: { time: '07:30', place: 'the desk', first_action: 'open the question bank' } });
+    const template = (await db.quest_template.toArray()).find((row) => row.id.includes(quest.id));
+    expect(template?.implementation_intention).toMatchObject({ place: 'the desk' });
+  });
+});

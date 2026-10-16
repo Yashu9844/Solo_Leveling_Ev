@@ -19,6 +19,8 @@ export interface OptionDef {
   label: string;
   /** A plain line under the label ("Applications and the work that stands in for them"). */
   hint?: string;
+  /** The System's reply when this card is chosen, in place of the question's own echo. */
+  echo?: string;
 }
 
 /** A JSON predicate over the answers: serialisable, so it can be tested and shipped as data. */

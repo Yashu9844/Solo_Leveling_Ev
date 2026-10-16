@@ -68,7 +68,7 @@ export function AdaptiveInterview({ questions, initial, today, onDraftChange, on
     setDirection('fwd');
     setEdit(null);
     setRevisit(null);
-    setEcho(echoFor(instance, applied.draft.answers, questions) ?? '');
+    setEcho(echoFor(instance, applied.draft.answers, questions, { today }) ?? '');
     setDraft(applied.draft);
     onDraftChange?.(applied.draft);
     if (nextQuestion(applied.draft, questions) === null) onComplete(applied.draft);
