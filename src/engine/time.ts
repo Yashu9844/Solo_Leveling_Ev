@@ -3,7 +3,7 @@
 // and break the streak most nights, so the day boundary is 04:00 and all
 // date math shifts the instant by boundaryHour before reading the
 // timezone's wall-clock date.
-import { parseISO, subHours, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO, subHours } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { EngineConfig } from './types';
 
@@ -13,8 +13,11 @@ import type { EngineConfig } from './types';
  * time — callers must never recompute it later from `occurred_at`.
  */
 export function localDate(instantIso: string, tz: string, boundaryHour = 4): string {
-  const shifted = subHours(parseISO(instantIso), boundaryHour);
-  return formatInTimeZone(shifted, tz, 'yyyy-MM-dd');
+  // The boundary is a WALL-CLOCK hour, so the shift is taken on the wall clock, not on the absolute instant: subtracting
+  // boundaryHour hours of absolute time files the first hour after the boundary under the previous day on the day a DST
+  // change falls inside it (platform/04 I19). Without DST - the owner's Asia/Kolkata - the two are the same number.
+  const wall = parseISO(formatInTimeZone(parseISO(instantIso), tz, "yyyy-MM-dd'T'HH:mm:ss.SSS"));
+  return format(subHours(wall, boundaryHour), 'yyyy-MM-dd');
 }
 
 /**

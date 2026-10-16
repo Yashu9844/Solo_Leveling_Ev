@@ -18,6 +18,7 @@ import type { DomainChoice } from '../../../src/generator/types';
 import { practiceItemMastery, type PracticeItemRecord } from '../../../src/instruments/types/practiceItem';
 import { studyBlockMastery, type StudyBlockRecord } from '../../../src/instruments/types/studyBlock';
 import type { InstrumentRecord } from '../../../src/instruments/framework';
+import { localDate } from '../../../src/engine/time';
 import { checkpointDaysFor } from '../../../src/library/calibration';
 import { ARCHETYPES } from '../../../src/library/archetypes';
 import { namesExternalOutcome } from '../../../src/library/lexicon';
@@ -52,6 +53,14 @@ export function describePersona(persona: Persona): void {
       expect(blueprint.arc.lengthDays).toBe(persona.expect.arcLength);
       const asked = persona.draft.domains.map((choice: DomainChoice) => choice.archetypeId);
       expect(blueprint.domains.map((domain) => domain.archetypeId)).toEqual(asked);
+    });
+
+    it('time (I19): every event\'s local date is the local date of its own instant, in the arc\'s zone and at its day boundary', () => {
+      for (const event of events) {
+        expect(localDate(event.occurred_at, blueprint.arc.timezone, blueprint.arc.dayBoundaryHour), `${event.type} ${event.id}`).toBe(event.local_date);
+      }
+      const opened = events.filter((event) => event.type === 'APP_OPENED').map((event) => event.local_date);
+      expect(new Set(opened).size).toBe(opened.length);
     });
 
     it('generated domains: roles, designations and channel caps are the reviewed ones', () => {
@@ -190,22 +199,35 @@ export function describePersona(persona: Persona): void {
       expect(v2.changeClass).toBe('operational');
       expect((await validateTransition(blueprint, v2, { today: opDay, arcDay: 10, nextCheckpointDay: blueprint.progression.checkpointDays[0]! })).filter((issue) => issue.severity === 'error')).toEqual([]);
 
-      // A structural amendment: one more kind of domain, with the same lineage so every existing id stays.
-      const present = new Set(persona.draft.domains.map((choice) => choice.archetypeId));
-      const extra = Object.values(ARCHETYPES).find((archetype) => archetype.role === 'engine' && !present.has(archetype.id) && ['writing', 'reading', 'public-speaking', 'creative-practice'].includes(archetype.id))!;
-      const widened = generateBlueprint({ ...persona.draft, domains: [...persona.draft.domains, { archetypeId: extra.id }] }).blueprint;
-      const v3 = structuredClone(widened);
-      v3.version = 3;
-      v3.activeFrom = ISO(start, blueprint.progression.checkpointDays[0]!);
-      v3.changeClass = await computeChangeClass(v2, v3);
-      expect(v3.changeClass).toBe('structural');
-
       const insertAfter = (log: SystemEvent[], next: SystemBlueprint, date: string): SystemEvent[] => {
         const index = log.map((event) => event.local_date <= date).lastIndexOf(true);
         const anchor = log[index]!;
         const activation = activationEvent(next, { id: `${anchor.id}~`, occurred_at: anchor.occurred_at, local_date: date });
         return [...log.slice(0, index + 1), activation, ...log.slice(index + 1)];
       };
+
+      // A structural amendment: one more kind of domain, with the same lineage so every existing id stays.
+      const present = new Set(persona.draft.domains.map((choice) => choice.archetypeId));
+      const extra = Object.values(ARCHETYPES).find((archetype) => archetype.role === 'engine' && !present.has(archetype.id) && ['writing', 'reading', 'public-speaking', 'creative-practice'].includes(archetype.id))!;
+      const widenedResult = generateBlueprint({ ...persona.draft, domains: [...persona.draft.domains, { archetypeId: extra.id }] });
+      if (widenedResult.issues.some((issue) => issue.code === 'V-DOM-01' && issue.severity === 'error')) {
+        // A System at its upper bound (X2) cannot be widened at all: the validator refuses it, and only the operational amendment is left to check.
+        expect(blueprint.domains.filter((domain) => domain.role !== 'support')).toHaveLength(8);
+        const onlyV2 = insertAfter(events, v2, opDay);
+        const afterV2 = buildProjectionsV2(onlyV2, deps);
+        const beforeV2 = buildProjectionsV2(events, deps);
+        const rowsTo = (rows: { local_date: string }[], date: string) => JSON.stringify(rows.filter((row) => row.local_date <= date));
+        expect(rowsTo(afterV2.ledger, opDay)).toBe(rowsTo(beforeV2.ledger, opDay));
+        expect(rowsTo(afterV2.instances, opDay)).toBe(rowsTo(beforeV2.instances, opDay));
+        return;
+      }
+      const widened = widenedResult.blueprint;
+      const v3 = structuredClone(widened);
+      v3.version = 3;
+      v3.activeFrom = ISO(start, blueprint.progression.checkpointDays[0]!);
+      v3.changeClass = await computeChangeClass(v2, v3);
+      expect(v3.changeClass).toBe('structural');
+
       const amended = insertAfter(insertAfter(events, v2, opDay), v3, firstCheckpoint);
 
       // I4: configuration never mutates a past event - the log before each activation is a byte-for-byte prefix.

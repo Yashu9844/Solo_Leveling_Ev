@@ -23,6 +23,8 @@ export interface DomainAnswers {
   topic?: string;
   /** A custom domain the person wants kept as a guardrail (a limit or a rhythm to hold) rather than an engine to push. */
   guardrail?: boolean;
+  /** Hold this domain as support: tracked and logged, with no quest of its own (needs a study block or a checklist). */
+  support?: boolean;
   /** A time of day (HH:MM) for a time window that is not the wake time: the hour a practice is kept. */
   time?: string;
   /** The rows of a routine (a checklist domain). */

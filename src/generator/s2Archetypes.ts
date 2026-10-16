@@ -3,6 +3,7 @@
 import type { Issue } from '../blueprint/validate';
 import { ARCHETYPES } from '../library/archetypes';
 import { customArchetype } from '../library/archetypes/custom';
+import { asSupport, canBeSupport } from '../library/archetypes/support';
 import type { ArchetypeDef } from '../library/archetypes/types';
 import { generatorIssue, type NormalizedDraft, type ResolvedDomain } from './types';
 
@@ -11,10 +12,14 @@ export function resolveArchetypes(draft: NormalizedDraft, archetypes: Readonly<R
   const roleCounts: Record<string, number> = {};
   const resolved: ResolvedDomain[] = [];
   draft.domains.forEach((choice, index) => {
-    const archetype = archetypes[choice.archetypeId] ?? customArchetype(choice.archetypeId, { guardrail: choice.answers.guardrail === true });
+    let archetype = archetypes[choice.archetypeId] ?? customArchetype(choice.archetypeId, { guardrail: choice.answers.guardrail === true });
     if (!archetype) {
       issues.push(generatorIssue('G-ARCH-01', 'error', `domains.${index}`, 'THE SYSTEM DOES NOT KNOW THAT KIND OF DOMAIN.', `"${choice.archetypeId}" is not in the library, so it was left out.`));
       return;
+    }
+    if (archetype && choice.answers.support === true) {
+      if (canBeSupport(archetype)) archetype = asSupport(archetype);
+      else issues.push(generatorIssue('G-ARCH-02', 'warning', `domains.${index}`, 'THAT DOMAIN CANNOT BE HELD AS SUPPORT.', `"${archetype.label}" has no study log or routine to track on its own, so it keeps its quest.`));
     }
     const rolePosition = roleCounts[archetype.role] ?? 0;
     roleCounts[archetype.role] = rolePosition + 1;
