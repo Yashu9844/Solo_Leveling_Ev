@@ -123,6 +123,18 @@ const CUSTOM_UNITS: Record<string, Unit> = {
   threshold: { noun: 'COUNT', min: 1, max: 1000, step: 1 },
 };
 
+/** The good day the archetype itself gives, for an Adjust sheet to start from. */
+export function defaultGoodDay(archetypeId: string): number | undefined {
+  const archetype = ARCHETYPES[archetypeId] ?? customArchetype(archetypeId);
+  return archetype?.quest && archetype.role !== 'guardrail' && measureBounds(archetypeId) ? goodDayDefault(archetype) : undefined;
+}
+
+/** What a good day is counted in for an archetype, and the range it may take: the Adjust sheet and a pin are held to the same bounds as the question. */
+export function measureBounds(archetypeId: string): { noun: string; min: number; max: number; step: number } | undefined {
+  const unit = archetypeId.startsWith(CUSTOM_PREFIX) ? CUSTOM_UNITS[archetypeId.slice(CUSTOM_PREFIX.length)] : UNITS[archetypeId];
+  return unit ? { ...unit } : undefined;
+}
+
 // ── Predicates over every area ──────────────────────────────────────────────
 
 const AREA_IDS = Object.keys(AREA_OPTIONS);

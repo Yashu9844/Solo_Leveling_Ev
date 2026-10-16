@@ -217,8 +217,13 @@ function MoveButton({ label, disabled, onClick, glyph }: { label: string; disabl
 
 /** A number: the figure above is the answer; here are − and + at the question's own step, and the keyboard for anything else. */
 function NumberControl({ instance, value, onChange }: { instance: QuestionInstance; value: unknown; onChange: (value: number | string) => void }) {
+  return <NumberField label={instance.heading} bounds={instance.def.bounds} value={value} onChange={onChange} />;
+}
+
+/** The stepper on its own: a labelled number with - and + at a step, held to bounds. Used by the questions and by the Adjust sheets. */
+export function NumberField({ label, bounds, value, onChange }: { label: string; bounds?: { min?: number; max?: number; step?: number }; value: unknown; onChange: (value: number | string) => void }) {
   const id = useId();
-  const { min = 0, max = Number.MAX_SAFE_INTEGER, step = 1 } = instance.def.bounds ?? {};
+  const { min = 0, max = Number.MAX_SAFE_INTEGER, step = 1 } = bounds ?? {};
   const current = typeof value === 'number' ? value : Number(value);
   const known = Number.isFinite(current);
   const nudge = (direction: 1 | -1) => onChange(Math.min(max, Math.max(min, (known ? current : min) + direction * step)));
@@ -226,7 +231,7 @@ function NumberControl({ instance, value, onChange }: { instance: QuestionInstan
     <div className="flex items-end gap-2">
       <StepButton label="Decrease" glyph="−" disabled={known && current <= min} onClick={() => nudge(-1)} />
       <label htmlFor={id} className="min-w-0 flex-1">
-        <span className="sr-only">{instance.heading}</span>
+        <span className="sr-only">{label}</span>
         <Slot>
           <input
             id={id} type="number" inputMode="decimal" min={min} max={Number.isFinite(max) ? max : undefined} step={step} value={known ? current : ''}

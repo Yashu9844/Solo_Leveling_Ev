@@ -44,7 +44,7 @@ const asText = (value: unknown): string | undefined => (typeof value === 'string
 const asNumber = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
 
 /** The archetype an area leads to: the person's resolution, or the area's own default. */
-function archetypeOf(area: string, answers: Answers): string | undefined {
+export function archetypeOf(area: string, answers: Answers): string | undefined {
   const chosen = asText(answers[`area.${area}.resolution`]);
   if (chosen && (ARCHETYPES[chosen] || isCustomArchetypeId(chosen))) return chosen;
   return AREAS.find((candidate) => candidate.id === area)?.archetypeId;

@@ -1054,3 +1054,19 @@ input[type='range'].init-gauge:focus-visible::-webkit-slider-thumb {
 input[type='range'].init-gauge:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+/* The Reveal's sequence: each section rises in turn (--seq is its place in the order). Reduced motion keeps the final state and
+   drops the wait: animation-delay is not collapsed by the duration rules above, and a section must never sit invisible for it. */
+.reveal-seq {
+  animation: init-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--seq, 0) * 110ms) both;
+}
+
+[data-motion='reduced'] .reveal-seq {
+  animation-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .reveal-seq {
+    animation-delay: 0ms !important;
+  }
+}

@@ -1,47 +1,52 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { SystemBlueprint } from '../../../blueprint/schema';
+import { DEFAULT_CONFIG } from '../../../engine/config';
+import { localDate } from '../../../engine/time';
+import type { DraftState } from '../../../generator/types';
 import { generateBlueprint } from '../../../generator/generate';
 import { QUESTIONS } from '../../../onboarding/content';
-import { interviewToDraft, questIntentions, type QuestIntention } from '../../../onboarding/mapping';
-import type { InterviewDraft, Tier } from '../../../onboarding/types';
-import { TierChoice } from './TierChoice';
-import { DEFAULT_CONFIG } from '../../../engine/config';
-import { clearDraft, loadDraft, saveDraft } from '../../../onboarding/draftStorage';
+import { clearDraft, loadDraft, loadPins, savePins, saveDraft } from '../../../onboarding/draftStorage';
 import { clearAnswer, livePlan } from '../../../onboarding/engine';
-import { realDeps } from '../../../store/deps';
+import { interviewToDraft, questIntentions, type Intention } from '../../../onboarding/mapping';
+import { NO_PINS, adjustables, applyPins, withArcLength, withPin, type Pins } from '../../../onboarding/pins';
+import { provenanceFor } from '../../../onboarding/provenance';
+import type { InterviewDraft, Tier } from '../../../onboarding/types';
 import { activateNewSystem } from '../../../store/activation';
 import { useArcStatus } from '../../../store/ArcStatusContext';
-import { localDate } from '../../../engine/time';
-import { PrimaryButton, SafeTop, ScreenShell, SecondaryButton } from '../../kit';
-import { Instrument, Rise, StepConsole } from '../shared';
+import { realDeps } from '../../../store/deps';
 import { detectTimeZone } from '../timezone';
 import { AdaptiveInterview } from './AdaptiveInterview';
+import { Reveal } from './Reveal';
+import { TierChoice } from './TierChoice';
 
-type Phase = { kind: 'tier' } | { kind: 'interview' } | { kind: 'reveal'; draft: InterviewDraft; blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; intentions: QuestIntention[]; errors: string[] };
+type Phase =
+  | { kind: 'tier' }
+  | { kind: 'interview' }
+  | { kind: 'reveal'; interview: InterviewDraft; input: DraftState; baseline: Record<string, number>; intentions: Intention[] };
 
 /**
- * The new arc's way in (flag NEW_ONBOARDING): the Quick interview, the System it describes, and the one tap that brings it into being.
- * The Reveal here is the minimum - what was built, in the person's own terms - and 11.3 makes it a moment.
+ * The new arc's way in (flag NEW_ONBOARDING): how much to say, the interview, the System it describes (the Reveal, whose fields can be
+ * pinned), and the one tap that brings it into being. The interview, the pins and the System are three separate things: changing an
+ * answer builds the System again, and the pins are laid over whatever comes out.
  */
 export function NewOnboarding() {
   // A person who left part-way is returned to their question; a person arriving fresh chooses how much to say first.
   const [initial, setInitial] = useState<InterviewDraft>(() => loadDraft() ?? { tier: 'guided', answers: {} });
   const [phase, setPhase] = useState<Phase>(() => (Object.keys(initial.answers).length > 0 ? { kind: 'interview' } : { kind: 'tier' }));
+  const [pins, setPins] = useState<Pins>(() => loadPins() ?? NO_PINS);
   const [round, setRound] = useState(0);
   const today = useMemo(() => localDate(realDeps.now(), detectTimeZone(DEFAULT_CONFIG.arc.timezone), DEFAULT_CONFIG.arc.dayBoundaryHour), []);
 
-  function generate(draft: InterviewDraft) {
+  function generate(interview: InterviewDraft) {
     const timezone = detectTimeZone(DEFAULT_CONFIG.arc.timezone);
-    const { draft: input, baseline, intentions } = interviewToDraft(draft, QUESTIONS, { lineageId: realDeps.newId(), today, timezone });
-    const { blueprint, issues } = generateBlueprint(input);
-    setPhase({ kind: 'reveal', draft, blueprint, name: input.identity.displayName, baseline, intentions: questIntentions(blueprint, intentions), errors: issues.filter((issue) => issue.severity === 'error').map((issue) => issue.plain) });
+    const { draft: input, baseline, intentions } = interviewToDraft(interview, QUESTIONS, { lineageId: realDeps.newId(), today, timezone });
+    setPhase({ kind: 'reveal', interview, input, baseline, intentions });
   }
 
-  // Changing the answers reopens the interview on its last question, with everything before it kept.
-  function reopen(draft: InterviewDraft) {
-    const last = livePlan(draft, QUESTIONS).at(-1);
-    const reopened = last ? clearAnswer(draft, last.writes) : draft;
+  // Changing the answers reopens the interview on its last question, with everything before it kept - and every pin.
+  function reopen(interview: InterviewDraft) {
+    const last = livePlan(interview, QUESTIONS).at(-1);
+    const reopened = last ? clearAnswer(interview, last.writes) : interview;
     saveDraft(reopened);
     setInitial(reopened);
     setRound((value) => value + 1);
@@ -50,29 +55,36 @@ export function NewOnboarding() {
 
   function choose(tier: Tier) {
     setInitial({ tier, answers: {} });
+    setPins(NO_PINS);
+    savePins(NO_PINS);
     setRound((value) => value + 1);
     setPhase({ kind: 'interview' });
   }
 
   if (phase.kind === 'tier') return <TierChoice onChoose={choose} />;
   if (phase.kind === 'interview') return <AdaptiveInterview key={round} questions={QUESTIONS} initial={initial} today={today} onDraftChange={saveDraft} onComplete={generate} />;
-  return <Reveal blueprint={phase.blueprint} name={phase.name} baseline={phase.baseline} intentions={phase.intentions} errors={phase.errors} onRedo={() => reopen(phase.draft)} />;
+  return <Awakened phase={phase} pins={pins} onPins={setPins} onChange={() => reopen(phase.interview)} />;
 }
 
-function Reveal({ blueprint, name, baseline, intentions, errors, onRedo }: { blueprint: SystemBlueprint; name: string; baseline: Record<string, number>; intentions: QuestIntention[]; errors: string[]; onRedo: () => void }) {
+function Awakened({ phase, pins, onPins, onChange }: { phase: Extract<Phase, { kind: 'reveal' }>; pins: Pins; onPins: (pins: Pins) => void; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const navigate = useNavigate();
   const { markArcCreated } = useArcStatus();
-  const core = blueprint.quests.filter((quest) => quest.type === 'core');
-  const domainOf = (id: string) => blueprint.domains.find((domain) => domain.id === id);
+
+  // The System is a pure function of the answers and the pins; adjusting a card builds it again.
+  const pinned = useMemo(() => applyPins(phase.input, pins), [phase.input, pins]);
+  const built = useMemo(() => generateBlueprint(pinned), [pinned]);
+  const provenance = useMemo(() => provenanceFor(phase.interview, QUESTIONS, pinned, pins), [phase.interview, pinned, pins]);
+  const errors = useMemo(() => built.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.plain), [built]);
+  useEffect(() => { savePins(pins); }, [pins]);
 
   async function activate() {
     if (busy) return;
     setBusy(true);
     setFailure(null);
     try {
-      await activateNewSystem({ blueprint, name, baseline, intentions }, realDeps);
+      await activateNewSystem({ blueprint: built.blueprint, name: pinned.identity.displayName, baseline: phase.baseline, intentions: questIntentions(built.blueprint, phase.intentions) }, realDeps);
       // The answers have done their work: the Blueprint is the record, and the raw answers go.
       clearDraft();
       // Resolves once the new arc's config and versions are installed, so Today never renders against the defaults.
@@ -85,41 +97,17 @@ function Reveal({ blueprint, name, baseline, intentions, errors, onRedo }: { blu
   }
 
   return (
-    <ScreenShell>
-      <div className="relative flex flex-1 flex-col overflow-hidden text-ink-100">
-        <div aria-hidden className="init-field pointer-events-none absolute inset-0 overflow-hidden" />
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <SafeTop />
-          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-gutter pb-4 pt-6" data-testid="reveal">
-            <StepConsole index={blueprint.domains.length} kicker="SYSTEM CONSTRUCTED" title={`${name.toUpperCase()}, THIS IS YOUR SYSTEM`} lead={`${blueprint.arc.lengthDays} days, from ${blueprint.arc.startDate} to ${blueprint.arc.endDate}. Every day these are the quests.`}>
-              <div className="space-y-3">
-                {core.map((quest, index) => {
-                  const domain = domainOf(quest.domainId);
-                  return (
-                    <Rise key={quest.id} delay={index * 40}>
-                      <div data-testid="reveal-card" data-designation={quest.designation}>
-                      <Instrument label={domain?.designation ?? quest.designation} right={<span className="font-mono text-[10px] tabular-nums text-accent-mid">{quest.xp} XP</span>}>
-                        <p className="text-sm leading-snug text-ink-100" data-testid="reveal-quest">{quest.objective}</p>
-                      </Instrument>
-                      </div>
-                    </Rise>
-                  );
-                })}
-              </div>
-              {errors.length > 0 && (
-                <ul className="mt-4 space-y-1" role="alert">
-                  {errors.map((error) => <li key={error} className="font-mono text-[11px] uppercase tracking-[0.12em] text-state-alert">{error}</li>)}
-                </ul>
-              )}
-            </StepConsole>
-          </div>
-          {failure && <p className="px-gutter pb-2 text-sm text-state-alert" role="alert">{failure}</p>}
-          <div className="relative flex gap-3 px-gutter pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}>
-            <SecondaryButton onClick={onRedo} disabled={busy} className="flex-[0_0_31%]">Change</SecondaryButton>
-            <PrimaryButton size="md" disabled={busy || errors.length > 0} onClick={activate} className="flex-1">{busy ? 'Initialising…' : 'Initialise system'}</PrimaryButton>
-          </div>
-        </div>
-      </div>
-    </ScreenShell>
+    <Reveal
+      blueprint={built.blueprint} name={pinned.identity.displayName} provenance={provenance} pins={pins} adjustables={adjustables(pinned)} errors={errors} busy={busy} failure={failure}
+      onPinDomain={(key, values) => {
+        let next = pins;
+        for (const [field, value] of Object.entries(values) as ['goodDay' | 'hardDay' | 'designation', number | string][]) next = withPin(next, key, field, value);
+        onPins(next);
+      }}
+      onPinArc={(days) => onPins(withArcLength(pins, days))}
+      onUnpin={() => onPins(NO_PINS)}
+      onChange={onChange}
+      onActivate={() => void activate()}
+    />
   );
 }

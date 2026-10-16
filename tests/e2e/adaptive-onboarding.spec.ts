@@ -184,3 +184,46 @@ test.describe('Things of their own', () => {
     for (const stem of ['DRILL', 'REACH', 'HOUR', 'ROUTINE', 'MEASURE']) await expect(page.getByText(stem, { exact: false }).first()).toBeVisible();
   });
 });
+
+test.describe('Adjusting the Reveal', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('an adjusted field is pinned, says so, and survives changing an answer', async ({ page }) => {
+    test.setTimeout(MAX_SCRIPTED_MS);
+    await begin(page, 'quick');
+    await interview(page, ['career', 'body'], {}, {}, {});
+    const first = page.getByTestId('reveal-card').first();
+    const designation = await first.getAttribute('data-designation');
+    await expect(first).toContainText('BECAUSE: YOU CHOSE');
+
+    await first.getByRole('button', { name: `Adjust ${designation}` }).click();
+    const good = page.getByRole('spinbutton', { name: /Good day/ });
+    await good.fill('7');
+    await page.getByRole('button', { name: 'Pin these' }).click();
+    await expect(page.getByTestId('reveal-card').first()).toContainText('PINNED');
+    await expect(page.getByTestId('reveal-card').first()).toContainText('YOU ADJUSTED IT.');
+
+    // Change an answer (the arc length, the last question) and come back: the pin is still there, on the same card.
+    await page.getByRole('button', { name: 'Change' }).click();
+    await expect(page.getByTestId('question-length')).toBeVisible();
+    await page.locator('[role="radio"][data-value="180"]').click();
+    await next(page);
+    await expect(page.getByTestId('reveal')).toBeVisible();
+    await expect(page.getByTestId('reveal')).toContainText('180 days');
+    await expect(page.getByTestId('reveal-card').first()).toContainText('PINNED');
+    await expect(page.getByTestId('reveal-card').first()).toContainText('YOU ADJUSTED IT.');
+
+    // Pinning the arc holds it against a later change too, and a pin can be released.
+    await page.getByRole('button', { name: 'Adjust the arc' }).click();
+    await page.getByRole('spinbutton', { name: /Arc length/ }).fill('90');
+    await page.getByRole('button', { name: 'Pin this length' }).click();
+    await expect(page.getByTestId('reveal-arc')).toContainText('90 days');
+    await page.getByRole('button', { name: 'Release every pin' }).click();
+    await expect(page.getByTestId('reveal-arc')).toContainText('180 days');
+    await expect(page.getByTestId('reveal-card').first()).not.toContainText('PINNED');
+
+    await page.getByRole('button', { name: 'Initialise system' }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+    expect(await page.evaluate(() => [localStorage.getItem('onboarding_draft'), localStorage.getItem('onboarding_pins')])).toEqual([null, null]);
+  });
+});
