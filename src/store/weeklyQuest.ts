@@ -8,7 +8,9 @@ import { addDays, format, parseISO } from 'date-fns';
 import { proposeWeeklyQuest, type DsaTopicRate, type WeeklyQuestProposal } from '../engine/weeklyQuest';
 import type { EngineConfig, EngineDeps, WeeklyQuestCompletedPayload } from '../engine/types';
 import { db } from '../db/db';
-import { appendEvent } from '../db/events';
+import { appendEvent, getAllEvents } from '../db/events';
+import { recordsFromEvents } from '../blueprint/evaluate/env';
+import { weeklyMeasure } from '../blueprint/evaluate/weeklyGeneral';
 import { rebuildProjections } from '../db/projections';
 import type { WeeklyQuestRow } from '../db/schema';
 
@@ -73,6 +75,7 @@ export async function acceptWeeklyQuest(today: string, proposal: WeeklyQuestProp
     description: proposal.description,
     target: proposal.target,
     topic: proposal.topic,
+    ...(proposal.instrumentId ? { instrument_id: proposal.instrumentId, measure: proposal.measure } : {}),
     xp: 0, // set on completion, from config.weeklyQuestXp — see claimIfComplete
   };
   await db.weekly_quest.add(row);
@@ -85,6 +88,10 @@ async function getActiveWeeklyQuestRow(today: string): Promise<WeeklyQuestRow | 
 }
 
 async function progressFor(row: WeeklyQuestRow): Promise<number> {
+  if (row.kind === 'instrument_volume' && row.instrument_id) {
+    const records = recordsFromEvents(await getAllEvents()).get(row.instrument_id) ?? [];
+    return weeklyMeasure(records.filter((record) => record.localDate >= row.week_start_date && record.localDate <= row.week_end_date), row.measure ?? 'records', row.topic);
+  }
   if (row.kind === 'ship_project') {
     const artifacts = await db.artifact.toArray();
     return artifacts.filter((a) => a.local_date >= row.week_start_date && a.local_date <= row.week_end_date).length;

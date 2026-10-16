@@ -11,10 +11,13 @@ export interface DsaTopicRate {
 }
 
 export interface WeeklyQuestProposal {
-  kind: 'dsa_topic_volume' | 'ship_project';
+  kind: 'dsa_topic_volume' | 'ship_project' | 'instrument_volume';
   description: string;
   target: number;
   topic?: string;
+  /** kind 'instrument_volume' only: what is counted (a generated System's instrument), and how. */
+  instrumentId?: string;
+  measure?: 'minutes' | 'records';
 }
 
 const MIN_TARGET = 10;

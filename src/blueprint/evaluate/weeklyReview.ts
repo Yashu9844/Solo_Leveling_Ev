@@ -17,6 +17,7 @@ import type { SystemBlueprint } from '../schema';
 import { evaluateAttributes } from './attribute';
 import { readModelEnv, type ReadModelInput } from './readModel';
 import { recordsFor, resolveSignal } from './signals';
+import { correlationInsight, evidenceNudge, generalizedRules, weeklyOffers, type WeeklyOffer } from './weeklyGeneral';
 
 export interface WeeklyReviewV2 {
   thisWeek: Record<string, number>;
@@ -24,6 +25,13 @@ export interface WeeklyReviewV2 {
   review: WeeklyReviewResult;
   resumeNudge: string | null;
   sleepDsaCorrelation: SleepDsaCorrelation | null;
+  /** Present only for a generated System: its own rows, its one correlation, and a weekly-quest offer per proposing instrument. */
+  generated?: {
+    rows: { key: string; label: string; thisWeek: number; lastWeek: number }[];
+    insight: string | null;
+    offers: WeeklyOffer[];
+    attributeLabels: Record<string, string>;
+  };
 }
 
 /** Which engine rule each Blueprint rule kind switches on. */
@@ -43,14 +51,30 @@ export function evaluateWeeklyReview(blueprint: SystemBlueprint, input: Omit<Rea
 
   const afterAttributes = evaluateAttributes(blueprint, here) as unknown as AttributeResult[];
   const beforeAttributes = evaluateAttributes(blueprint, before) as unknown as AttributeResult[];
+  const generated = blueprint.origin !== 'legacy';
   const enabled = new Set(blueprint.rules.filter((rule) => rule.enabled).map((rule) => RULE_FOR_KIND[rule.kind]).filter(Boolean));
-  const proposals = evaluateRules([...input.events] as SystemEvent[], today).filter((proposal) => enabled.has(proposal.rule));
+  const proposals = generated
+    ? generalizedRules(blueprint, input.events, here.recordsByInstrument, today)
+    : evaluateRules([...input.events] as SystemEvent[], today).filter((proposal) => enabled.has(proposal.rule));
   const review = weeklyReviewFor(attributeDeltas(beforeAttributes, afterAttributes), proposals);
 
   const artifactInstrument = blueprint.instruments.find((instrument) => instrument.type === 'artifact' && instrument.domainId === 'build') ?? blueprint.instruments.find((instrument) => instrument.type === 'artifact');
   const shipped = artifactInstrument ? recordsFor(here.recordsByInstrument.get(artifactInstrument.id) ?? [], 'window_7', undefined, here).length : 0;
 
-  return { thisWeek: metrics(here), lastWeek: metrics(before), review, resumeNudge: resumeNudgeFor(shipped), sleepDsaCorrelation: correlation(blueprint, here) };
+  const thisWeek = metrics(here);
+  const lastWeek = metrics(before);
+  if (generated) {
+    return {
+      thisWeek, lastWeek, review, resumeNudge: evidenceNudge(blueprint, here.recordsByInstrument, today), sleepDsaCorrelation: null,
+      generated: {
+        rows: (blueprint.reviews.weeklyMetrics ?? []).map((row) => ({ key: row.key, label: row.label, thisWeek: thisWeek[row.key] ?? 0, lastWeek: lastWeek[row.key] ?? 0 })),
+        insight: correlationInsight(blueprint, input.events, today),
+        offers: weeklyOffers(blueprint, here.recordsByInstrument, today),
+        attributeLabels: Object.fromEntries(blueprint.attributes.defs.map((def) => [def.id, def.name])),
+      },
+    };
+  }
+  return { thisWeek, lastWeek, review, resumeNudge: resumeNudgeFor(shipped), sleepDsaCorrelation: correlation(blueprint, here) };
 }
 
 function correlation(blueprint: SystemBlueprint, env: ReturnType<typeof readModelEnv>): SleepDsaCorrelation | null {

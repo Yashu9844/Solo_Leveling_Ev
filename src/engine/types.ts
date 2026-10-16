@@ -411,7 +411,7 @@ export interface ReviewCompletedPayload {
 export interface WeekReviewedPayload {
   weekStartDate: string;
   weekEndDate: string;
-  acceptedWeeklyQuest?: { kind: 'dsa_topic_volume' | 'ship_project'; description: string; target: number; topic?: string };
+  acceptedWeeklyQuest?: { kind: 'dsa_topic_volume' | 'ship_project' | 'instrument_volume'; description: string; target: number; topic?: string; instrumentId?: string };
 }
 
 /** final/00 §C8 / final/01 §2.1.1's weekly quest payout — flat,

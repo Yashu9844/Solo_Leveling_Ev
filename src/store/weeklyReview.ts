@@ -125,6 +125,10 @@ export interface WeeklyReviewReport {
   activeWeeklyQuest: ActiveWeeklyQuest | null;
   /** Set only when there's no active quest — a fresh proposal to accept. */
   weeklyQuestProposal: WeeklyQuestProposal | null;
+  /** A generated System proposes one weekly quest per instrument that can; the person accepts at most one. Absent for the owner's System, whose report is the one it always was. */
+  weeklyQuestOffers?: WeeklyQuestProposal[];
+  /** Present only for a generated System: its own rows, insight and attribute names (the screen has no legacy layout for it). */
+  generated?: NonNullable<Awaited<ReturnType<typeof weeklyReviewV2>>>['generated'];
 }
 
 export async function getWeeklyReview(today: string, config: EngineConfig, deps: EngineDeps): Promise<WeeklyReviewReport> {
@@ -133,8 +137,9 @@ export async function getWeeklyReview(today: string, config: EngineConfig, deps:
   if (arcForV2 && v2) {
     // The read models come from the Blueprint engine; the weekly quest is state, not a read model, and is unchanged.
     const activeWeeklyQuest = await getActiveWeeklyQuest(today, arcForV2.id, config, deps);
-    const weeklyQuestProposal = activeWeeklyQuest ? null : await getWeeklyQuestProposal(today);
-    return { thisWeek: v2.thisWeek as unknown as WeeklyMetrics, lastWeek: v2.lastWeek as unknown as WeeklyMetrics, review: v2.review, resumeNudge: v2.resumeNudge, sleepDsaCorrelation: v2.sleepDsaCorrelation, activeWeeklyQuest, weeklyQuestProposal };
+    const weeklyQuestProposal = activeWeeklyQuest || v2.generated ? null : await getWeeklyQuestProposal(today);
+    const weeklyQuestOffers: WeeklyQuestProposal[] | undefined = !v2.generated ? undefined : activeWeeklyQuest ? [] : v2.generated.offers.map((offer) => ({ kind: 'instrument_volume', description: offer.description, target: offer.target, topic: offer.topic, instrumentId: offer.instrumentId, measure: offer.measure }));
+    return { thisWeek: v2.thisWeek as unknown as WeeklyMetrics, lastWeek: v2.lastWeek as unknown as WeeklyMetrics, review: v2.review, resumeNudge: v2.resumeNudge, sleepDsaCorrelation: v2.sleepDsaCorrelation, activeWeeklyQuest, weeklyQuestProposal, ...(weeklyQuestOffers ? { weeklyQuestOffers } : {}), ...(v2.generated ? { generated: v2.generated } : {}) };
   }
   const thisWeekDates = weekDates(today);
   const lastWeekDates = weekDates(shiftDate(today, -7));

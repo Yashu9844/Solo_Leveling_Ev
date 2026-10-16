@@ -5,6 +5,7 @@ import { buildProjectionsV2 } from '../../../src/blueprint/engine/projections';
 import { buildDomainTables } from '../../../src/db/domainProjections';
 import { DEFAULT_CONFIG } from '../../../src/engine/config';
 import type { SystemEvent } from '../../../src/engine/types';
+import type { SystemBlueprint } from '../../../src/blueprint/schema';
 import { LEGACY_ARC_ID } from '../../engine/support/legacyActivityLog';
 
 export async function seedDatabase(page: Page, events: SystemEvent[], now: string): Promise<void> {
@@ -25,6 +26,36 @@ export async function seedDatabase(page: Page, events: SystemEvent[], now: strin
   };
 
   // The app creates the schema on first load; seed the stores it made, then boot again so it reads them.
+  await page.goto('/start');
+  await page.evaluate((payload) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open('system-arc');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const database = open.result;
+      const names = Object.keys(payload);
+      const tx = database.transaction(names, 'readwrite');
+      for (const name of names) for (const row of payload[name]!) tx.objectStore(name).put(row);
+      tx.oncomplete = () => { database.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }), rows);
+}
+
+/**
+ * Seeds the app with a generated System and a log of its days, derived the way activation and a rebuild derive them (the Blueprint is in the
+ * log as BLUEPRINT_ACTIVATED). For the adaptive build, whose flags read a generated System.
+ */
+export async function seedGeneratedSystem(page: Page, blueprint: SystemBlueprint, events: SystemEvent[], now: string): Promise<void> {
+  const cache = buildProjectionsV2(events, { now: () => now, newId: () => 'seeded' }, [blueprint]);
+  const rows: Record<string, unknown[]> = {
+    event: events,
+    arc: [{
+      id: blueprint.arcId, start_date: blueprint.arc.startDate, end_date: blueprint.arc.endDate, timezone: blueprint.arc.timezone,
+      day_boundary_hour: blueprint.arc.dayBoundaryHour, day_close_hour: blueprint.arc.dayCloseHour, main_quest_text: blueprint.identity.primaryObjective, status: 'active',
+    }],
+    profile: [{ id: blueprint.arcId, name: blueprint.identity.displayName, created_at: now, arc_timezone: blueprint.arc.timezone, settings: {} }],
+    quest_template: cache.templates, quest_instance: cache.instances, xp_ledger: cache.ledger, day_rollup: cache.dayRollups, player_state: cache.playerState ? [cache.playerState] : [],
+  };
   await page.goto('/start');
   await page.evaluate((payload) => new Promise<void>((resolve, reject) => {
     const open = indexedDB.open('system-arc');

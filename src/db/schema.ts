@@ -312,10 +312,13 @@ export interface WeeklyQuestRow {
   id: string; // pk
   week_start_date: string;
   week_end_date: string;
-  kind: 'dsa_topic_volume' | 'ship_project';
+  kind: 'dsa_topic_volume' | 'ship_project' | 'instrument_volume';
   description: string;
   target: number;
-  topic?: string; // set for kind: 'dsa_topic_volume'
+  topic?: string; // set for kind: 'dsa_topic_volume'; for 'instrument_volume' it narrows the records counted
+  /** For kind: 'instrument_volume' (a generated System): the instrument whose records are counted, and whether by minutes or by record. */
+  instrument_id?: string;
+  measure?: 'minutes' | 'records';
   xp: number;
   completed_at?: string;
 }

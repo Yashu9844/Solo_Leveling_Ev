@@ -236,7 +236,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | Loop | Objective | Acceptance |
 |---|---|---|
 | ☑ 13.1 | Evening review: priority options = core domains; one rotating domain prompt (off in legacy); `REVIEW_COMPLETED.domainPrompt` | still ≤ 5 taps + 1; zero XP |
-| ☐ 13.2 | Weekly review: generalized rules, proposals per instrument, correlation, evidence nudge | legacy output identical; personas get relevant proposals |
+| ☑ 13.2 | Weekly review: generalized rules, proposals per instrument, correlation, evidence nudge | legacy output identical; personas get relevant proposals |
 | ☐ 13.3 | Checkpoint instruments from the Blueprint (self-efficacy and enjoyment items) | legacy items identical |
 
 ### Phase 14 — Configuration management

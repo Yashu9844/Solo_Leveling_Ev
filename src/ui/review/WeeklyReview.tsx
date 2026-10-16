@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { getEngineConfig } from '../../store/engineConfig';
 import { getWeeklyReview, recordWeekReviewed, type WeeklyReviewReport } from '../../store/weeklyReview';
 import { acceptWeeklyQuest } from '../../store/weeklyQuest';
+import type { WeeklyQuestProposal } from '../../engine/weeklyQuest';
 import { exportSnapshotJson, getBackupStatus, type BackupStatus } from '../../store/checkpoint';
 import { realDeps } from '../../store/deps';
 import type { Attribute } from '../../engine/types';
@@ -72,6 +73,8 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
   const [exported, setExported] = useState(false);
   const [arcId, setArcId] = useState<string | null>(null);
   const [weeklyQuestAccepted, setWeeklyQuestAccepted] = useState(false);
+  /** The offer the person accepted, when a generated System proposed several (at most one). */
+  const [acceptedOffer, setAcceptedOffer] = useState<WeeklyQuestProposal | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,18 +110,28 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
     if (accepted) setWeeklyQuestAccepted(true);
   }
 
+  async function handleAcceptOffer(offer: WeeklyQuestProposal) {
+    const accepted = await acceptWeeklyQuest(today, offer, realDeps);
+    if (accepted) setAcceptedOffer(offer);
+  }
+
   async function handleAccept() {
     if (arcId) {
-      const proposal = weeklyQuestAccepted ? report?.weeklyQuestProposal : undefined;
+      const proposal = acceptedOffer ?? (weeklyQuestAccepted ? report?.weeklyQuestProposal : undefined);
       await recordWeekReviewed(
         today,
         arcId,
-        proposal ? { kind: proposal.kind, description: proposal.description, target: proposal.target, topic: proposal.topic } : undefined,
+        proposal ? { kind: proposal.kind, description: proposal.description, target: proposal.target, topic: proposal.topic, instrumentId: proposal.instrumentId } : undefined,
         realDeps
       );
     }
     onClose();
   }
+
+  const generated = report?.generated;
+  /** A generated System names its own attributes; the owner's are the six the labels above know. */
+  const attributeLabel = (attribute: string): string => generated?.attributeLabels[attribute] ?? ATTRIBUTE_LABELS[attribute as Attribute] ?? attribute;
+  const rows = generated?.rows.filter((row) => row.key !== 'xpEarned') ?? [];
 
   return (
     <Portal>
@@ -160,20 +173,32 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
                   </span>
                   <span className="text-xxs uppercase text-ink-700">XP this week</span>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className="font-mono text-lg leading-none tabular-nums text-ink-100">
-                    <span className="glow-text">
-                      {Math.round(report.thisWeek.deepWorkMinutes / 60)}h{' '}
-                      {report.thisWeek.deepWorkMinutes % 60}m
+                {generated ? (
+                  rows[0] && (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-mono text-lg leading-none tabular-nums text-ink-100">
+                        <span className="glow-text">{rows[0].thisWeek.toLocaleString()}</span>
+                        <Delta current={rows[0].thisWeek} previous={rows[0].lastWeek} />
+                      </span>
+                      <span className="text-xxs uppercase text-ink-700">{rows[0].label}</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <span className="font-mono text-lg leading-none tabular-nums text-ink-100">
+                      <span className="glow-text">
+                        {Math.round(report.thisWeek.deepWorkMinutes / 60)}h{' '}
+                        {report.thisWeek.deepWorkMinutes % 60}m
+                      </span>
+                      <Delta
+                        current={report.thisWeek.deepWorkMinutes}
+                        previous={report.lastWeek.deepWorkMinutes}
+                        suffix="m"
+                      />
                     </span>
-                    <Delta
-                      current={report.thisWeek.deepWorkMinutes}
-                      previous={report.lastWeek.deepWorkMinutes}
-                      suffix="m"
-                    />
-                  </span>
-                  <span className="text-xxs uppercase text-ink-700">Deep work</span>
-                </div>
+                    <span className="text-xxs uppercase text-ink-700">Deep work</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -181,15 +206,26 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
               <SectionLabel rule className="mb-1 mt-6">
                 The week
               </SectionLabel>
-              <Row label="Career">
-                {report.thisWeek.applications} applications ({report.thisWeek.qualityApplications} quality)
-              </Row>
-              <Row label="DSA">{report.thisWeek.problems} problems</Row>
-              <Row label="Build">{report.thisWeek.buildSessions} sessions</Row>
-              <Row label="Learn">{report.thisWeek.learnBlocks} blocks</Row>
-              <Row label="Training">
-                {report.thisWeek.trainingSessions} sessions · steps {Math.round(report.thisWeek.meanSteps).toLocaleString()}/day
-              </Row>
+              {generated ? (
+                rows.map((row) => (
+                  <Row key={row.key} label={row.label}>
+                    {row.thisWeek.toLocaleString()}
+                    <Delta current={row.thisWeek} previous={row.lastWeek} />
+                  </Row>
+                ))
+              ) : (
+                <>
+                  <Row label="Career">
+                    {report.thisWeek.applications} applications ({report.thisWeek.qualityApplications} quality)
+                  </Row>
+                  <Row label="DSA">{report.thisWeek.problems} problems</Row>
+                  <Row label="Build">{report.thisWeek.buildSessions} sessions</Row>
+                  <Row label="Learn">{report.thisWeek.learnBlocks} blocks</Row>
+                  <Row label="Training">
+                    {report.thisWeek.trainingSessions} sessions · steps {Math.round(report.thisWeek.meanSteps).toLocaleString()}/day
+                  </Row>
+                </>
+              )}
 
               {(report.review.improved.length > 0 ||
                 report.review.declined.length > 0 ||
@@ -198,21 +234,29 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
                   {report.review.improved.length > 0 && (
                     <p className="text-ink-500">
                       <span className="text-ink-700">IMPROVED </span>
-                      {report.review.improved.map((a) => ATTRIBUTE_LABELS[a]).join(' · ')}
+                      {report.review.improved.map(attributeLabel).join(' · ')}
                     </p>
                   )}
                   {report.review.declined.length > 0 && (
                     <p className="text-ink-500">
                       <span className="text-ink-700">DECLINED </span>
-                      {report.review.declined.map((a) => ATTRIBUTE_LABELS[a]).join(' · ')}
+                      {report.review.declined.map(attributeLabel).join(' · ')}
                     </p>
                   )}
                   {report.review.bottleneck && (
                     <p className="text-accent-mid">
-                      BOTTLENECK {ATTRIBUTE_LABELS[report.review.bottleneck]}
+                      BOTTLENECK {attributeLabel(report.review.bottleneck)}
                     </p>
                   )}
                 </div>
+              )}
+
+              {generated?.insight && (
+                <Panel cut="sm" className="mt-6" bodyClassName="px-4 py-4">
+                  <p className="text-xs leading-[1.55] text-ink-500" data-testid="weekly-insight">
+                    {generated.insight}
+                  </p>
+                </Panel>
               )}
 
               {report.sleepDsaCorrelation && report.sleepDsaCorrelation.deltaPoints > 0 && (
@@ -284,6 +328,32 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
                       </div>
                     )}
                   </Panel>
+                </div>
+              )}
+
+              {!report.activeWeeklyQuest && report.weeklyQuestOffers && report.weeklyQuestOffers.length > 0 && (
+                <div data-testid="weekly-quest-offers">
+                  <SectionLabel rule className="mb-2 mt-6">
+                    Weekly quest — choose one
+                  </SectionLabel>
+                  <div className="flex flex-col gap-3">
+                    {report.weeklyQuestOffers.map((offer) => (
+                      <Panel key={offer.instrumentId} cut="md" bodyClassName="px-4 py-4">
+                        <p className="text-sm leading-[1.5] text-ink-300">{offer.description}</p>
+                        {acceptedOffer === offer ? (
+                          <p className="glow-text mt-3 text-xs text-accent-mid">Accepted.</p>
+                        ) : (
+                          !acceptedOffer && (
+                            <div className="mt-4">
+                              <SecondaryButton onClick={() => void handleAcceptOffer(offer)}>
+                                Accept weekly quest · +{getEngineConfig().weeklyQuestXp} XP
+                              </SecondaryButton>
+                            </div>
+                          )
+                        )}
+                      </Panel>
+                    ))}
+                  </div>
                 </div>
               )}
 
