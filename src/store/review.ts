@@ -14,6 +14,8 @@ import { db } from '../db/db';
 import { appendEvent, getAllEvents } from '../db/events';
 import { rebuildProjections, buildDayOutcomes } from '../db/projections';
 import { getActiveArc } from './arc';
+import { chooseDomainPrompt, isPromptAnswer, type ChosenPrompt } from '../blueprint/evaluate/reviewPrompt';
+import type { SystemBlueprint } from '../blueprint/schema';
 
 function shiftDate(dateStr: string, days: number): string {
   return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd');
@@ -40,6 +42,7 @@ export interface ReviewInput {
   blocker: ReviewBlocker;
   tomorrowPriority?: CoreQuestKey;
   sleptAt?: string; // "HH:mm"
+  domainPrompt?: { promptId: string; answer: string };
 }
 
 export async function completeEveningReview(
@@ -47,8 +50,13 @@ export async function completeEveningReview(
   arcId: string,
   input: ReviewInput,
   config: EngineConfig,
-  deps: EngineDeps
+  deps: EngineDeps,
+  /** When given, a domain-prompt answer must be one of the System's own chips; the writer refuses anything else. */
+  blueprint?: SystemBlueprint
 ): Promise<void> {
+  if (input.domainPrompt && blueprint && !isPromptAnswer(blueprint, input.domainPrompt.promptId, input.domainPrompt.answer)) {
+    throw new Error(`Not a prompt of this System: ${input.domainPrompt.promptId} / ${input.domainPrompt.answer}`);
+  }
   await db.transaction('rw', REBUILD_TABLES_FOR_REVIEW, async () => {
     const payload: ReviewCompletedPayload = { localDate: today, ...input };
     await appendEvent({
@@ -64,6 +72,39 @@ export async function completeEveningReview(
     });
     await rebuildProjections(config, deps);
   });
+}
+
+/**
+ * The one domain prompt for tonight's review (platform/02 §17.1), or null when the System has none (the owner's has none). Missed domains
+ * first, then the week's bottleneck, then the longest unasked; the facts are read from the same tables the report reads.
+ */
+export async function reviewPromptFor(today: string, blueprint: SystemBlueprint): Promise<ChosenPrompt | null> {
+  if (blueprint.reviews.domainPrompts.length === 0) return null;
+  const arc = await getActiveArc();
+  if (!arc) return null;
+  const domainOf = new Map(blueprint.quests.map((quest) => [quest.id as string, quest.domainId]));
+  const templates = (await db.quest_template.toArray()).filter((t) => t.type === 'core' && t.active_from <= today && (t.active_to === null || today < t.active_to));
+  const dates = enumerateBack(today, CONSISTENCY_KEY_WINDOW).filter((d) => d >= arc.start_date);
+  const instances = await db.quest_instance.where('local_date').anyOf(dates).toArray();
+  const templateById = new Map(templates.map((t) => [t.id, t]));
+  const missedToday = new Set<string>();
+  const misses7 = new Map<string, number>();
+  const doneToday = new Set(instances.filter((i) => i.local_date === today && i.state === 'complete').map((i) => i.template_id));
+  // Today: a core quest not completed is a miss whether or not its instance has been opened. Earlier days count only if the day was opened.
+  for (const template of templates) {
+    const domainId = domainOf.get(template.key as string);
+    if (domainId && !doneToday.has(template.id)) missedToday.add(domainId);
+  }
+  for (const instance of instances) {
+    const template = templateById.get(instance.template_id);
+    const domainId = template ? domainOf.get(template.key as string) : undefined;
+    if (domainId && instance.state !== 'complete') misses7.set(domainId, (misses7.get(domainId) ?? 0) + 1);
+  }
+  const reviews = await db.event.where('type').equals('REVIEW_COMPLETED').toArray();
+  const recentPromptIds = reviews
+    .sort((a, b) => b.local_date.localeCompare(a.local_date))
+    .flatMap((event) => { const asked = (event.payload as unknown as ReviewCompletedPayload).domainPrompt?.promptId; return asked ? [asked] : []; });
+  return chooseDomainPrompt(blueprint, { missedToday, misses7, recentPromptIds });
 }
 
 export interface DailyReport {

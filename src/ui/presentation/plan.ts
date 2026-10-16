@@ -31,3 +31,12 @@ export function reminderOptions(blueprint: SystemBlueprint): PlanOption[] {
       return quest ? [{ questId: quest.id, label: (blueprint.origin === 'legacy' ? LEGACY_REMINDER_LABELS[domain.id] : undefined) ?? domain.name }] : [];
     });
 }
+
+/** "Slept at" is asked only where the System keeps a sleep window: the owner's, or a generated sleep-regularity domain (platform/02 §17.1). */
+export function asksSleptAt(blueprint: SystemBlueprint): boolean {
+  return blueprint.instruments.some((instrument) => {
+    if (instrument.type !== 'time_window') return false;
+    const archetype = blueprint.domains.find((domain) => domain.id === instrument.domainId)?.archetypeId;
+    return archetype === undefined || archetype === 'sleep-regularity';
+  });
+}

@@ -398,6 +398,8 @@ export interface ReviewCompletedPayload {
   blocker: ReviewBlocker;
   tomorrowPriority?: CoreQuestKey;
   sleptAt?: string; // "HH:mm"
+  /** The one domain prompt a generated System asks (platform/02 §17.1); additive, absent in the owner's System. */
+  domainPrompt?: { promptId: string; answer: string };
 }
 
 /** final/05 §6's weekly review "Accept" action — WEEK_REVIEWED was

@@ -9,11 +9,12 @@ import {
 } from '@phosphor-icons/react';
 import type { CoreQuestKey, ReviewBlocker } from '../../engine/types';
 import { useSystem } from '../../store/SystemContext';
-import { priorityOptions } from '../presentation/plan';
+import { asksSleptAt, priorityOptions } from '../presentation/plan';
 import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
 import { db } from '../../db/db';
-import { completeEveningReview, getDailyReport, type DailyReport } from '../../store/review';
+import { completeEveningReview, getDailyReport, reviewPromptFor, type DailyReport } from '../../store/review';
+import type { ChosenPrompt } from '../../blueprint/evaluate/reviewPrompt';
 import { DotPicker } from '../components/DotPicker';
 import { SingleChipSelect } from '../components/SingleChipSelect';
 import { ArtLayer, Panel, Portal, QuoteCard, Sheet, TextInput } from '../kit';
@@ -42,6 +43,20 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
   const [blocker, setBlocker] = useState<ReviewBlocker | null>(null);
   const [priority, setPriority] = useState<CoreQuestKey | null>(null);
   const [sleptAt, setSleptAt] = useState('02:00');
+  // The one domain prompt (chips only) a generated System asks; the owner's System has none. Slept-at is asked only where a time window exists.
+  const [prompt, setPrompt] = useState<ChosenPrompt | null>(null);
+  const [promptAnswer, setPromptAnswer] = useState<string | null>(null);
+  const asksSleep = asksSleptAt(blueprint);
+
+  useEffect(() => {
+    let cancelled = false;
+    void reviewPromptFor(today, blueprint).then((chosen) => {
+      if (!cancelled) setPrompt(chosen);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [today, blueprint]);
   const [submitting, setSubmitting] = useState(false);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [name, setName] = useState<string | null>(null);
@@ -65,9 +80,17 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
     await completeEveningReview(
       today,
       arcId,
-      { energy, focus, blocker, tomorrowPriority: priority ?? undefined, sleptAt },
+      {
+        energy,
+        focus,
+        blocker,
+        tomorrowPriority: priority ?? undefined,
+        ...(asksSleep ? { sleptAt } : {}),
+        ...(prompt && promptAnswer ? { domainPrompt: { promptId: prompt.id, answer: promptAnswer } } : {}),
+      },
       getEngineConfig(),
-      realDeps
+      realDeps,
+      blueprint
     );
     const result = await getDailyReport(today, getEngineConfig());
     setReport(result);
@@ -222,8 +245,20 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
           onSelect={setPriority}
         />
 
+        {prompt && (
+          <div data-testid="domain-prompt">
+            <SingleChipSelect
+              label={prompt.prompt.toUpperCase()}
+              options={prompt.options}
+              labelFor={(option) => option}
+              selected={promptAnswer}
+              onSelect={setPromptAnswer}
+            />
+          </div>
+        )}
+
         {/* Slept At Time Picker Box */}
-        <div>
+        {asksSleep && <div>
           <div className="mb-2 text-[10px] uppercase font-bold tracking-[0.18em] text-ink-700">
             SLEPT AT
           </div>
@@ -247,7 +282,7 @@ export function EveningReview({ today, day, arcId, onClose }: EveningReviewProps
             </div>
             <Clock size={16} weight="regular" className="text-ink-700" />
           </div>
-        </div>
+        </div>}
       </div>
     </Sheet>
   );
