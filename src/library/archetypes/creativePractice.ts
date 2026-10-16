@@ -7,7 +7,7 @@ export const creativePractice: ArchetypeDef = {
   designations: ['CRAFT', 'OPUS', 'ATELIER'],
   name: 'Creative work', description: 'Time at the work, and the pieces you finish and show.', channel: 'STUDIO',
   instruments: [
-    { key: 'main', type: 'duration', label: 'Studio time', logVerb: 'Log Studio Time', params: { modes: ['MAKE', 'STUDY'], defaultMinutes: 30, minBlockMinutes: 10 } },
+    { key: 'main', type: 'duration', label: 'Studio time', logVerb: 'Log Studio Time', params: { modes: ['MAKE', 'STUDY'], inputMode: 'STUDY', outputMode: 'MAKE', defaultMinutes: 30, minBlockMinutes: 10 } },
     { key: 'pieces', type: 'artifact', label: 'Pieces', logVerb: 'Log Piece', params: { kinds: ['draft', 'piece', 'public_release'], bonusXp: 40, grant: { amount: 40, reason: 'piece' } } },
   ],
   quest: {

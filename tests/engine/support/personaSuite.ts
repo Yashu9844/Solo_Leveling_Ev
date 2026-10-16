@@ -234,7 +234,8 @@ export function describePersona(persona: Persona): void {
 
     it('body and outside outcomes never move XP, gates or rank: erasing every manual measurement changes nothing scored (I6)', () => {
       const without = events.filter((event) => event.type !== 'METRIC_RECORDED');
-      expect(without.length).toBeLessThan(events.length);
+      // A persona with no manual measurement (P7) has nothing to erase, and the equalities below hold trivially.
+      if (blueprint.metrics.some((metric) => 'manual' in metric.source)) expect(without.length).toBeLessThan(events.length);
       expect(JSON.stringify(buildProjectionsV2(without, deps).ledger)).toBe(JSON.stringify(built.ledger));
       const env = readEnv(lastDate);
       const envWithout = readEnv(lastDate, without);

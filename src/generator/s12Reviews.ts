@@ -27,8 +27,15 @@ export function buildReviews(contexts: DomainContext[]): ReviewDef {
 
 export function buildRules(contexts: DomainContext[], hasSkills: boolean): RuleDef[] {
   const rules: RuleDef[] = [];
-  const build = contexts.flatMap((ctx) => ctx.instruments).find((instrument) => instrument.type === 'duration' && Array.isArray(instrument.params.modes) && (instrument.params.modes as string[]).includes('LEARN') && (instrument.params.modes as string[]).includes('SHIP'));
+  const durations = contexts.flatMap((ctx) => ctx.instruments).filter((instrument) => instrument.type === 'duration' && Array.isArray(instrument.params.modes));
+  const build = durations.find((instrument) => (instrument.params.modes as string[]).includes('LEARN') && (instrument.params.modes as string[]).includes('SHIP'));
   if (build) rules.push({ id: 'learn-ship', kind: 'MODE_RATIO', enabled: true, params: { instrumentId: build.id, ratio: 3, windowDays: 14 } });
+  // Any other duration that names its input and output modes gets the same ratio rule (a creative: study vs make).
+  for (const instrument of durations) {
+    const { inputMode, outputMode } = instrument.params as { inputMode?: unknown; outputMode?: unknown };
+    if (instrument === build || typeof inputMode !== 'string' || typeof outputMode !== 'string') continue;
+    rules.push({ id: `input-output.${instrument.domainId}`, kind: 'MODE_RATIO', enabled: true, params: { instrumentId: instrument.id, inputMode, outputMode, ratio: 3, windowDays: 14 } });
+  }
   rules.push({ id: 'wrong-time', kind: 'WRONG_TIME', enabled: true, params: { count: 3, windowDays: 14 } });
   if (contexts.some((ctx) => ctx.instruments.some((instrument) => instrument.type === 'pipeline'))) {
     rules.push({ id: 'substitute-share', kind: 'SUBSTITUTE_SHARE', enabled: false }, { id: 'low-conversion', kind: 'LOW_CONVERSION', enabled: false });

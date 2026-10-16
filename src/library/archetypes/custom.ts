@@ -110,9 +110,16 @@ const KINDS: Record<string, CustomKind> = {
   },
 };
 
-/** The archetype for `custom:<type>`, or undefined when the id is not one. */
-export function customArchetype(id: string): ArchetypeDef | undefined {
+/** The types a custom domain can be kept as a guardrail with: a limit, a rhythm, or a routine - things held, not pushed. */
+export const CUSTOM_GUARDRAIL_TYPES: readonly InstrumentType[] = ['threshold', 'time_window', 'checklist'];
+
+/** The signal that counts the days a held thing was kept. */
+const KEPT_DAYS: Record<string, string> = { threshold: 'hit_days', time_window: 'hit_days', checklist: 'all_done_days' };
+
+/** The archetype for `custom:<type>`, or undefined when the id is not one. `guardrail` keeps a limit/rhythm/routine as a guardrail. */
+export function customArchetype(id: string, options: { guardrail?: boolean } = {}): ArchetypeDef | undefined {
   if (!isCustomArchetypeId(id)) return undefined;
+  if (options.guardrail && CUSTOM_GUARDRAIL_TYPES.includes(id.slice(CUSTOM_PREFIX.length) as InstrumentType)) return customGuardrail(id);
   const type = id.slice(CUSTOM_PREFIX.length) as InstrumentType;
   const kind = KINDS[type]!;
   const stems = CUSTOM_DESIGNATION_STEMS[type] ?? ['TRIAL'];
@@ -142,5 +149,31 @@ export function customArchetype(id: string): ArchetypeDef | undefined {
     checkpoint: { selfEfficacy: 'Do this on a day when you would rather not?', enjoyment: 'This work' },
     reviewPrompt: { prompt: 'What got in the way of this today?', options: ['Time', 'Energy', 'Interruptions', 'Nothing in the way'] },
     reflectionThemes: ['practice', 'return'],
+  };
+}
+
+/** A custom domain held as a guardrail: it earns only its quest, and is judged from A on by how many days it was kept. */
+function customGuardrail(id: string): ArchetypeDef {
+  const type = id.slice(CUSTOM_PREFIX.length) as InstrumentType;
+  const base = customArchetype(id)!;
+  const kept = KEPT_DAYS[type]!;
+  // A held threshold is kept UNDER its limit (screen time, spending); a rhythm or routine is kept as set.
+  const instrument: InstrumentTemplate = type === 'threshold'
+    ? { key: 'main', type, label: 'Daily limit', logVerb: 'Log Limit', params: { unit: 'units', comparator: '<=', target: 60, entryLabel: 'Count', hint: 'The number for today.', defaultValue: 45 } }
+    : base.instruments[0]!;
+  const quest: QuestTemplate = {
+    objective: type === 'threshold' ? '{target} or under.' : type === 'time_window' ? 'Within {tolerance} minutes of {wake}.' : 'The whole routine done.',
+    realityLabel: type === 'threshold' ? 'limit {target}' : type === 'time_window' ? 'window {window}' : 'routine done',
+    criterion: { kind: 'signal', instrument: 'main', signal: type === 'checklist' ? 'all_done_days' : 'hit', comparator: '>=', target: 1, min: 1 },
+    floor: 'same', schedule: { kind: 'daily' }, evidenceMode: 'self_report_allowed', recoverable: true, intentionAllowed: false,
+  };
+  return {
+    ...base, role: 'guardrail', headroom: 'guardrail', instruments: [instrument], quest, intention: false,
+    metrics: [{ key: 'kept', label: 'Days kept', unit: 'days', kind: 'effort', direction: 'higher', source: { instrument: 'main', signal: kept, aggregate: 'total' } }],
+    ladder: undefined, attribute: undefined, bossAnchor: undefined, skillTree: undefined,
+    conditions: [{
+      id: 'kept', short: 'Days kept', label: '{0} days kept (need {t0})', verifiability: 'recorded', comparator: '>=', format: 'int',
+      signal: { instrument: 'main', signal: kept, aggregate: 'total' }, at: { A: 40, S: 70 },
+    }],
   };
 }

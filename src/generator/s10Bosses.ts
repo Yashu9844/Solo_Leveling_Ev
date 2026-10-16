@@ -65,6 +65,7 @@ export function buildBosses(
   const milestones: MilestoneDef[] = [];
   const anchored = engines.filter((ctx) => ctx.resolved.archetype.bossAnchor && ctx.resolved.archetype.ladder);
 
+  const usedTitles = new Set<string>();
   for (let index = 0; index < count; index++) {
     const id = ROMAN[index]!;
     const start = Math.max(1, Math.round(lengthDays * opens[index]!));
@@ -102,6 +103,9 @@ export function buildBosses(
     }
     // B5: whatever the archetype offered, a title that names an outcome other people decide is never used.
     if (namesExternalOutcome(title)) title = 'LONG CONSISTENCY TRIAL';
+    // Two domains of one kind would otherwise share a title; the later one is numbered.
+    for (let n = 2; usedTitles.has(title); n++) title = `${title.replace(/ [IVX]+$/, '')} ${ROMAN[n - 1] ?? n}`;
+    usedTitles.add(title);
     conditions.push(flag(`${id}.checkpoint`, `Day-${rung.checkpointDay} checkpoint sealed`, 'structural', glob('checkpoint_sealed', String(rung.checkpointDay))));
     milestones.push(milestone);
     const gatesRank = bossGatesRank(index, count);

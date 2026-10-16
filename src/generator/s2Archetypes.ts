@@ -11,7 +11,7 @@ export function resolveArchetypes(draft: NormalizedDraft, archetypes: Readonly<R
   const roleCounts: Record<string, number> = {};
   const resolved: ResolvedDomain[] = [];
   draft.domains.forEach((choice, index) => {
-    const archetype = archetypes[choice.archetypeId] ?? customArchetype(choice.archetypeId);
+    const archetype = archetypes[choice.archetypeId] ?? customArchetype(choice.archetypeId, { guardrail: choice.answers.guardrail === true });
     if (!archetype) {
       issues.push(generatorIssue('G-ARCH-01', 'error', `domains.${index}`, 'THE SYSTEM DOES NOT KNOW THAT KIND OF DOMAIN.', `"${choice.archetypeId}" is not in the library, so it was left out.`));
       return;
