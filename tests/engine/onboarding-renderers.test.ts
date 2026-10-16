@@ -31,7 +31,7 @@ describe('question renderers', () => {
       expect(html, instance.key).toContain(instance.heading.replace(/&/g, '&amp;'));
     }
     // The walk exercises every kind the content uses.
-    expect([...kinds].sort()).toEqual(['date', 'dial', 'multi_card', 'number', 'rank', 'single_card', 'text_short', 'time']);
+    expect([...kinds].sort()).toEqual(['date', 'dial', 'multi_card', 'number', 'rank', 'single_card', 'text_list', 'text_short', 'time']);
   });
 
   it('cards are radios or checkboxes with a state, and each is a tap target of at least 44px', () => {

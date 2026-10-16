@@ -3,8 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import { generateBlueprint } from '../../src/generator/generate';
 import { ARCHETYPES } from '../../src/library/archetypes';
+import { CUSTOM_TYPES, customArchetype } from '../../src/library/archetypes/custom';
 import { QUESTIONS, RESOLUTIONS } from '../../src/onboarding/content';
-import { applyAnswer, activeAnswers, echoFor, expand, isComplete, livePlan, newDraft, nextQuestion, withDefaults } from '../../src/onboarding/engine';
+import { applyAnswer, activeAnswers, echoFor, expand, isComplete, livePlan, newDraft, nextQuestion, optionsFor, validateAnswer, withDefaults } from '../../src/onboarding/engine';
 import { interviewToDraft, questIntentions } from '../../src/onboarding/mapping';
 import { AREA_BUDGET, SKIP, STAGES, type InterviewDraft } from '../../src/onboarding/types';
 import { mulberry32 } from './support/randomEventLog';
@@ -45,7 +46,7 @@ describe('content lint', () => {
 
   it('writes to a distinct path per question, and per-area questions say where {area} goes', () => {
     // Packs for different archetypes share a path: only one of them is ever eligible for an area.
-    const writes = QUESTIONS.map((question) => `${question.writes}|${question.archetypeId ?? ''}`);
+    const writes = QUESTIONS.map((question) => `${question.writes}|${question.archetypeId ?? ''}|${question.each ?? ''}`);
     expect(new Set(writes).size).toBe(writes.length);
     for (const question of QUESTIONS.filter((candidate) => candidate.each === 'area')) expect(question.writes, question.id).toContain('{area}');
   });
@@ -59,7 +60,7 @@ describe('content lint', () => {
   });
 
   it('every measure pack names a real archetype, and its good-day default is that archetype’s own', () => {
-    for (const question of QUESTIONS.filter((candidate) => candidate.archetypeId)) expect(ARCHETYPES[question.archetypeId!], question.id).toBeDefined();
+    for (const question of QUESTIONS.filter((candidate) => candidate.archetypeId)) expect(ARCHETYPES[question.archetypeId!] ?? customArchetype(question.archetypeId!), question.id).toBeDefined();
     for (const archetype of Object.values(ARCHETYPES).filter((candidate) => candidate.role === 'engine' && candidate.quest && candidate.id !== 'custom')) {
       const pack = QUESTIONS.filter((candidate) => candidate.archetypeId === archetype.id);
       expect(pack.some((candidate) => candidate.id.startsWith('goodDay')), `${archetype.id} has no good-day question`).toBe(true);
@@ -176,7 +177,18 @@ describe('any walk through the interview ends in a valid System', () => {
       const areas = [...AREA_IDS].sort(() => random() - 0.5).slice(0, count);
       const tier = random() < 0.5 ? 'quick' : 'guided';
       const resolutions = Object.fromEntries(areas.map((area) => [`area.${area}.resolution`, RESOLUTIONS[area]![Math.floor(random() * RESOLUTIONS[area]!.length)]!.value]));
-      const draft = run(tier, { 'identity.displayName': 'Ada', areas, ...resolutions });
+      // Guided walks sometimes add things of their own, each an action the person picked, held or pushed.
+      const own: Record<string, unknown> = {};
+      if (tier === 'guided' && random() < 0.5) {
+        const names = ['Piano', 'Chess', 'Sugar', 'Journal'].slice(0, 1 + Math.floor(random() * Math.min(3, 6 - areas.length)));
+        own.customs = names.join(', ');
+        names.forEach((_, index) => {
+          const type = CUSTOM_TYPES.filter((candidate) => candidate !== 'study_block')[Math.floor(random() * 8)]!;
+          own[`area.custom${index + 1}.resolution`] = `custom:${type}`;
+          if (random() < 0.5) own[`area.custom${index + 1}.holds`] = 'hold';
+        });
+      }
+      const draft = run(tier, { 'identity.displayName': 'Ada', areas: areas.slice(0, 6 - (own.customs ? 3 : 0)), ...resolutions, ...own });
       expect(isComplete(draft, QUESTIONS), `seed ${seed}`).toBe(true);
       const { draft: input } = interviewToDraft(draft, QUESTIONS, mapping);
       const { issues, blueprint } = generateBlueprint(input);
@@ -232,5 +244,68 @@ describe('triggers become intentions on the System’s own quests', () => {
     expect(resolved).toHaveLength(1);
     expect(blueprint.quests.find((quest) => quest.id === resolved[0]!.questId)?.type).toBe('core');
     expect(resolved[0]).toMatchObject({ time: '08:00', place: 'the desk', first_action: 'open the tracker' });
+  });
+});
+
+describe('things of their own (Guided, 03 §26)', () => {
+  const customs = 'Piano, Gallery outreach, Cold shower, Evening shutdown, Pushups';
+  const answers = {
+    'identity.displayName': 'Quinn', areas: ['body'], customs,
+    'area.custom1.resolution': 'custom:practice_item', 'area.custom1.topics': 'Scales, Arpeggios, Pieces', 'area.custom1.goodDay': 3,
+    'area.custom2.resolution': 'custom:pipeline',
+    'area.custom3.resolution': 'custom:time_window', 'area.custom3.time': '06:15',
+    'area.custom4.resolution': 'custom:checklist', 'area.custom4.items': 'Plan tomorrow, Clear desk, Charge devices',
+    'area.custom5.resolution': 'custom:threshold', 'area.custom5.goodDay': 40,
+  };
+  const interview = run('guided', answers);
+
+  it('five of their own plus an area is a valid System, each under the name they gave it', () => {
+    const { draft } = interviewToDraft(interview, QUESTIONS, mapping);
+    expect(draft.domains.slice(0, 6).map((choice) => choice.archetypeId)).toEqual(['strength-movement', 'custom:practice_item', 'custom:pipeline', 'custom:time_window', 'custom:checklist', 'custom:threshold']);
+    expect(draft.domains[1]!.answers).toMatchObject({ topic: 'Piano', topics: ['Scales', 'Arpeggios', 'Pieces'], goodDay: 3 });
+    expect(draft.domains[3]!.answers).toMatchObject({ topic: 'Cold shower', time: '06:15' });
+    expect(draft.domains[4]!.answers?.items).toEqual(['Plan tomorrow', 'Clear desk', 'Charge devices']);
+    const { blueprint, issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    expect(blueprint.domains.filter((domain) => domain.role === 'engine')).toHaveLength(6);
+    expect(blueprint.domains.map((domain) => domain.name)).toEqual(expect.arrayContaining(['Piano', 'Gallery outreach', 'Cold shower', 'Evening shutdown', 'Pushups']));
+  });
+
+  it('holding a custom threshold makes it a guardrail with the limit given', () => {
+    const held = run('guided', { ...answers, 'area.custom1.holds': 'hold', 'area.custom1.limit': 30, customs: 'Sugar', 'area.custom1.resolution': 'custom:threshold' });
+    const { draft } = interviewToDraft(held, QUESTIONS, mapping);
+    const sugar = draft.domains.find((choice) => choice.answers?.topic === 'Sugar')!;
+    expect(sugar.answers).toMatchObject({ guardrail: true, limit: 30 });
+    const { blueprint, issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    expect(blueprint.domains.find((domain) => domain.name === 'Sugar')?.role).toBe('guardrail');
+  });
+
+  it('the ranking offers them by name, and the budget is six domains in all', () => {
+    const rank = livePlan(interview, QUESTIONS).find((instance) => instance.def.kind === 'rank')!;
+    expect(optionsFor(rank, interview.answers).map((option) => option.label)).toEqual(expect.arrayContaining(['Piano', 'Pushups']));
+    expect(interview.answers.priorities).toEqual(['body', 'custom1', 'custom2', 'custom3', 'custom4', 'custom5']);
+    const customsQuestion = livePlan(interview, QUESTIONS).find((instance) => instance.key === 'customs')!;
+    expect(validateAnswer(customsQuestion, { areas: ['body', 'career'] }, 'a, b, c, d, e').ok).toBe(false); // 2 + 5 > 6
+    expect(validateAnswer(customsQuestion, { areas: ['body', 'career'] }, 'a, b, c, d')).toEqual({ ok: true, value: 'a, b, c, d' });
+    expect(validateAnswer(customsQuestion, { areas: ['body'] }, 'Piano, piano, ,  Chess ')).toEqual({ ok: true, value: 'Piano, Chess' });
+    expect(validateAnswer(customsQuestion, { areas: ['body'] }, '__skipped__')).toEqual({ ok: true, value: '__skipped__' });
+  });
+
+  it('their questions come after the area’s own, asked under the name given and never counted against the budget', () => {
+    const plan = livePlan(interview, QUESTIONS);
+    const keys = plan.map((instance) => instance.key);
+    expect(keys.indexOf('customAction@custom1')).toBeGreaterThan(keys.indexOf('resolution@body'));
+    expect(plan.find((instance) => instance.key === 'customAction@custom1')!.heading).toBe('PIANO — WHAT ACTION PROVES PROGRESS?');
+    // A thing of their own never takes the question budget of a standard area.
+    expect(plan.filter((instance) => instance.area === 'body' && instance.def.budgeted !== false).length).toBeLessThanOrEqual(AREA_BUDGET.guided);
+  });
+
+  it('a custom draft is saved and resumed like any other', () => {
+    const half = withDefaults({ tier: 'guided', answers: { 'identity.displayName': 'Quinn', areas: ['body'], customs: 'Piano' } }, QUESTIONS, ctx);
+    expect(JSON.parse(JSON.stringify(half))).toEqual(half);
+    expect(isComplete(half, QUESTIONS)).toBe(true);
+    const { draft } = interviewToDraft(half, QUESTIONS, mapping);
+    expect(generateBlueprint(draft).issues.filter((issue) => issue.severity === 'error')).toEqual([]);
   });
 });

@@ -6,6 +6,8 @@
 // Voice (design/04 §25): System register in capitals for headings and echoes; plain language beneath. No praise, no exclamation, no prediction.
 import { ARCHETYPES } from '../library/archetypes';
 import type { ArchetypeDef, CriterionTemplate } from '../library/archetypes/types';
+import { CUSTOM_PREFIX, CUSTOM_TYPES, customArchetype } from '../library/archetypes/custom';
+import { CUSTOM_DESIGNATION_STEMS } from '../library/lexicon';
 import { AREAS } from '../library/presets';
 import { SKIP, type OptionDef, type Predicate, type QuestionDef } from './types';
 
@@ -84,31 +86,42 @@ function goodDayDefault(archetype: ArchetypeDef): number {
 
 const resolvedTo = (archetypeId: string): Predicate => ({ eq: ['area.{area}.resolution', archetypeId] });
 
-function measurePack(archetypeId: string, unit: Unit): QuestionDef[] {
-  const archetype = ARCHETYPES[archetypeId]!;
+function measurePack(archetypeId: string, unit: Unit, also?: Predicate): QuestionDef[] {
+  const archetype = ARCHETYPES[archetypeId] ?? customArchetype(archetypeId)!;
   const good = goodDayDefault(archetype);
+  const here: Predicate = also ? { and: [resolvedTo(archetypeId), also] } : resolvedTo(archetypeId);
   return [
     {
       id: `goodDay.${archetypeId}`, stage: 'MEASURE', tier: 'guided', archetypeId, each: 'area', budgeted: true,
       heading: `{area} — HOW MANY ${unit.noun} ON A GOOD DAY?`, subline: `Your usual good day, in ${unit.noun.toLowerCase()}. This is what completes the quest.`,
-      kind: 'number', unit: unit.noun, eligibility: resolvedTo(archetypeId), writes: 'area.{area}.goodDay', bounds: { min: unit.min, max: unit.max, step: unit.step },
+      kind: 'number', unit: unit.noun, eligibility: here, writes: 'area.{area}.goodDay', bounds: { min: unit.min, max: unit.max, step: unit.step },
       default: { const: good }, echo: '{area}: A GOOD DAY IS {n}.',
     },
     {
       id: `hardDay.${archetypeId}`, stage: 'MEASURE', tier: 'guided', archetypeId, each: 'area', budgeted: true,
       heading: `{area} — AND ON A HARD DAY?`, subline: 'The least that still counts. The System lowers the bar to it after two missed days.',
-      kind: 'number', unit: unit.noun, eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.goodDay' }] }, writes: 'area.{area}.hardDay', bounds: { min: 1, max: unit.max, step: Math.min(unit.step, 1) },
+      kind: 'number', unit: unit.noun, eligibility: { and: [here, { has: 'area.{area}.goodDay' }] }, writes: 'area.{area}.hardDay', bounds: { min: 1, max: unit.max, step: Math.min(unit.step, 1) },
       default: { scale: { from: 'area.{area}.goodDay', factor: 1 / 3, min: 1 } }, echo: '{area}: A HARD DAY IS {n}.',
     },
     ...(archetype.ladder ? [{
       id: `success.${archetypeId}`, stage: 'MEASURE' as const, tier: 'guided' as const, archetypeId, each: 'area' as const, budgeted: true,
       heading: `{area} — HOW MANY ${archetype.ladder.noun.toUpperCase()} WOULD CONVINCE YOU THAT YOU IMPROVED?`,
       subline: 'By the end of the arc. The checkpoints on the way are set from it.',
-      kind: 'number' as const, unit: archetype.ladder.noun.toUpperCase(), eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.hardDay' }] }, writes: 'area.{area}.success',
+      kind: 'number' as const, unit: archetype.ladder.noun.toUpperCase(), eligibility: { and: [here, { has: 'area.{area}.hardDay' }] }, writes: 'area.{area}.success',
       bounds: { min: 1, max: archetype.ladder.success * 10, step: 1 }, default: { const: archetype.ladder.success }, echo: '{area}: TARGET {n} BY THE END OF THE ARC.',
     }] : []),
   ];
 }
+
+/** The same, for the things the person builds from an action (03 §26): what a good day is counted in. */
+const CUSTOM_UNITS: Record<string, Unit> = {
+  practice_item: { noun: 'ITEMS', min: 1, max: 100, step: 1 },
+  duration: { noun: 'MINUTES', min: 10, max: 300, step: 5 },
+  session: { noun: 'SESSIONS', min: 1, max: 5, step: 1 },
+  artifact: { noun: 'THINGS FINISHED', min: 1, max: 10, step: 1 },
+  pipeline: { noun: 'REACH-OUTS', min: 1, max: 30, step: 1 },
+  threshold: { noun: 'COUNT', min: 1, max: 1000, step: 1 },
+};
 
 // ── Predicates over every area ──────────────────────────────────────────────
 
@@ -120,6 +133,11 @@ const anyAreaResolvedTo = (archetypeIds: readonly string[]): Predicate => ({
 });
 /** Answered, and not declined: a skipped time skips the rest of its trigger. */
 const answeredForReal = (path: string): Predicate => ({ and: [{ has: path }, { not: { eq: [path, SKIP] } }] });
+/** The domains the person builds from an action: `custom:<instrument type>`. */
+const CUSTOM_IDS = CUSTOM_TYPES.filter((type) => type !== 'study_block').map((type) => `${CUSTOM_PREFIX}${type}`);
+/** A custom domain kept as a guardrail (a limit, a rhythm, a routine) rather than pushed. */
+const notHeld: Predicate = { not: { eq: ['area.{area}.holds', 'hold'] } };
+const CAN_BE_HELD = ['threshold', 'time_window', 'checklist'].map((type) => `${CUSTOM_PREFIX}${type}`);
 /** Archetypes that can carry an if-then trigger. */
 const INTENTION_ARCHETYPES = Object.values(ARCHETYPES).filter((archetype) => archetype.intention).map((archetype) => archetype.id);
 
@@ -134,15 +152,22 @@ export const QUESTIONS: QuestionDef[] = [
 
   // 2 · INTENT
   {
-    id: 'areas', stage: 'INTENT', tier: 'quick', heading: 'WHAT ARE YOU HERE TO CHANGE?', subline: 'Choose two to six. The System builds one domain for each, and adds the guardrails that protect your capacity.',
-    kind: 'multi_card', options: AREAS.filter((area) => area.id in AREA_OPTIONS).map((area) => AREA_OPTIONS[area.id]!), count: { min: 2, max: 6 },
+    id: 'areas', stage: 'INTENT', tier: 'quick', heading: 'WHAT ARE YOU HERE TO CHANGE?', subline: 'Choose up to six. The System builds one domain for each, and adds the guardrails that protect your capacity.',
+    kind: 'multi_card', options: AREAS.filter((area) => area.id in AREA_OPTIONS).map((area) => AREA_OPTIONS[area.id]!), count: { min: 1, max: 6 },
     eligibility: { always: true }, writes: 'areas', noPrefill: true, default: { firstOption: true, count: 3 }, echo: 'AREAS REGISTERED: {answer}.',
+  },
+
+  {
+    id: 'customs', stage: 'INTENT', tier: 'guided', heading: 'ANYTHING ELSE YOU ARE TRYING TO BECOME BETTER AT?', skippable: true,
+    subline: 'Name up to five things of your own, separated by commas. For each, the System asks what action proves progress. Six domains in all.',
+    kind: 'text_list', eligibility: { has: 'areas' }, writes: 'customs', bounds: { maxLength: 24 }, count: { min: 1, max: 5 }, limitBy: { total: 6, minus: 'areas' },
+    default: { const: SKIP }, echo: 'REGISTERED: {answer}.',
   },
 
   // 3 · HIERARCHY
   {
     id: 'priorities', stage: 'HIERARCHY', tier: 'quick', heading: 'WHAT MATTERS MOST?', subline: 'Tap them in order. The first earns the most XP and gets the first boss.',
-    kind: 'rank', rankFrom: 'areas', options: Object.values(AREA_OPTIONS), eligibility: { has: 'areas' }, writes: 'priorities', default: { copy: 'areas' }, echo: 'PRIORITY ORDER: {answer}.',
+    kind: 'rank', rankFrom: 'areas', options: Object.values(AREA_OPTIONS), eligibility: { has: 'areas' }, writes: 'priorities', default: { chosenAreas: true }, echo: 'PRIORITY ORDER: {answer}.',
   },
 
   // 4 · RESOLUTION
@@ -163,6 +188,50 @@ export const QUESTIONS: QuestionDef[] = [
 
   // 5 · MEASURE (one pack per archetype)
   ...Object.entries(UNITS).flatMap(([id, unit]) => measurePack(id, unit)),
+  ...Object.entries(CUSTOM_UNITS).flatMap(([type, unit]) => measurePack(`${CUSTOM_PREFIX}${type}`, unit, notHeld)),
+
+
+  // 4b · A THING OF THEIR OWN: the action that proves progress is the resolution (03 §26)
+  {
+    id: 'customAction', stage: 'RESOLUTION', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — WHAT ACTION PROVES PROGRESS?', subline: 'The System measures this, and nothing else about it.',
+    kind: 'single_card', eligibility: { always: true }, writes: 'area.{area}.resolution', default: { firstOption: true }, echo: '{area}: {answer}.',
+    options: [
+      { value: 'custom:practice_item', label: 'Items I practise', hint: 'Problems, drills, pieces - each counted' },
+      { value: 'custom:duration', label: 'Time I focus', hint: 'Minutes at the work' },
+      { value: 'custom:session', label: 'Sessions I complete', hint: 'A session either happened or it did not' },
+      { value: 'custom:artifact', label: 'Things I finish and show', hint: 'Work you can put in front of someone' },
+      { value: 'custom:pipeline', label: 'People or places I reach out to', hint: 'Outreach, with replies tracked' },
+      { value: 'custom:threshold', label: 'A number I keep over or under', hint: 'A count for the day' },
+      { value: 'custom:time_window', label: 'A time I keep', hint: 'Within a window of a time of day' },
+      { value: 'custom:checklist', label: 'A routine I keep', hint: 'A short list, done in full' },
+    ],
+  },
+  {
+    id: 'customHolds', stage: 'RESOLUTION', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — DO YOU PUSH IT, OR HOLD IT?', subline: 'A pushed thing earns XP the more you do. A held thing is a limit or a rhythm: it protects, and earns little.',
+    kind: 'single_card', eligibility: areaResolvedToAny(CAN_BE_HELD), writes: 'area.{area}.holds', default: { const: 'push' }, echo: '{area}: {answer}.',
+    options: [{ value: 'push', label: 'Push it', hint: 'More is better' }, { value: 'hold', label: 'Hold it', hint: 'Kept under a limit, or on a time, or done in full' }],
+  },
+  {
+    id: 'customLimit', stage: 'MEASURE', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — WHAT IS THE MOST IN A DAY?', subline: 'A day at or under it counts.', kind: 'number', unit: 'PER DAY',
+    eligibility: { and: [resolvedTo('custom:threshold'), { eq: ['area.{area}.holds', 'hold'] }] }, writes: 'area.{area}.limit', bounds: { min: 1, max: 100000, step: 1 }, default: { const: 60 }, echo: '{area}: LIMIT {n} A DAY.',
+  },
+  {
+    id: 'customTime', stage: 'MEASURE', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — AT WHAT TIME?', subline: 'The hour you keep. Counted when you are within half an hour of it.', kind: 'time',
+    eligibility: resolvedTo('custom:time_window'), writes: 'area.{area}.time', default: { const: '07:00' }, echo: '{area}: KEPT AT {answer}.',
+  },
+  {
+    id: 'customItems', stage: 'MEASURE', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — WHAT ARE THE PARTS OF THE ROUTINE?', subline: 'Up to twelve, separated by commas. The routine counts when every one is done.', kind: 'text_list',
+    eligibility: resolvedTo('custom:checklist'), writes: 'area.{area}.items', bounds: { maxLength: 40 }, count: { min: 1, max: 12 }, default: { const: 'Done' }, echo: '{area}: {answer}.',
+  },
+  {
+    id: 'customParts', stage: 'MEASURE', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — DOES IT BREAK INTO PARTS?', subline: 'Up to twelve, separated by commas. Each becomes a node in the skill tree. You can skip this.', kind: 'text_list', skippable: true,
+    eligibility: resolvedTo('custom:practice_item'), writes: 'area.{area}.topics', bounds: { maxLength: 30 }, count: { min: 1, max: 12 }, default: { const: SKIP }, archetypeId: 'custom:practice_item',
+  },
+  {
+    id: 'customName', stage: 'MEASURE', tier: 'guided', each: 'custom', budgeted: false, heading: '{area} — NAME IT.', subline: 'How the System will call this domain.', kind: 'single_card',
+    eligibility: { has: 'area.{area}.resolution' }, writes: 'area.{area}.designation', default: { firstOption: true }, echo: '{area}: {answer}.',
+    options: { from: 'area.{area}.resolution', map: Object.fromEntries(CUSTOM_IDS.map((id) => [id, (CUSTOM_DESIGNATION_STEMS[id.slice(CUSTOM_PREFIX.length)] ?? ['TRIAL']).map((stem): OptionDef => ({ value: stem, label: stem }))])) },
+  },
 
   // 6 · GUARDRAILS
   {
@@ -222,7 +291,7 @@ export const QUESTIONS: QuestionDef[] = [
   // 9 · TRIGGERS (the top three areas that can carry one)
   {
     id: 'triggerTime', stage: 'TRIGGERS', tier: 'guided', heading: '{area} — WHEN?', subline: 'The time you will start. A sentence you wrote yourself is the one you keep.',
-    kind: 'time', each: 'area', topN: 3, budgeted: false, eligibility: areaResolvedToAny(INTENTION_ARCHETYPES), writes: 'area.{area}.triggerTime', default: { const: SKIP }, skippable: true,
+    kind: 'time', each: 'area', topN: 3, budgeted: false, eligibility: { and: [areaResolvedToAny([...INTENTION_ARCHETYPES, ...CUSTOM_IDS]), notHeld] }, writes: 'area.{area}.triggerTime', default: { const: SKIP }, skippable: true,
   },
   {
     id: 'triggerPlace', stage: 'TRIGGERS', tier: 'guided', heading: '{area} — WHERE?', kind: 'text_short', each: 'area', topN: 3, budgeted: false,

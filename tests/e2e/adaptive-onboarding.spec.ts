@@ -39,12 +39,13 @@ async function begin(page: Page, tier: 'quick' | 'guided'): Promise<void> {
 }
 
 /** Answers by what is asked; anything not named takes the System's own default. */
-async function interview(page: Page, areas: string[], resolution: Record<string, string>, fill: Record<string, string> = {}): Promise<void> {
-  for (let guard = 0; guard < 40; guard++) {
+async function interview(page: Page, areas: string[], resolution: Record<string, string>, fill: Record<string, string> = {}, pick: Record<string, string> = {}): Promise<void> {
+  for (let guard = 0; guard < 150; guard++) {
     if (await page.getByTestId('reveal').isVisible()) return;
     const key = await currentKey(page);
     if (key === 'name') await page.getByTestId('answer').fill('Ada');
     else if (key in fill) await page.getByTestId('answer').fill(fill[key]!);
+    else if (key in pick) await page.locator(`[role="radio"][data-value="${pick[key]}"]`).click();
     else if (key === 'areas') for (const area of areas) await page.locator(`[role="checkbox"][data-value="${area}"]`).click();
     else if (key.startsWith('resolution@')) {
       const wanted = resolution[key.split('@')[1]!];
@@ -157,5 +158,29 @@ test.describe('Guided', () => {
     await page.goto('/profile/settings/system');
     await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByText('open the question bank', { exact: false }).first()).toBeVisible();
+  });
+});
+
+test.describe('Things of their own', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('P7: five custom domains and an area, each under its own name; the validator is clean and Today shows them', async ({ page }) => {
+    test.setTimeout(MAX_SCRIPTED_MS * 3);
+    await begin(page, 'guided');
+    await interview(page, ['body'], { body: 'strength-movement' }, { customs: 'Piano, Gallery outreach, Cold shower, Evening shutdown, Pushups' }, {
+      'customAction@custom1': 'custom:practice_item',
+      'customAction@custom2': 'custom:pipeline',
+      'customAction@custom3': 'custom:time_window',
+      'customAction@custom4': 'custom:checklist',
+      'customAction@custom5': 'custom:threshold',
+    });
+    const designations = await page.getByTestId('reveal-card').evaluateAll((cards) => cards.map((card) => card.getAttribute('data-designation') ?? ''));
+    for (const stem of ['DRILL', 'REACH', 'HOUR', 'ROUTINE', 'MEASURE']) expect(designations).toContain(stem);
+    // Nothing blocks activation: no error is shown and the button is live.
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Initialise system' }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+    for (const stem of ['DRILL', 'REACH', 'HOUR', 'ROUTINE', 'MEASURE']) await expect(page.getByText(stem, { exact: false }).first()).toBeVisible();
   });
 });

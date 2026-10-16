@@ -4,8 +4,9 @@ import type { SystemBlueprint } from '../blueprint/schema';
 import { withGuardrails } from '../generator/presets';
 import type { DomainAnswers, DomainChoice, DraftState } from '../generator/types';
 import { ARCHETYPES } from '../library/archetypes';
+import { isCustomArchetypeId } from '../library/archetypes/custom';
 import { AREAS, DEFAULT_GUARDRAIL_ARCHETYPES } from '../library/presets';
-import { activeAnswers, rankedAreas, type Answers } from './engine';
+import { activeAnswers, customNames, isCustomArea, rankedAreas, splitList, type Answers } from './engine';
 import type { InterviewDraft, QuestionDef } from './types';
 import { SKIP } from './types';
 
@@ -45,12 +46,25 @@ const asNumber = (value: unknown): number | undefined => (typeof value === 'numb
 /** The archetype an area leads to: the person's resolution, or the area's own default. */
 function archetypeOf(area: string, answers: Answers): string | undefined {
   const chosen = asText(answers[`area.${area}.resolution`]);
-  if (chosen && ARCHETYPES[chosen]) return chosen;
+  if (chosen && (ARCHETYPES[chosen] || isCustomArchetypeId(chosen))) return chosen;
   return AREAS.find((candidate) => candidate.id === area)?.archetypeId;
 }
 
 function domainAnswers(area: string, archetypeId: string, answers: Answers): DomainAnswers {
   const out: DomainAnswers = {};
+  if (isCustomArea(area)) {
+    // A thing of their own: its name is the subject, and the rest is what the action calls for.
+    out.topic = customNames(answers)[Number(area.slice('custom'.length)) - 1];
+    const designation = asText(answers[`area.${area}.designation`]);
+    if (designation) out.designation = designation;
+    if (answers[`area.${area}.holds`] === 'hold') out.guardrail = true;
+    const limit = asNumber(answers[`area.${area}.limit`]);
+    if (limit !== undefined && limit > 0) out.limit = limit;
+    const time = asText(answers[`area.${area}.time`]);
+    if (time) out.time = time;
+    const items = asText(answers[`area.${area}.items`]);
+    if (items) out.items = splitList(items).slice(0, MAX_TOPICS);
+  }
   const goodDay = asNumber(answers[`area.${area}.goodDay`]);
   const hardDay = asNumber(answers[`area.${area}.hardDay`]);
   const success = asNumber(answers[`area.${area}.success`]);
@@ -58,7 +72,7 @@ function domainAnswers(area: string, archetypeId: string, answers: Answers): Dom
   if (hardDay !== undefined && hardDay >= 1) out.hardDay = out.goodDay === undefined ? hardDay : Math.min(hardDay, out.goodDay);
   if (success !== undefined && success >= 1) out.success = success;
   const topics = asText(answers[`area.${area}.topics`]);
-  if (topics && archetypeId === 'exam-prep') {
+  if (topics && (archetypeId === 'exam-prep' || archetypeId === 'custom:practice_item')) {
     const list = [...new Set(topics.split(/[,;\n]/).map((topic) => topic.trim()).filter(Boolean))].slice(0, MAX_TOPICS);
     if (list.length > 0) out.topics = list;
   }
@@ -87,8 +101,11 @@ export function interviewToDraft(interview: InterviewDraft, questions: readonly 
   const triggers: Intention[] = [];
   for (const area of rankedAreas(answers)) {
     const archetypeId = archetypeOf(area, answers);
-    if (!archetypeId || seen.has(archetypeId)) continue;
-    seen.add(archetypeId);
+    if (!archetypeId) continue;
+    // Two areas that lead to the same archetype make one domain - except the person's own things, which are distinct by name.
+    const key = isCustomArea(area) ? `${area}:${archetypeId}` : archetypeId;
+    if (seen.has(key)) continue;
+    seen.add(key);
     const given = domainAnswers(area, archetypeId, answers);
     choices.push({ archetypeId, ...(Object.keys(given).length > 0 ? { answers: given } : {}) });
     const examDate = asText(answers[`area.${area}.examDate`]);

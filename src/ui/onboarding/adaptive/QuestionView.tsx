@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import type { Answers } from '../../../onboarding/engine';
-import { STAGES, type OptionDef, type QuestionInstance } from '../../../onboarding/types';
+import { SKIP, STAGES, type OptionDef, type QuestionInstance } from '../../../onboarding/types';
 import { DayDial } from '../Step3Rhythm';
 import { EASE, HeroFigure, Instrument, Rise, Slot, SlotField, StepConsole } from '../shared';
 import { STAGE_COPY } from './stages';
@@ -16,7 +16,8 @@ export interface QuestionViewProps {
   error?: string | null;
 }
 
-const asString = (value: unknown): string => (typeof value === 'string' ? value : '');
+/** A declined question shows as an empty field, not as the marker it is stored as. */
+const asString = (value: unknown): string => (typeof value === 'string' && value !== SKIP ? value : '');
 const asList = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
 
 /** One question, rendered from its definition: the same console for every kind, with the hero the question calls for. */
@@ -128,6 +129,12 @@ function Control({ instance, options, value, onChange }: Pick<QuestionViewProps,
       return (
         <SlotField label="DATE">
           <input type="date" value={asString(value)} onChange={(event) => onChange(event.target.value)} className="tabular-nums" data-testid="answer" />
+        </SlotField>
+      );
+    case 'text_list':
+      return (
+        <SlotField label="SEPARATE WITH COMMAS">
+          <input type="text" value={asString(value)} onChange={(event) => onChange(event.target.value)} maxLength={200} autoCapitalize="sentences" data-testid="answer" />
         </SlotField>
       );
     case 'text_short':

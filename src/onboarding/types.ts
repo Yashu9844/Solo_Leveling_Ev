@@ -12,7 +12,7 @@ export const STAGES = [
 ] as const;
 export type StageId = (typeof STAGES)[number];
 
-export type QuestionKind = 'multi_card' | 'rank' | 'single_card' | 'action_card' | 'number' | 'time' | 'date' | 'text_short' | 'dial';
+export type QuestionKind = 'multi_card' | 'rank' | 'single_card' | 'action_card' | 'number' | 'time' | 'date' | 'text_short' | 'text_list' | 'dial';
 
 export interface OptionDef {
   value: string;
@@ -41,6 +41,8 @@ export type DefaultRule =
   | { scale: { from: DraftPath; factor: number; min?: number; otherwise?: unknown } }
   /** the first option's value, or the first `count` option values for a multi_card */
   | { firstOption: true; count?: number }
+  /** every area the person has chosen, in the order they were chosen (the rank question starts from it) */
+  | { chosenAreas: true }
   /** today's date, plus `days` */
   | { today: true; days?: number };
 
@@ -66,13 +68,15 @@ export interface QuestionDef {
   /** The System's one-line acknowledgement. {answer} is the answer in words, {area} the area, {n} a number answered. */
   echo?: string;
   /** Asked once per chosen area, in the order the person ranked them. {area} stands for the area id in `writes` and `eligibility` paths. */
-  each?: 'area';
+  each?: 'area' | 'custom';
   /** Counts toward the per-area question budget. */
   budgeted?: boolean;
   /** Set for archetype question packs. */
   archetypeId?: string;
-  /** A multi_card or rank answer must hold at least / at most this many values. */
+  /** A multi_card, rank or text_list answer must hold at least / at most this many values. */
   count?: { min?: number; max?: number };
+  /** The most a text_list may hold is `total` less the number of values already in `minus` (six domains in all: areas and the things of their own). */
+  limitBy?: { total: number; minus: DraftPath };
   /** A rank question orders the values of this answer (the chosen areas). */
   rankFrom?: DraftPath;
   /** For a per-area question: asked only for the person's top N areas (the if-then triggers are for the top three). */

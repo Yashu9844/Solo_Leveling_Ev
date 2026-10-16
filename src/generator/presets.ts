@@ -30,11 +30,12 @@ function baseDraft(context: DraftContext, domains: DomainChoice[], lengthDays: n
 /** Engines and guardrails beside them, never fewer than two engines or more than eight core domains. */
 export function withGuardrails(domains: DomainChoice[], guardrails: readonly string[]): DomainChoice[] {
   const present = new Set(domains.map((choice) => choice.archetypeId));
-  const isGuardrail = (id: string) => ARCHETYPES[id]?.role === 'guardrail';
+  // A custom domain the person chose to hold (a limit, a rhythm) is a guardrail, though its archetype is an engine's.
+  const isGuardrailChoice = (choice: DomainChoice) => ARCHETYPES[choice.archetypeId]?.role === 'guardrail' || choice.answers?.guardrail === true;
   const chosen = [...domains];
   for (const guardrail of guardrails) if (!present.has(guardrail)) chosen.push({ archetypeId: guardrail });
   // Fewer than two engines cannot carry a System: offer the defaults, in order, that are not already in.
-  let engines = chosen.filter((choice) => !isGuardrail(choice.archetypeId)).length;
+  let engines = chosen.filter((choice) => !isGuardrailChoice(choice)).length;
   for (const fallback of DEFAULT_ENGINES) {
     if (engines >= 2) break;
     if (chosen.some((choice) => choice.archetypeId === fallback)) continue;
@@ -44,7 +45,7 @@ export function withGuardrails(domains: DomainChoice[], guardrails: readonly str
   // More than eight core domains cannot be priced: the lowest-priority engines give way, guardrails stay.
   while (chosen.length > MAX_CORE) {
     let index = -1;
-    for (let i = chosen.length - 1; i >= 0; i--) if (!isGuardrail(chosen[i]!.archetypeId)) { index = i; break; }
+    for (let i = chosen.length - 1; i >= 0; i--) if (!isGuardrailChoice(chosen[i]!)) { index = i; break; }
     if (index < 0) break;
     chosen.splice(index, 1);
   }

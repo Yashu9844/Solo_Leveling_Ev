@@ -57,9 +57,36 @@ export function bindPredicate(predicate: Predicate, area: string | undefined): P
 
 // ── Areas ───────────────────────────────────────────────────────────────────
 
+/** The things of their own the person named ("Piano, Gallery outreach"), in order: each is a domain with an area of its own, custom1, custom2... */
+export function customNames(answers: Answers): string[] {
+  const raw = answers.customs;
+  if (typeof raw !== 'string' || raw === SKIP) return [];
+  return splitList(raw).slice(0, AREA_COUNT.max);
+}
+
+/** The values of a comma-separated answer: trimmed, no blanks, no repeats (case aside). */
+export function splitList(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of text.split(/[,;\n]/)) {
+    const item = part.trim();
+    if (item && !seen.has(item.toLowerCase())) { seen.add(item.toLowerCase()); out.push(item); }
+  }
+  return out;
+}
+
+export const customAreaId = (index: number): string => `custom${index + 1}`;
+export const isCustomArea = (area: string): boolean => /^custom\d+$/.test(area);
+
+/** Every area in play, in the order chosen: the standard ones, then the person's own things. */
+export function chosenAreas(answers: Answers): string[] {
+  const standard = Array.isArray(answers.areas) ? (answers.areas as unknown[]).filter((area): area is string => typeof area === 'string') : [];
+  return [...new Set([...standard, ...customNames(answers).map((_, index) => customAreaId(index))])];
+}
+
 /** The chosen areas in the order the person ranked them; areas they have not ranked follow in the order they were chosen. */
 export function rankedAreas(answers: Answers): string[] {
-  const chosen = Array.isArray(answers.areas) ? (answers.areas as string[]).filter((area) => typeof area === 'string') : [];
+  const chosen = chosenAreas(answers);
   const ranked = Array.isArray(answers.priorities) ? (answers.priorities as string[]).filter((area) => chosen.includes(area)) : [];
   return [...new Set([...ranked, ...chosen])];
 }
@@ -68,7 +95,8 @@ export function rankedAreas(answers: Answers): string[] {
 
 const stageIndex = (stage: StageId): number => STAGES.indexOf(stage);
 
-function areaLabel(area: string, questions: readonly QuestionDef[]): string {
+function areaLabel(area: string, questions: readonly QuestionDef[], answers: Answers): string {
+  if (isCustomArea(area)) return (customNames(answers)[Number(area.slice('custom'.length)) - 1] ?? area).toUpperCase();
   const intent = questions.find((question) => question.writes === 'areas');
   const option = Array.isArray(intent?.options) ? intent!.options.find((candidate) => candidate.value === area) : undefined;
   return (option?.label ?? area).toUpperCase();
@@ -84,8 +112,9 @@ export function expand(questions: readonly QuestionDef[], answers: Answers): Que
       out.push({ key: question.id, def: question, writes: question.writes, heading: question.heading });
     }
     for (const [rank, area] of areas.entries()) {
-      for (const question of inStage.filter((candidate) => candidate.each === 'area' && (candidate.topN === undefined || rank < candidate.topN))) {
-        out.push({ key: `${question.id}@${area}`, def: question, area, writes: bindPath(question.writes, area), heading: question.heading.replace(/\{area\}/g, areaLabel(area, questions)) });
+      const forThisArea = (candidate: QuestionDef) => (candidate.each === 'area' || (candidate.each === 'custom' && isCustomArea(area))) && (candidate.topN === undefined || rank < candidate.topN);
+      for (const question of inStage.filter(forThisArea)) {
+        out.push({ key: `${question.id}@${area}`, def: question, area, writes: bindPath(question.writes, area), heading: question.heading.replace(/\{area\}/g, areaLabel(area, questions, answers)) });
       }
     }
   }
@@ -131,7 +160,13 @@ export function activeAnswers(draft: InterviewDraft, questions: readonly Questio
 export function optionsFor(instance: QuestionInstance, answers: Answers): OptionDef[] {
   const { options } = instance.def;
   if (!options) return [];
-  if (Array.isArray(options)) return options;
+  if (Array.isArray(options)) {
+    // The ranking lists the person's own things beside the areas they ticked, under the names they gave them.
+    if (instance.def.kind === 'rank' && instance.def.rankFrom === 'areas') {
+      return [...options, ...customNames(answers).map((name, index): OptionDef => ({ value: customAreaId(index), label: name }))];
+    }
+    return options;
+  }
   // `from: '{area}'` keys the options by the area itself (each area offers its own resolutions).
   const key = options.from === '{area}' ? instance.area : answers[bindPath(options.from, instance.area)];
   return typeof key === 'string' ? (options.map[key] ?? []) : [];
@@ -147,6 +182,7 @@ export function defaultFor(instance: QuestionInstance, answers: Answers, context
     if (!Number.isFinite(base)) return rule.scale.otherwise;
     return Math.max(rule.scale.min ?? 0, Math.round(base * rule.scale.factor));
   }
+  if ('chosenAreas' in rule) return chosenAreas(answers);
   if ('firstOption' in rule) {
     const options = optionsFor(instance, answers);
     if (instance.def.kind === 'multi_card') return options.slice(0, rule.count ?? 1).map((option) => option.value);
@@ -185,7 +221,7 @@ export function validateAnswer(instance: QuestionInstance, answers: Answers, raw
       return { ok: true, value: unique };
     }
     case 'rank': {
-      const source = answers[def.rankFrom ?? 'areas'];
+      const source = def.rankFrom === undefined || def.rankFrom === 'areas' ? chosenAreas(answers) : answers[def.rankFrom];
       const expected = Array.isArray(source) ? (source as string[]) : [];
       if (!Array.isArray(raw) || raw.length !== expected.length || new Set(raw).size !== raw.length || raw.some((item) => !expected.includes(item as string))) return fail('Put every item in order.');
       return { ok: true, value: [...(raw as string[])] };
@@ -204,6 +240,16 @@ export function validateAnswer(instance: QuestionInstance, answers: Answers, raw
       return typeof raw === 'string' && TIME.test(raw) ? { ok: true, value: raw } : fail('Enter a time as HH:MM.');
     case 'date':
       return typeof raw === 'string' && isIsoDate(raw) ? { ok: true, value: raw } : fail('Enter a date.');
+    case 'text_list': {
+      if (typeof raw !== 'string') return fail('Enter some text.');
+      // eslint-disable-next-line no-control-regex
+      const names = splitList(raw.replace(/[ -]/g, ' ').replace(/ +/g, ' ')).map((name) => name.slice(0, def.bounds?.maxLength ?? 24));
+      const taken = def.limitBy ? (Array.isArray(answers[def.limitBy.minus]) ? (answers[def.limitBy.minus] as unknown[]).length : 0) : 0;
+      const max = Math.min(def.count?.max ?? Infinity, def.limitBy ? def.limitBy.total - taken : Infinity);
+      if (names.length < (def.count?.min ?? 1)) return fail('Name at least one.');
+      if (names.length > max) return fail(max > 0 ? `At most ${max}: ${def.limitBy ? `${def.limitBy.total} in all.` : ''}`.trim() : `That is ${def.limitBy?.total ?? 0} already; none more.`);
+      return { ok: true, value: names.join(', ') };
+    }
     case 'text_short': {
       if (typeof raw !== 'string') return fail('Enter some text.');
       // eslint-disable-next-line no-control-regex
@@ -278,14 +324,14 @@ function daysUntil(value: unknown, context: EngineContext | undefined): number |
 export function echoFor(instance: QuestionInstance, answers: Answers, questions: readonly QuestionDef[], context?: EngineContext): string | null {
   const chosen = optionsFor(instance, answers).find((option) => option.value === answers[instance.writes]);
   const template = chosen?.echo ?? instance.def.echo;
-  if (!template || !isAnswered(instance, answers)) return null;
+  if (!template || !isAnswered(instance, answers) || answers[instance.writes] === SKIP) return null;
   const days = daysUntil(answers[instance.writes], context);
   // A date is echoed as a count of days ahead; one that is not ahead is said plainly rather than as "-3 DAYS".
   if (template.includes('{days}') && (days === null || days < 1)) return 'THAT DATE IS TODAY OR HAS PASSED.';
   return template
     .replace(/\{days\}/g, String(days))
     .replace(/\{answer\}/g, answerInWords(instance, answers).toUpperCase())
-    .replace(/\{area\}/g, instance.area ? areaLabel(instance.area, questions) : '')
+    .replace(/\{area\}/g, instance.area ? areaLabel(instance.area, questions, answers) : '')
     .replace(/\{n\}/g, String(answers[instance.writes] ?? ''));
 }
 
