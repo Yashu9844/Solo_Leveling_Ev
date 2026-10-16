@@ -19,3 +19,21 @@ export function engineV2Enabled(): boolean {
 export function setEngineV2Override(value: boolean | undefined): void {
   engineV2Override = value;
 }
+
+let newOnboardingOverride: boolean | undefined;
+
+/**
+ * NEW_ONBOARDING (platform/05 Phase 10): a person with no arc is interviewed and given a generated System instead of the owner's
+ * fixed six steps. It governs new arcs only - an arc that exists is never touched - and it needs ENGINE_V2, because a generated
+ * System runs on the Blueprint engine and the hard-wired one cannot play it.
+ */
+export function newOnboardingEnabled(): boolean {
+  if (!engineV2Enabled()) return false;
+  if (newOnboardingOverride !== undefined) return newOnboardingOverride;
+  return import.meta.env.VITE_NEW_ONBOARDING === 'true';
+}
+
+/** Test/dev only. Pass `undefined` to return to the build's setting. */
+export function setNewOnboardingOverride(value: boolean | undefined): void {
+  newOnboardingOverride = value;
+}

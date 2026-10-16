@@ -4,6 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
  * machine serves there, and the suite must only ever test this one. */
 const PORT = 4273;
 
+/** The adaptive onboarding (VITE_NEW_ONBOARDING) is a different BUILD, not a setting: it is served from its own port and tested only by adaptive-*.spec.ts. */
+const ADAPTIVE_PORT = 4274;
+const ADAPTIVE = /adaptive-.*.spec.ts/;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -38,7 +42,15 @@ export default defineConfig({
      */
     {
       name: 'chromium-pixel-7',
+      testIgnore: ADAPTIVE,
       use: { ...devices['Pixel 7'] },
+    },
+
+    /** The generated-System journeys, against the build that has ENGINE_V2 and NEW_ONBOARDING on. */
+    {
+      name: 'adaptive-onboarding',
+      testMatch: ADAPTIVE,
+      use: { ...devices['Pixel 7'], baseURL: `http://localhost:${ADAPTIVE_PORT}` },
     },
 
     /**
@@ -73,7 +85,7 @@ export default defineConfig({
       },
     })),
   ],
-  webServer: {
+  webServer: [{
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     // Never reuse. With reuse on, any server already listening on the
@@ -83,4 +95,11 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
   },
+  {
+    command: `npx vite build --outDir dist-adaptive && npx vite preview --outDir dist-adaptive --port ${ADAPTIVE_PORT} --strictPort`,
+    env: { VITE_ENGINE_V2: 'true', VITE_NEW_ONBOARDING: 'true' },
+    url: `http://localhost:${ADAPTIVE_PORT}`,
+    reuseExistingServer: false,
+    timeout: 180_000,
+  }],
 });

@@ -8,6 +8,7 @@ export default tseslint.config(
     // code — it runs under Node globals this config doesn't declare.
     ignores: [
       'dist/**',
+      'dist-adaptive/**',
       'dev-dist/**',
       'coverage/**',
       'playwright-report/**',

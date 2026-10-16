@@ -52,7 +52,7 @@ export function AdaptiveInterview({ questions, initial, today, onDraftChange, on
   if (!instance) return null;
 
   const stored = draft.answers[instance.writes];
-  const value = edit?.key === instance.key ? edit.value : (stored ?? defaultFor(instance, draft.answers, { today }));
+  const value = edit?.key === instance.key ? edit.value : (stored ?? (instance.def.noPrefill ? undefined : defaultFor(instance, draft.answers, { today })));
   const options = optionsFor(instance, draft.answers);
   const validation = validateAnswer(instance, draft.answers, value);
   const position = plan.findIndex((candidate) => candidate.key === instance.key);

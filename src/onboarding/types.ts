@@ -57,6 +57,8 @@ export interface QuestionDef {
   writes: DraftPath;
   default?: DefaultRule;
   bounds?: { min?: number; max?: number; step?: number; maxLength?: number };
+  /** The control starts empty: the default is for "use the defaults", not a choice made on the person's behalf (WHAT ARE YOU HERE TO CHANGE?). */
+  noPrefill?: boolean;
   /** What a number is counted in, set beside the figure ("PROBLEMS", "MINUTES", "KG"). */
   unit?: string;
   /** The System's one-line acknowledgement. {answer} is the answer in words, {area} the area, {n} a number answered. */

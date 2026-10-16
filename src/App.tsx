@@ -1,6 +1,8 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useArcStatus } from './store/ArcStatusContext';
 import { Onboarding } from './ui/onboarding/Onboarding';
+import { NewOnboarding } from './ui/onboarding/adaptive/NewOnboarding';
+import { newOnboardingEnabled } from './flags';
 import { AppShell } from './ui/AppShell';
 import { Today } from './ui/screens/Today';
 import { Progress } from './ui/screens/Progress';
@@ -69,7 +71,7 @@ export function App() {
       <Route
         path="/onboarding"
         element={
-          arcExists ? <Navigate to="/today" replace /> : <Onboarding onComplete={markArcCreated} />
+          arcExists ? <Navigate to="/today" replace /> : newOnboardingEnabled() ? <NewOnboarding /> : <Onboarding onComplete={markArcCreated} />
         }
       />
 

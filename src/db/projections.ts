@@ -247,7 +247,15 @@ export async function rebuildProjections(
   // ENGINE_V2 (platform/05 Phase 6): the Blueprint engine builds the same five tables. For the
   // owner's implicit-legacy System the result is byte-identical (E1), so this is a swap, not a change.
   const built = engineV2Enabled() ? buildProjectionsV2(events, deps) : buildProjections(events, config, deps);
+  await replaceProjectionTables(built);
+  return built;
+}
 
+/**
+ * Writes already-built projections over the five cache tables. Joins an enclosing transaction that lists them (the activation
+ * of a new System writes the log and its projections as one), and starts its own otherwise.
+ */
+export async function replaceProjectionTables(built: BuiltProjections): Promise<void> {
   await db.transaction(
     'rw',
     [db.quest_template, db.quest_instance, db.xp_ledger, db.day_rollup, db.player_state],
@@ -264,9 +272,7 @@ export async function rebuildProjections(
       if (built.playerState) await db.player_state.add(built.playerState);
     }
   );
-
   epoch++;
-  return built;
 }
 
 export interface IntegrityReport {

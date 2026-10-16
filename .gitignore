@@ -50,3 +50,5 @@ platform-fixtures/private/
 
 # Claude Code session lock
 .claude/scheduled_tasks.lock
+
+dist-adaptive/

@@ -136,7 +136,7 @@ export const QUESTIONS: QuestionDef[] = [
   {
     id: 'areas', stage: 'INTENT', tier: 'quick', heading: 'WHAT ARE YOU HERE TO CHANGE?', subline: 'Choose two to six. The System builds one domain for each, and adds the guardrails that protect your capacity.',
     kind: 'multi_card', options: AREAS.filter((area) => area.id in AREA_OPTIONS).map((area) => AREA_OPTIONS[area.id]!), count: { min: 2, max: 6 },
-    eligibility: { always: true }, writes: 'areas', default: { firstOption: true, count: 3 }, echo: 'AREAS REGISTERED: {answer}.',
+    eligibility: { always: true }, writes: 'areas', noPrefill: true, default: { firstOption: true, count: 3 }, echo: 'AREAS REGISTERED: {answer}.',
   },
 
   // 3 · HIERARCHY
