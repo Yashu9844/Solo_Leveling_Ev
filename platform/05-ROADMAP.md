@@ -227,7 +227,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 
 | Loop | Objective | Acceptance |
 |---|---|---|
-| ☐ 12.1 | Evidence message templates driven by signals (P1–P3); eligibility bans (body, external, forecasts) | I20; persona message tests; legacy E2 unchanged |
+| ☑ 12.1 | Evidence message templates driven by signals (P1–P3); eligibility bans (body, external, forecasts) | I20; persona message tests; legacy E2 unchanged |
 | ☐ 12.2 | Voice: `{COUNT}` lines with pre-rendered FOUR–EIGHT variants; time-free / boundary variants; `requiresDesignation`; `npm run voice` for the new clips | F11 test; legacy lines and audio ids unchanged |
 | ☐ 12.3 | Phase bounds relative to the wake time; checkpoint days from the Blueprint; reflections tagged by archetype theme; day ranges as arc fractions | night-shift persona receives MORNING lines after waking; legacy E2 unchanged |
 

@@ -4,7 +4,7 @@ import { isValidTimeZone } from '../engine/time';
 import { checkpointDaysFor } from '../library/calibration';
 import { isValidDesignation } from '../library/lexicon';
 import { canonicalJson, hashesFor, partitionBlueprint } from './hash';
-import type { Criterion, GateCondition, SignalRef, SystemBlueprint } from './schema';
+import { EVIDENCE_PLACEHOLDERS, type Criterion, type GateCondition, type SignalRef, type SystemBlueprint } from './schema';
 
 export interface Issue {
   code: string;
@@ -171,6 +171,21 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
   if (blueprint.attributes.defs.length && (blueprint.attributes.defs.length < 3 || blueprint.attributes.defs.length > 6 || !blueprint.attributes.defs.some((attribute) => attribute.id === 'DISCIPLINE') || blueprint.attributes.groups.length > 4)) add('V-ATT-03', 'error', 'attributes', 'THE ATTRIBUTE SET IS INCOMPLETE.', 'Use 3–6 attributes including DISCIPLINE and no more than four groups.');
   if (blueprint.skills.length > 5 || blueprint.skills.some((skill) => skill.nodes.length > 30 || skill.nodes.some((node) => node.dependsOn?.some((id) => !skill.nodes.some((candidate) => candidate.id === id))))) add('V-SKL-01', 'error', 'skills', 'A SKILL TREE HAS A BROKEN DEPENDENCY.', 'Nodes must depend only on nodes in their tree; keep trees within the size limit.');
   if (blueprint.messaging.evidenceTemplates.some((template) => template.signal !== undefined && unsafeSignal(template.signal))) add('V-MSG-01', 'error', 'messaging', 'A MESSAGE WOULD SCORE UNCONTROLLED EVIDENCE.', 'Evidence messages may only use eligible effort or performance signals.');
+  // A message names its domains only through {label} and {with}, and only domains the System has (I20); a record or a trend reads an instrument signal.
+  const knownDomains = new Set(blueprint.domains.map((domain) => domain.id));
+  const domainWords = blueprint.domains.flatMap((domain) => [domain.name, domain.designation]).map((word) => word.trim().toLowerCase()).filter((word) => word.length > 2);
+  const badMessage = (template: SystemBlueprint['messaging']['evidenceTemplates'][number]): boolean => {
+    const placeholders = [...template.template.matchAll(/\{([a-z]+)\}/g)].map((match) => match[1]!);
+    if (placeholders.some((name) => !(EVIDENCE_PLACEHOLDERS as readonly string[]).includes(name))) return true;
+    const text = template.template.replace(/\{[a-z]+\}/g, ' ').toLowerCase();
+    if (domainWords.some((word) => text.includes(word))) return true;
+    if (template.domainId !== undefined && !knownDomains.has(template.domainId)) return true;
+    if (template.withDomainId !== undefined && !knownDomains.has(template.withDomainId)) return true;
+    if ((placeholders.includes('label') || template.kind !== undefined) && template.domainId === undefined) return true;
+    if ((template.kind === 'record' || template.kind === 'trend') && template.signal?.source !== 'instrument') return true;
+    return template.kind === 'correlation' && template.withDomainId === undefined;
+  };
+  if (blueprint.messaging.evidenceTemplates.some(badMessage)) add('V-MSG-01', 'error', 'messaging', 'A MESSAGE NAMES WHAT THE SYSTEM DOES NOT HAVE.', 'Evidence messages may use only their placeholders, must point at domains in this System, and may not spell a domain out.');
   return issues;
 }
 

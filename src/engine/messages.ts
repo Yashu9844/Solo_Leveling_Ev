@@ -37,6 +37,13 @@ export interface DayFacts {
   core_total: number;
 }
 
+/** One evidence message a generated System's own templates produced (blueprint/evaluate/evidenceMessages.ts). */
+export interface EvidenceLine {
+  id: string;
+  tier: 'P1' | 'P2' | 'P3';
+  text: string;
+}
+
 export interface MessageContext {
   today: DayFacts;
   /** Chronological, most recent last, NOT including today. */
@@ -64,6 +71,9 @@ export interface MessageContext {
    * vs days it wasn't, over the arc so far. Only supplied when both
    * buckets have enough sample. */
   dsaFirstAttemptBySleep?: { afterHit: number; afterMiss: number };
+
+  /** P1-P3 from the Blueprint's own templates, most specific first. Absent for the owner's System, whose messages are the fields above. */
+  evidence?: EvidenceLine[];
 }
 
 const CONSISTENCY_WINDOW = 14;
@@ -88,7 +98,8 @@ export function selectMessage(context: MessageContext): string {
  * selectMessage's always-non-null result.
  */
 export function selectSpecificMessage(context: MessageContext): string | null {
-  return personalRecord(context) ?? trendWithNumbers(context) ?? correlation(context);
+  const evidence = (tier: EvidenceLine['tier']): string | null => context.evidence?.find((line) => line.tier === tier)?.text ?? null;
+  return personalRecord(context) ?? evidence('P1') ?? trendWithNumbers(context) ?? evidence('P2') ?? correlation(context) ?? evidence('P3');
 }
 
 function personalRecord(context: MessageContext): string | null {

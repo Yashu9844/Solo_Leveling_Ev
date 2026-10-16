@@ -20,6 +20,7 @@ import type { InstrumentConfig, SystemBlueprint } from '../schema';
 import { rankSealedBefore, type SealedCheckpointFact } from './gate';
 import type { InstrumentRecord } from '../../instruments/framework';
 import { recordsFromEvents } from './env';
+import { evidenceLines } from './evidenceMessages';
 
 const TREND_MIN_SAMPLE = 3;
 const CORRELATION_MIN_SAMPLE = 5;
@@ -70,6 +71,10 @@ export function messageContextFor({ blueprint, events, today, projections }: Mes
     .filter((row) => row.local_date < today)
     .sort((a, b) => a.local_date.localeCompare(b.local_date))
     .map((row) => ({ local_date: row.local_date, core_completed: row.core_completed, core_total: row.core_total }));
+
+  // The owner's System speaks through the fields below, which are written for it (and name its domains in their sentences).
+  // A generated System speaks through its own templates, which name nothing that is not in its Blueprint.
+  if (blueprint.origin !== 'legacy') return { today: today_facts, trailingDays, evidence: evidenceLines(blueprint, events, today) };
 
   // P1 — the longest single deep block ever, if today set it. Deep work is every duration/study instrument that is not a pipeline substitute.
   const deepInstruments = blueprint.instruments.filter((instrument) => ['build.sessions', 'foundations.blocks', 'foundations.design'].includes(instrument.id));

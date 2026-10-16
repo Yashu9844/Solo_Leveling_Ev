@@ -3,7 +3,27 @@
 // numbers, the rules that notice a pattern, the evidence lines the System can say, and the REALITY panel.
 import { glob } from '../blueprint/build';
 import type { MessagingDef, RealityRowDef, ReviewDef, RuleDef, SignalRef } from '../blueprint/schema';
+import type { CriterionTemplate } from '../library/archetypes/types';
 import { signalOf, type DomainContext } from './derive';
+
+type SignalLeaf = Extract<CriterionTemplate, { kind: 'signal' }>;
+const leavesOf = (criterion: CriterionTemplate): SignalLeaf[] => (criterion.kind === 'signal' ? [criterion] : criterion.of.flatMap(leavesOf));
+
+/**
+ * What a domain does every day, as a signal and in words: the number its quest asks for (minutes, pages, problems). A record or a trend is
+ * said about THIS - a shipped unit is too rare to be a day's record - and the unit is the name of the archetype's own metric for it.
+ */
+function dailySignal(ctx: DomainContext): { signal: SignalRef; unit: string } | undefined {
+  const archetype = ctx.resolved.archetype;
+  if (!archetype.quest) return undefined;
+  const leaves = leavesOf(archetype.quest.criterion);
+  const leaf = leaves.find((candidate) => candidate.answer === 'goodDay') ?? leaves[0];
+  if (!leaf) return undefined;
+  const same = (a: Record<string, string> | undefined, b: Record<string, string> | undefined) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+  const metric = archetype.metrics?.find((candidate) => 'instrument' in candidate.source && candidate.source.instrument === leaf.instrument && candidate.source.signal === leaf.signal && same(candidate.source.filter, leaf.filter));
+  const unit = (metric?.label ?? archetype.ladder?.noun)?.toLowerCase();
+  return unit ? { signal: signalOf({ instrument: leaf.instrument, signal: leaf.signal, aggregate: 'total', ...(leaf.filter ? { filter: leaf.filter } : {}) }, ctx.ids), unit } : undefined;
+}
 
 /** The same signal over the last seven days instead of the whole arc. */
 function weekly(signal: SignalRef): SignalRef {
@@ -46,11 +66,29 @@ export function buildRules(contexts: DomainContext[], hasSkills: boolean): RuleD
 
 export function buildMessaging(contexts: DomainContext[]): MessagingDef {
   const themes = [...new Set(contexts.flatMap((ctx) => ctx.resolved.archetype.reflectionThemes ?? []))];
+  const engines = contexts.filter((ctx) => ctx.domain.role === 'engine' && ctx.resolved.archetype.headroom !== 'guardrail' && dailySignal(ctx));
+  const guardrail = contexts.find((ctx) => ctx.domain.role === 'guardrail' && ctx.resolved.archetype.id === 'sleep-regularity') ?? contexts.find((ctx) => ctx.domain.role === 'guardrail');
+  const lead = [...engines].sort((a, b) => a.domain.priority - b.domain.priority)[0];
   return {
-    evidenceTemplates: contexts.flatMap((ctx) => {
-      const ladder = ctx.resolved.archetype.ladder;
-      return ladder ? [{ id: `${ctx.domain.id}.${ladder.key}`, tier: 'P3' as const, signal: signalOf(ladder.signal, ctx.ids), template: `{n} ${ladder.noun} on record.` }] : [];
-    }),
+    evidenceTemplates: [
+      ...contexts.flatMap((ctx) => {
+        const ladder = ctx.resolved.archetype.ladder;
+        return ladder ? [{ id: `${ctx.domain.id}.${ladder.key}`, tier: 'P3' as const, signal: signalOf(ladder.signal, ctx.ids), template: "{value} {unit} on record.", domainId: ctx.domain.id, unit: ladder.noun }] : [];
+      }),
+      // The engines' own numbers: a day that beats every earlier day, and a fortnight that beats the one before. Said with the domain's own name.
+      ...engines.flatMap((ctx) => {
+        const { signal, unit } = dailySignal(ctx)!;
+        return [
+          { id: `${ctx.domain.id}.record`, tier: 'P1' as const, kind: 'record' as const, signal, domainId: ctx.domain.id, unit, template: '{label}: most {unit} in a day yet, {value}.' },
+          { id: `${ctx.domain.id}.trend`, tier: 'P2' as const, kind: 'trend' as const, signal, domainId: ctx.domain.id, unit, template: '{label}: {current} {unit} over 14 days, up from {previous}.' },
+        ];
+      }),
+      // What a kept guardrail does for the lead engine, from the person's own days: only when the kept days do better.
+      ...(lead && guardrail ? [{
+        id: `${lead.domain.id}.after.${guardrail.domain.id}`, tier: 'P3' as const, kind: 'correlation' as const, signal: dailySignal(lead)!.signal, domainId: lead.domain.id, withDomainId: guardrail.domain.id,
+        template: '{label} done the day after a kept {with}: {a}%. After a miss: {b}%.',
+      }] : []),
+    ],
     reflectionThemes: themes.length > 0 ? themes : ['consistency', 'recovery'],
   };
 }

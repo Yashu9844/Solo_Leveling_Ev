@@ -150,7 +150,26 @@ export interface ReviewDef {
   weeklyMetrics?: RealityRowDef[];
 }
 export interface RuleDef { id: string; kind: 'MODE_RATIO' | 'WRONG_TIME' | 'SUBSTITUTE_SHARE' | 'LOW_CONVERSION' | 'WEAKEST_TOPIC'; enabled: boolean; params?: Record<string, unknown> }
-export interface MessagingDef { evidenceTemplates: { id: string; tier: 'P1' | 'P2' | 'P3' | 'P4' | 'P5'; signal?: SignalRef; template: string }[]; reflectionThemes?: string[] }
+/**
+ * One evidence message the System may say (platform/02 §18.2). A template names no domain: `{label}` and `{with}` are looked up from the
+ * Blueprint's own domains at the moment it is said, so a message cannot mention a domain the System does not have.
+ *  - record: today's `signal` per day beats every earlier day.   "Most {unit} in a day yet: {value}."
+ *  - trend: `signal` over the last 14 days against the 14 before; improvements only.   "{Unit}: {current} over 14 days, up from {previous}."
+ *  - correlation: the day after a kept guardrail (`withDomainId`) against the day after a miss, for the engine's (`domainId`) core quest.
+ * Placeholders: {label} {with} {unit} {value} {current} {previous} {a} {b}.
+ */
+/** The only placeholders a template may use; a domain's name reaches a message through {label} and {with} and nowhere else. */
+export const EVIDENCE_PLACEHOLDERS = ['label', 'with', 'unit', 'value', 'current', 'previous', 'a', 'b'] as const;
+
+export interface EvidenceTemplateDef {
+  id: string; tier: 'P1' | 'P2' | 'P3' | 'P4' | 'P5'; signal?: SignalRef; template: string;
+  kind?: 'record' | 'trend' | 'correlation';
+  /** The domain whose name is {label}, and (correlation) the guardrail whose name is {with}. */
+  domainId?: string; withDomainId?: string;
+  /** What the signal counts, in plain words ("problems solved"): {unit}. Presentation. */
+  unit?: string;
+}
+export interface MessagingDef { evidenceTemplates: EvidenceTemplateDef[]; reflectionThemes?: string[] }
 export interface VocabularyOverrides { [key: string]: string | undefined }
 
 export interface SystemBlueprint {

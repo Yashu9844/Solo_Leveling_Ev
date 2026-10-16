@@ -10,6 +10,7 @@ import { buildProjectionsV2 } from '../../src/blueprint/engine/projections';
 import { evaluateAttributes } from '../../src/blueprint/evaluate/attribute';
 import { evaluateBosses } from '../../src/blueprint/evaluate/boss';
 import { evaluateGate } from '../../src/blueprint/evaluate/gate';
+import { evidenceLines } from '../../src/blueprint/evaluate/evidenceMessages';
 import { readModelEnv } from '../../src/blueprint/evaluate/readModel';
 import { hashesFor } from '../../src/blueprint/hash';
 import { resolveBlueprints, versionFor } from '../../src/blueprint/resolve';
@@ -219,6 +220,27 @@ describe('I20 - messages never mention a domain absent from the Blueprint', () =
       const text = JSON.stringify([blueprint.messaging, blueprint.reviews, blueprint.checkpoints.comparison]).toUpperCase();
       for (const word of owner) if (!own.has(word)) expect(text, `${word} in seed ${seed}`).not.toContain(word);
     }
+  });
+
+  it('every line the System actually says, over a simulated life, labels only what the Blueprint has', () => {
+    const body = /\b(weight|waist|body ?fat|kilograms|hired|customers?|revenue|forecast|you will|will reach|projected|DSA|deployment)\b/i;
+    let said = 0;
+    for (const seed of seeds(INVARIANT_RUNS, 500)) {
+      const { blueprint } = randomSystem(seed);
+      const events = personaEventLog(blueprint, seed, { kind: profileFor(seed), days: 50 });
+      const labels = blueprint.domains.flatMap((domain) => [domain.name.toLowerCase(), domain.designation.toLowerCase()]);
+      for (let offset = 14; offset < 50; offset += 3) {
+        const date = new Date(Date.parse(`${blueprint.arc.startDate}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+        for (const line of evidenceLines(blueprint, events, date)) {
+          said++;
+          expect(line.text, `seed ${seed}`).not.toMatch(body);
+          // What comes before the first colon (or before "done the day after") is a label, and it is one of this System's own.
+          const label = line.text.split(':')[0]!.split(' done the day after')[0]!.trim().toLowerCase();
+          expect(labels.includes(label), `seed ${seed}: "${line.text}"`).toBe(true);
+        }
+      }
+    }
+    expect(said).toBeGreaterThan(0);
   });
 
   it('the voice pack\'s only owner-specific line is the one Phase 12 retires', () => {
