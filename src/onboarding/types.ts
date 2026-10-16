@@ -57,6 +57,8 @@ export interface QuestionDef {
   writes: DraftPath;
   default?: DefaultRule;
   bounds?: { min?: number; max?: number; step?: number; maxLength?: number };
+  /** What a number is counted in, set beside the figure ("PROBLEMS", "MINUTES", "KG"). */
+  unit?: string;
   /** The System's one-line acknowledgement. {answer} is the answer in words, {area} the area, {n} a number answered. */
   echo?: string;
   /** Asked once per chosen area, in the order the person ranked them. {area} stands for the area id in `writes` and `eligibility` paths. */

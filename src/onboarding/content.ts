@@ -91,20 +91,20 @@ function measurePack(archetypeId: string, unit: Unit): QuestionDef[] {
     {
       id: `goodDay.${archetypeId}`, stage: 'MEASURE', tier: 'guided', archetypeId, each: 'area', budgeted: true,
       heading: `{area} — HOW MANY ${unit.noun} ON A GOOD DAY?`, subline: `Your usual good day, in ${unit.noun.toLowerCase()}. This is what completes the quest.`,
-      kind: 'number', eligibility: resolvedTo(archetypeId), writes: 'area.{area}.goodDay', bounds: { min: unit.min, max: unit.max, step: unit.step },
+      kind: 'number', unit: unit.noun, eligibility: resolvedTo(archetypeId), writes: 'area.{area}.goodDay', bounds: { min: unit.min, max: unit.max, step: unit.step },
       default: { const: good }, echo: '{area}: A GOOD DAY IS {n}.',
     },
     {
       id: `hardDay.${archetypeId}`, stage: 'MEASURE', tier: 'guided', archetypeId, each: 'area', budgeted: true,
       heading: `{area} — AND ON A HARD DAY?`, subline: 'The least that still counts. The System lowers the bar to it after two missed days.',
-      kind: 'number', eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.goodDay' }] }, writes: 'area.{area}.hardDay', bounds: { min: 1, max: unit.max, step: Math.min(unit.step, 1) },
+      kind: 'number', unit: unit.noun, eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.goodDay' }] }, writes: 'area.{area}.hardDay', bounds: { min: 1, max: unit.max, step: Math.min(unit.step, 1) },
       default: { scale: { from: 'area.{area}.goodDay', factor: 1 / 3, min: 1 } }, echo: '{area}: A HARD DAY IS {n}.',
     },
     ...(archetype.ladder ? [{
       id: `success.${archetypeId}`, stage: 'MEASURE' as const, tier: 'guided' as const, archetypeId, each: 'area' as const, budgeted: true,
       heading: `{area} — HOW MANY ${archetype.ladder.noun.toUpperCase()} WOULD CONVINCE YOU THAT YOU IMPROVED?`,
       subline: 'By the end of the arc. The checkpoints on the way are set from it.',
-      kind: 'number' as const, eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.hardDay' }] }, writes: 'area.{area}.success',
+      kind: 'number' as const, unit: archetype.ladder.noun.toUpperCase(), eligibility: { and: [resolvedTo(archetypeId), { has: 'area.{area}.hardDay' }] }, writes: 'area.{area}.success',
       bounds: { min: 1, max: archetype.ladder.success * 10, step: 1 }, default: { const: archetype.ladder.success }, echo: '{area}: TARGET {n} BY THE END OF THE ARC.',
     }] : []),
   ];
@@ -142,7 +142,7 @@ export const QUESTIONS: QuestionDef[] = [
   // 3 · HIERARCHY
   {
     id: 'priorities', stage: 'HIERARCHY', tier: 'quick', heading: 'WHAT MATTERS MOST?', subline: 'Tap them in order. The first earns the most XP and gets the first boss.',
-    kind: 'rank', rankFrom: 'areas', eligibility: { has: 'areas' }, writes: 'priorities', default: { copy: 'areas' }, echo: 'PRIORITY ORDER: {answer}.',
+    kind: 'rank', rankFrom: 'areas', options: Object.values(AREA_OPTIONS), eligibility: { has: 'areas' }, writes: 'priorities', default: { copy: 'areas' }, echo: 'PRIORITY ORDER: {answer}.',
   },
 
   // 4 · RESOLUTION
@@ -178,14 +178,14 @@ export const QUESTIONS: QuestionDef[] = [
   },
   {
     id: 'attentionLimit', stage: 'GUARDRAILS', tier: 'guided', heading: 'HOW MANY MINUTES OF SCREEN TIME ARE ENOUGH?', subline: 'A day at or under it counts. Minutes from your phone’s own report.',
-    kind: 'number', eligibility: { has: 'guardrails', value: 'attention-control' }, writes: 'guardrail.attention-control.limit', bounds: { min: 15, max: 600, step: 5 }, default: { const: 60 }, echo: 'SCREEN TIME LIMIT: {n} MINUTES.',
+    kind: 'number', unit: 'MINUTES', eligibility: { has: 'guardrails', value: 'attention-control' }, writes: 'guardrail.attention-control.limit', bounds: { min: 15, max: 600, step: 5 }, default: { const: 60 }, echo: 'SCREEN TIME LIMIT: {n} MINUTES.',
   },
   {
     id: 'spendLimit', stage: 'GUARDRAILS', tier: 'guided', heading: 'WHAT IS THE MOST YOU WILL SPEND IN A DAY?', subline: 'In your own currency. A day at or under it counts.',
-    kind: 'number', eligibility: { or: [{ has: 'guardrails', value: 'finance-control' }, anyAreaResolvedTo(['finance-control'])] }, writes: 'guardrail.finance-control.limit', bounds: { min: 1, max: 1000000, step: 1 }, default: { const: 1000 }, echo: 'DAILY LIMIT: {n}.',
+    kind: 'number', unit: 'PER DAY', eligibility: { or: [{ has: 'guardrails', value: 'finance-control' }, anyAreaResolvedTo(['finance-control'])] }, writes: 'guardrail.finance-control.limit', bounds: { min: 1, max: 1000000, step: 1 }, default: { const: 1000 }, echo: 'DAILY LIMIT: {n}.',
   },
   {
-    id: 'waterTarget', stage: 'GUARDRAILS', tier: 'guided', heading: 'HOW MANY GLASSES OF WATER A DAY?', kind: 'number',
+    id: 'waterTarget', stage: 'GUARDRAILS', tier: 'guided', heading: 'HOW MANY GLASSES OF WATER A DAY?', kind: 'number', unit: 'GLASSES',
     eligibility: { or: [{ has: 'guardrails', value: 'health-routine' }, anyAreaResolvedTo(['health-routine'])] }, writes: 'guardrail.health-routine.limit', bounds: { min: 1, max: 20, step: 1 }, default: { const: 6 }, echo: 'WATER: {n} GLASSES.',
   },
 
@@ -235,7 +235,7 @@ export const QUESTIONS: QuestionDef[] = [
 
   // 10 · BASELINE (only what the Blueprint will track)
   ...(['weight_kg', 'waist_cm', 'bodyfat_pct'] as const).map((metric): QuestionDef => ({
-    id: `baseline.${metric}`, stage: 'BASELINE', tier: 'guided', kind: 'number', skippable: true, eligibility: anyAreaResolvedTo(['strength-movement', 'endurance']),
+    id: `baseline.${metric}`, stage: 'BASELINE', tier: 'guided', kind: 'number', unit: { weight_kg: 'KG', waist_cm: 'CM', bodyfat_pct: '%' }[metric], skippable: true, eligibility: anyAreaResolvedTo(['strength-movement', 'endurance']),
     heading: { weight_kg: 'WHAT DO YOU WEIGH TODAY, IN KILOGRAMS?', waist_cm: 'WHAT IS YOUR WAIST TODAY, IN CENTIMETRES?', bodyfat_pct: 'WHAT IS YOUR BODY FAT TODAY, AS A PERCENTAGE?' }[metric],
     subline: 'Recorded as your starting point. It never scores anything, and you can skip it.',
     writes: `baseline.${metric}`, default: { const: SKIP }, bounds: { min: { weight_kg: 20, waist_cm: 40, bodyfat_pct: 3 }[metric], max: { weight_kg: 300, waist_cm: 200, bodyfat_pct: 60 }[metric], step: 0.5 },

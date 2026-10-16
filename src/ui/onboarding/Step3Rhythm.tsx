@@ -47,7 +47,7 @@ function pointAt(minutes: number, radius: number): { x: number; y: number } {
  * that number is the moment the rest of the app's demands stop sounding
  * unreasonable.
  */
-function DayDial({ wakeTime, sleepTime }: { wakeTime: string; sleepTime: string }) {
+export function DayDial({ wakeTime, sleepTime }: { wakeTime: string; sleepTime: string }) {
   const wake = toMinutes(wakeTime);
   const sleep = toMinutes(sleepTime);
   const ready = wake !== null && sleep !== null && wake !== sleep;

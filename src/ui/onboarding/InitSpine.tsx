@@ -1,4 +1,4 @@
-import { EASE, STEPS, TOTAL_STEPS, pad2 } from './shared';
+import { EASE, STEPS, pad2 } from './shared';
 
 /**
  * The initialisation spine.
@@ -19,18 +19,19 @@ import { EASE, STEPS, TOTAL_STEPS, pad2 } from './shared';
  *   `aria-hidden`. Six separate announcements per step is noise; the
  *   step count is the fact.
  */
-export function InitSpine({ step }: { step: number }) {
+export function InitSpine({ step, nodes = STEPS }: { step: number; nodes?: readonly { code: string }[] }) {
+  const total = nodes.length;
   // Nodes sit at the centre of equal columns rather than at 0% and
   // 100%: an end node pinned to the edge gets clipped by the gutter and
   // reads as a rendering fault at 320px.
-  const at = (i: number) => ((i + 0.5) / TOTAL_STEPS) * 100;
+  const at = (i: number) => ((i + 0.5) / total) * 100;
   const fillTo = at(step - 1);
   // `step` is a caller's counter, and an index read is only as total as
   // the array. Clamping rather than asserting means an off-by-one
   // upstream degrades to the first node instead of throwing inside a
   // render — and STEPS is an `as const` tuple, so element 0 is a real
   // type rather than another possibly-undefined.
-  const current = STEPS[Math.min(Math.max(step, 1), TOTAL_STEPS) - 1] ?? STEPS[0];
+  const current = nodes[Math.min(Math.max(step, 1), total) - 1] ?? nodes[0] ?? STEPS[0];
 
   return (
     <div className="px-gutter pt-4">
@@ -39,8 +40,8 @@ export function InitSpine({ step }: { step: number }) {
         role="progressbar"
         aria-valuenow={step}
         aria-valuemin={1}
-        aria-valuemax={TOTAL_STEPS}
-        aria-label={`Step ${step} of ${TOTAL_STEPS}`}
+        aria-valuemax={total}
+        aria-label={`Step ${step} of ${total}`}
       >
         {/* The unwalked track. */}
         <span
@@ -63,7 +64,7 @@ export function InitSpine({ step }: { step: number }) {
           }}
         />
 
-        {STEPS.map((s, i) => {
+        {nodes.map((s, i) => {
           const index = i + 1;
           const done = index < step;
           const isCurrent = index === step;
@@ -123,7 +124,7 @@ export function InitSpine({ step }: { step: number }) {
           {current.code}
         </span>
         <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-ink-700">
-          {pad2(step)} <span className="text-faint">/ {pad2(TOTAL_STEPS)}</span>
+          {pad2(step)} <span className="text-faint">/ {pad2(total)}</span>
         </span>
       </div>
     </div>
