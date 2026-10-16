@@ -243,7 +243,7 @@ export function validateAnswer(instance: QuestionInstance, answers: Answers, raw
     case 'text_list': {
       if (typeof raw !== 'string') return fail('Enter some text.');
       // eslint-disable-next-line no-control-regex
-      const names = splitList(raw.replace(/[ -]/g, ' ').replace(/ +/g, ' ')).map((name) => name.slice(0, def.bounds?.maxLength ?? 24));
+      const names = splitList(raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/ +/g, ' ')).map((name) => name.slice(0, def.bounds?.maxLength ?? 24));
       const taken = def.limitBy ? (Array.isArray(answers[def.limitBy.minus]) ? (answers[def.limitBy.minus] as unknown[]).length : 0) : 0;
       const max = Math.min(def.count?.max ?? Infinity, def.limitBy ? def.limitBy.total - taken : Infinity);
       if (names.length < (def.count?.min ?? 1)) return fail('Name at least one.');
