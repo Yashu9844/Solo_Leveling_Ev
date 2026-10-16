@@ -207,7 +207,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 
 | Loop | Objective | Acceptance |
 |---|---|---|
-| ☐ 10.1 | Pure question engine: predicates, `nextQuestion`, draft reducer, question budget | unit + property: every path terminates; ineligible answers retained but inert |
+| ☑ 10.1 | Pure question engine: predicates, `nextQuestion`, draft reducer, question budget | unit + property: every path terminates; ineligible answers retained but inert |
 | ☐ 10.2 | Question content: stages 1–13 + packs for batch-1 archetypes | content review against the voice rules |
 | ☐ 10.3 | Generic renderers in the existing console shell (`InitSpine`, `StepConsole`, dial hero, if-then hero) | visual review on device; reduced-motion pass |
 | ☐ 10.4 | Quick tier end to end: answers → generate → minimal Reveal → activation transaction (`ARC_STARTED` + `BLUEPRINT_ACTIVATED` + Day-0 checkpoint); flag `NEW_ONBOARDING` for new arcs only | e2e per preset: Today shows the generated quests; ≤ 2 min scripted |
