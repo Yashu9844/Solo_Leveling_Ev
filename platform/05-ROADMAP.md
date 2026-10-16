@@ -201,7 +201,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 9.2 | Persona suites P1–P3 (04 §32.2 table) | all assertions green |
 | ☑ 9.3 | Persona suites P4–P7 | same |
 | ☑ 9.4 | Edge personas X1–X4 (min, max, night shift, DST) | I19 green |
-| ☐ 9.5 | Wire the full I1–I20 suite; nightly full-seed job, PR sampled job | CI time within budget (PR ≤ current + 3 min) |
+| ☑ 9.5 | Wire the full I1–I20 suite; nightly full-seed job, PR sampled job | CI time within budget (PR ≤ current + 3 min) |
 
 ### Phase 10 — Adaptive onboarding engine + Quick Awakening
 

@@ -1,6 +1,7 @@
-# Platform gates (platform/05 loop 4.8). Pull requests and pushes run the
-# standard verify plus a quick shadow-equivalence pass; a nightly job runs the
-# full shadow corpus. The owner-export comparison is local-only by design
+# Platform gates (platform/05 loops 4.8 and 9.5). Pull requests and pushes run the
+# standard verify (which includes the invariants I1-I20 at a sampled size: 12
+# random Systems per property) plus a quick shadow-equivalence pass; the nightly
+# jobs run the full shadow corpus and the invariants at 300 Systems per property. The owner-export comparison is local-only by design
 # (platform/04 §32.4): the private fixture is never in CI.
 name: platform
 
@@ -35,3 +36,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run shadow
+
+  invariants-full:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run invariants
+        env:
+          INVARIANT_RUNS: '300'

@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "shadow": "vite-node scripts/shadow-equivalence.ts",
+    "invariants": "vitest run tests/engine/invariants.test.ts tests/engine/integrity-invariants.test.ts tests/engine/time-correctness.test.ts",
     "cutover:check": "vite-node scripts/cutover-check.ts",
     "bench": "vite-node scripts/bench-projections.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
