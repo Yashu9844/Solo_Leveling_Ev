@@ -17,6 +17,7 @@
     "invariants": "vitest run tests/engine/invariants.test.ts tests/engine/integrity-invariants.test.ts tests/engine/time-correctness.test.ts",
     "cutover:check": "vite-node scripts/cutover-check.ts",
     "bench": "vite-node scripts/bench-projections.ts",
+    "drill": "vitest run tests/engine/rollback-drill.test.ts",
     "perf": "vitest run --config vitest.perf.config.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run perf && npm run build",
     "verify:v2": "npm run typecheck && npm run lint && npm run test:v2",

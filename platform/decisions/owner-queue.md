@@ -22,3 +22,10 @@ With ENGINE_V2 on, the first checkpoint you seal ends with an **Amend the System
 
 - Advanced builder (14.4): swapping a boss's conditions and adding brand-new milestones need a signal picker; not built.
 - Amend ops cover rename, target/floor, weekly rhythm (op exists, no control yet), weight shift, attribute weights, gate thresholds, instrument parameters and ladder rungs. Adding or retiring a domain is not an op: it needs the generator, which needs the interview answers (only a digest is kept).
+
+## Device checks the automated suite cannot make
+
+| Since | Item | How |
+|---|---|---|
+| 15.1 | Performance budgets on a real mid-range Android (the suite assumes a 4x slower device than CI) | `npm run bench` is a Node script; time a rebuild in the installed PWA on the device (Settings → Data → Verify integrity is a full rebuild) |
+| 15.3 | The rollback drill in a real browser profile (the suite verifies Dexie's downgrade behaviour under fake-indexeddb only) | `platform/07-ROLLBACK-RUNBOOK.md`, steps 1–5 |
