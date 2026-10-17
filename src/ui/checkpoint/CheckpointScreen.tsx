@@ -104,7 +104,7 @@ export function CheckpointScreen({ day, today, onClose }: CheckpointScreenProps)
     setExporting(true);
     try {
       const json = await exportSnapshotJson(realDeps);
-      triggerDownload(`solo-leveling-export-day-${day}.json`, json);
+      triggerDownload(`system-export-day-${day}.json`, json);
       await markExported(day, realDeps);
       await refresh();
     } finally {

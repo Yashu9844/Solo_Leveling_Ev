@@ -522,7 +522,7 @@ function validateSnapshot(json: string): SnapshotShape {
     throw new ImportValidationError('Not valid JSON.');
   }
   if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { events?: unknown }).events)) {
-    throw new ImportValidationError('Not a Solo Leveling export — missing an events array.');
+    throw new ImportValidationError('Not a SYSTEM export — missing an events array.');
   }
   const version = (parsed as SnapshotShape).schema_v;
   if (version !== undefined && (!Number.isInteger(version) || version < 1 || version > EXPORT_SCHEMA_V)) {

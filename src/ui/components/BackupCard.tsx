@@ -81,7 +81,7 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
     setExporting(true);
     try {
       const json = await exportBackup(realDeps, passphrase || undefined);
-      triggerDownload(`solo-leveling-backup-${new Date().toISOString().slice(0, 10)}${passphrase ? '.enc' : ''}.json`, json);
+      triggerDownload(`system-backup-${new Date().toISOString().slice(0, 10)}${passphrase ? '.enc' : ''}.json`, json);
       setDone(passphrase ? 'Exported, encrypted.' : 'Exported.');
       setPassphrase('');
       setPassphraseAgain('');

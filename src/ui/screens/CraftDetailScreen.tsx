@@ -165,7 +165,7 @@ export function CraftDetailScreen() {
               type="text"
               value={projectKey}
               onChange={(e) => setProjectKey(e.target.value)}
-              placeholder="e.g. Solo_Leveling, NeuralEngine, DistributedKV..."
+              placeholder="e.g. NeuralEngine, DistributedKV..."
               className="w-full bg-surface-2 border border-hair-faint px-3 py-2 rounded cut-sm text-xs font-mono text-ink-100 focus:outline-none focus:border-accent"
             />
           </div>

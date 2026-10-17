@@ -23,7 +23,7 @@ test('export downloads a real JSON backup, and importing it back restores state 
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/solo-leveling-backup-.*\.json/);
+  expect(download.suggestedFilename()).toMatch(/system-backup-.*\.json/);
 
   const tmpFile = path.join(os.tmpdir(), `backup-test-${Date.now()}.json`);
   await download.saveAs(tmpFile);

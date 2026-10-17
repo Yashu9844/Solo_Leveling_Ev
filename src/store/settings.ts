@@ -61,7 +61,7 @@ export const ART_INTENSITIES: ArtIntensity[] = ['full', 'dim', 'off'];
 export const ACCENTS: Record<AccentKey, { label: string; hex: string | null }> = {
   theme: { label: 'Theme default', hex: null },
   mana: { label: 'Mana blue', hex: '#4da3ff' },
-  violet: { label: 'Monarch violet', hex: '#a678ff' },
+  violet: { label: 'Violet', hex: '#a678ff' },
   frost: { label: 'Frost', hex: '#5fd8e8' },
   ember: { label: 'Ember', hex: '#ff8a5c' },
   gold: { label: 'Gold', hex: '#e8a13c' },

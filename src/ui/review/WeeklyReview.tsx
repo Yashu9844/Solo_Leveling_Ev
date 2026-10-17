@@ -96,7 +96,7 @@ export function WeeklyReview({ today, onClose }: WeeklyReviewProps) {
     setExporting(true);
     try {
       const json = await exportSnapshotJson(realDeps);
-      triggerDownload(`solo-leveling-backup-${today}.json`, json);
+      triggerDownload(`system-backup-${today}.json`, json);
       setBackupStatus(await getBackupStatus(realDeps));
       setExported(true);
     } finally {

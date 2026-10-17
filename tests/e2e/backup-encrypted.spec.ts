@@ -31,7 +31,7 @@ test('an encrypted export restores with its passphrase, and a wrong one is refus
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/solo-leveling-backup-.*\.enc\.json$/);
+  expect(download.suggestedFilename()).toMatch(/system-backup-.*\.enc\.json$/);
   const file = path.join(os.tmpdir(), `backup-enc-${Date.now()}.json`);
   await download.saveAs(file);
   const contents = fs.readFileSync(file, 'utf-8');
