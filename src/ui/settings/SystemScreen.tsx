@@ -6,6 +6,8 @@ import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { amendIntention, getArcClock, getIntentions } from '../../store/plan';
 import { useSystem } from '../../store/SystemContext';
+import { useBlueprintVersions } from '../../store/systemBlueprint';
+import { currentBadge } from './BlueprintScreen';
 import { reminderOptions } from '../presentation/plan';
 import { InstallCard } from '../components/InstallCard';
 import {
@@ -35,6 +37,7 @@ export function SystemScreen() {
   const navigate = useNavigate();
   const { blueprint } = useSystem();
   const reminders = reminderOptions(blueprint);
+  const versions = useBlueprintVersions();
   const [intentions, setIntentions] = useState<Intentions | null>(null);
   const [clock, setClock] = useState<Awaited<ReturnType<typeof getArcClock>>>(null);
 
@@ -95,6 +98,25 @@ export function SystemScreen() {
             </SettingsList>
           </SettingsGroup>
         )}
+
+        <SettingsGroup title="Blueprint" footnote="What this System is made of, and every revision of it. Read-only here.">
+          <SettingsList>
+            <SettingsRow
+              label="View the System"
+              description="The version in force, its revisions, and each change in plain words."
+              value={<span className="font-mono tabular-nums">{currentBadge(versions)}</span>}
+              onClick={() => navigate('/profile/settings/system/blueprint')}
+              testId="blueprint-entry"
+            />
+            <SettingsRow
+              label="Revisions"
+              description="Every version of this System and what changed in it."
+              value={<span className="font-mono tabular-nums">{versions.length}</span>}
+              onClick={() => navigate('/profile/settings/system/blueprint')}
+              testId="revisions-entry"
+            />
+          </SettingsList>
+        </SettingsGroup>
 
         <SettingsGroup title="This device">
           <SettingsRow

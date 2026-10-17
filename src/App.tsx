@@ -17,6 +17,7 @@ import { SettingsScreen } from './ui/settings/SettingsScreen';
 import { AppearanceScreen } from './ui/settings/AppearanceScreen';
 import { AboutScreen } from './ui/settings/AboutScreen';
 import { SystemScreen, ReminderScreen } from './ui/settings/SystemScreen';
+import { BlueprintScreen } from './ui/settings/BlueprintScreen';
 import { DataScreen } from './ui/settings/DataScreen';
 
 function RequireArc({ arcExists }: { arcExists: boolean }) {
@@ -100,6 +101,7 @@ export function App() {
           <Route path="profile/settings" element={<SettingsScreen />} />
           <Route path="profile/settings/appearance" element={<AppearanceScreen />} />
           <Route path="profile/settings/system" element={<SystemScreen />} />
+          <Route path="profile/settings/system/blueprint" element={<BlueprintScreen />} />
           <Route path="profile/settings/system/:questKey" element={<ReminderScreen />} />
           <Route path="profile/settings/data" element={<DataScreen />} />
           <Route path="profile/settings/about" element={<AboutScreen />} />
