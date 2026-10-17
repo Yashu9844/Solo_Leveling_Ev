@@ -15,6 +15,7 @@ import { RankAdvancedMoment } from '../moments/RankAdvancedMoment';
 import { CheckpointMoment } from '../moments/CheckpointMoment';
 import { CheckpointInstrumentsCard } from '../components/CheckpointInstrumentsCard';
 import { AmendPanel } from '../settings/AmendPanel';
+import { OwnerOffers } from './OwnerOffers';
 import { engineV2Enabled } from '../../flags';
 import { getActiveArc } from '../../store/arc';
 import { checkpointSealedToday } from '../../store/checkpoint';
@@ -25,7 +26,7 @@ import { ArtLayer, FramedPanel, Portal, PrimaryButton, SecondaryButton, SectionL
  * The checkpoint's Amend step (platform/03 §28.5): once the checkpoint is sealed today, the System may be amended, and a structural change
  * made now begins tomorrow - the day after the seal. Nothing already sealed or lived changes.
  */
-function AmendStep({ today }: { today: string }) {
+function AmendStep({ today, day }: { today: string; day: number }) {
   const { blueprint } = useSystem();
   const [arcId, setArcId] = useState<string | null>(null);
   const [sealedToday, setSealedToday] = useState(false);
@@ -39,7 +40,9 @@ function AmendStep({ today }: { today: string }) {
     });
     return () => { cancelled = true; };
   }, [today]);
-  if (!engineV2Enabled() || blueprint.origin === 'legacy' || !arcId || !sealedToday) return null;
+  if (!engineV2Enabled() || !arcId || !sealedToday) return null;
+  // The owner's System is not edited freely at a checkpoint; it is offered the fixes it has been waiting for.
+  if (blueprint.origin === 'legacy') return <div data-testid="amend-step"><SectionLabel rule className="mb-1 mt-8">Amend the System</SectionLabel><p className="text-xs leading-[1.5] text-ink-500">The checkpoint is sealed. These changes are yours to take or leave; each begins tomorrow, and declining changes nothing.</p><OwnerOffers checkpointDay={day} today={today} /></div>;
   return (
     <div data-testid="amend-step">
       <SectionLabel rule className="mb-1 mt-8">Amend the System</SectionLabel>
@@ -259,7 +262,7 @@ export function CheckpointScreen({ day, today, onClose }: CheckpointScreenProps)
             </div>
           )}
 
-          {sealed && <AmendStep today={today} />}
+          {sealed && <AmendStep today={today} day={day} />}
         </div>
 
         {rankAdvance && (

@@ -265,6 +265,12 @@ export async function computeChangeClass(previous: SystemBlueprint, next: System
   return reachesStructure(previous, next) ? 'structural' : 'operational';
 }
 
+/**
+ * The part of the progression that is fixed after day 1: the economy and the level curve. Whether Reduced Mode collapses a day's quests is a
+ * behaviour, not arithmetic - it moves no XP and no level - so it alone may change, as an owner-approved amendment (platform/02 §22.4).
+ */
+const pinned = (progression: SystemBlueprint['progression']) => ({ ...progression, reducedMode: { ...progression.reducedMode, collapsesQuests: undefined } });
+
 export async function validateTransition(previous: SystemBlueprint, next: SystemBlueprint, context: TransitionContext): Promise<Issue[]> {
   const issues: Issue[] = [];
   const add = (...args: Parameters<typeof issue>) => issues.push(issue(...args));
@@ -273,7 +279,7 @@ export async function validateTransition(previous: SystemBlueprint, next: System
   if (next.activeFrom < context.today || (computed !== 'cosmetic' && nextIsToday)) add('V-TRN-01', 'error', 'activeFrom', 'THE SYSTEM CANNOT REWRITE HISTORY.', 'Activate cosmetic edits today; schedule other edits after today.');
   if (next.changeClass !== computed) add('V-TRN-02', 'error', 'changeClass', 'THE CHANGE CLASS DOES NOT MATCH THE SYSTEM DIFF.', `This change is ${computed}.`);
   if (computed === 'structural' && context.arcDay > 7 && differenceInCalendarDays(parseISO(next.activeFrom), parseISO(context.today)) !== (context.sealedToday ? 1 : context.nextCheckpointDay - context.arcDay + 1)) add('V-TRN-03', 'error', 'activeFrom', 'STRUCTURAL CHANGE MUST WAIT FOR A CHECKPOINT.', 'Activate the change on the day after the next checkpoint seal.');
-  if (context.arcDay > 1 && (previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression))) add('V-TRN-04', 'error', 'arc', 'A PINNED ARC SETTING CHANGED.', 'Progression, start date, and timezone are fixed after day 1.');
+  if (context.arcDay > 1 && (previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(pinned(previous.progression)) !== canonicalJson(pinned(next.progression)))) add('V-TRN-04', 'error', 'arc', 'A PINNED ARC SETTING CHANGED.', 'Progression, start date, and timezone are fixed after day 1.');
   for (const oldDomain of previous.domains) {
     const continued = next.domains.find((domain) => domain.id === oldDomain.id);
     if (continued && oldDomain.instrumentIds.some((id) => {
