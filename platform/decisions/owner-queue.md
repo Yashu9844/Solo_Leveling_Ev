@@ -29,3 +29,7 @@ With ENGINE_V2 on, the first checkpoint you seal ends with an **Amend the System
 |---|---|---|
 | 15.1 | Performance budgets on a real mid-range Android (the suite assumes a 4x slower device than CI) | `npm run bench` is a Node script; time a rebuild in the installed PWA on the device (Settings → Data → Verify integrity is a full rebuild) |
 | 15.3 | The rollback drill in a real browser profile (the suite verifies Dexie's downgrade behaviour under fake-indexeddb only) | `platform/07-ROLLBACK-RUNBOOK.md`, steps 1–5 |
+
+## Encrypted backups (15.5)
+
+Settings → Data → "Protect the next export with a passphrase". AES-256-GCM, key from PBKDF2-SHA-256 (600,000 iterations), fresh salt and IV per file. A lost passphrase is a lost backup; the screen says so. Only that card encrypts: the checkpoint screen's export-before-seal and the weekly review's backup button still write plain files. Decide whether they should offer it too (and whether 600,000 iterations feels right on your phone: it is about half a second on a desktop).

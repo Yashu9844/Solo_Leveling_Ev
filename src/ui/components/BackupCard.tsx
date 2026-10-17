@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { getEngineConfig } from '../../store/engineConfig';
 import { realDeps } from '../../store/deps';
-import { Panel, SecondaryButton, SectionLabel } from '../kit';
-import { exportSnapshotJson, importSnapshotJson, getBackupStatus, ImportValidationError, type BackupStatus } from '../../store/checkpoint';
+import { Panel, SecondaryButton, SectionLabel, TextInput } from '../kit';
+import { getBackupStatus, ImportValidationError, type BackupStatus } from '../../store/checkpoint';
+import { exportBackup, importBackup } from '../../store/backup';
+import { isEncryptedExport, PassphraseRequiredError, WrongPassphraseError } from '../../store/exportCrypto';
+
+const MIN_PASSPHRASE = 8;
 
 // docs/07-data-model.md: "if no export exists in 14 days, the Profile
 // screen says so in red." The one place --state-alert red is allowed
@@ -46,7 +50,11 @@ interface BackupCardProps {
 export function BackupCard({ onExported }: BackupCardProps = {}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
-  const [pendingImport, setPendingImport] = useState<{ fileName: string; json: string; eventCount: number } | null>(null);
+  const [pendingImport, setPendingImport] = useState<{ fileName: string; json: string; eventCount: number; encrypted: boolean } | null>(null);
+  // Optional protection of the file: a passphrase typed twice (a typo would make the backup unopenable), and the one asked for on import.
+  const [passphrase, setPassphrase] = useState('');
+  const [passphraseAgain, setPassphraseAgain] = useState('');
+  const [importPassphrase, setImportPassphrase] = useState('');
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -61,12 +69,22 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
   }, []);
 
   async function handleExport() {
-    setExporting(true);
     setError(null);
+    if (passphrase.length > 0 && passphrase.length < MIN_PASSPHRASE) {
+      setError(`Use at least ${MIN_PASSPHRASE} characters, or leave the passphrase empty.`);
+      return;
+    }
+    if (passphrase !== passphraseAgain) {
+      setError('The two passphrases are not the same.');
+      return;
+    }
+    setExporting(true);
     try {
-      const json = await exportSnapshotJson(realDeps);
-      triggerDownload(`solo-leveling-backup-${new Date().toISOString().slice(0, 10)}.json`, json);
-      setDone('Exported.');
+      const json = await exportBackup(realDeps, passphrase || undefined);
+      triggerDownload(`solo-leveling-backup-${new Date().toISOString().slice(0, 10)}${passphrase ? '.enc' : ''}.json`, json);
+      setDone(passphrase ? 'Exported, encrypted.' : 'Exported.');
+      setPassphrase('');
+      setPassphraseAgain('');
       await refreshStatus();
       onExported?.();
       setTimeout(() => setDone(null), 3000);
@@ -82,9 +100,14 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
     setError(null);
     const json = await file.text();
     try {
+      if (isEncryptedExport(json)) {
+        setImportPassphrase('');
+        setPendingImport({ fileName: file.name, json, eventCount: 0, encrypted: true });
+        return;
+      }
       const parsed = JSON.parse(json) as { events?: unknown[] };
       const eventCount = Array.isArray(parsed.events) ? parsed.events.length : 0;
-      setPendingImport({ fileName: file.name, json, eventCount });
+      setPendingImport({ fileName: file.name, json, eventCount, encrypted: false });
     } catch {
       setError('That file is not valid JSON.');
     }
@@ -95,12 +118,12 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
     setImporting(true);
     setError(null);
     try {
-      await importSnapshotJson(pendingImport.json, getEngineConfig(), realDeps);
+      await importBackup(pendingImport.json, importPassphrase || undefined, getEngineConfig(), realDeps);
       setPendingImport(null);
       setDone('Imported. Reloading…');
       setTimeout(() => window.location.reload(), 800);
     } catch (e) {
-      setError(e instanceof ImportValidationError ? e.message : 'Could not import — try again.');
+      setError(e instanceof ImportValidationError || e instanceof WrongPassphraseError || e instanceof PassphraseRequiredError ? e.message : 'Could not import — try again.');
     } finally {
       setImporting(false);
     }
@@ -138,6 +161,15 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
           <SecondaryButton onClick={() => fileInputRef.current?.click()}>Import backup</SecondaryButton>
         </div>
 
+        <details className="mt-4" data-testid="backup-protect">
+          <summary className="min-h-tap cursor-pointer text-xs uppercase tracking-[0.14em] text-ink-700">Protect the next export with a passphrase</summary>
+          <p className="mt-2 text-xs leading-[1.5] text-faint">Optional. The file is encrypted on this device before it is saved. If you lose the passphrase the backup cannot be opened: there is no recovery.</p>
+          <div className="mt-3 flex flex-col gap-2">
+            <TextInput type="password" autoComplete="new-password" placeholder="Passphrase" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} data-testid="backup-passphrase" />
+            <TextInput type="password" autoComplete="new-password" placeholder="Passphrase again" value={passphraseAgain} onChange={(event) => setPassphraseAgain(event.target.value)} data-testid="backup-passphrase-again" />
+          </div>
+        </details>
+
         {done && <p className="mt-3 text-xs text-accent-mid">{done}</p>}
         {error && <p className="mt-3 text-xs text-state-alert">{error}</p>}
 
@@ -152,8 +184,13 @@ export function BackupCard({ onExported }: BackupCardProps = {}) {
           >
             <p className="text-sm leading-[1.5] text-ink-100">
               Replace ALL current data with &ldquo;{pendingImport.fileName}&rdquo; (
-              {pendingImport.eventCount} events)?
+              {pendingImport.encrypted ? 'encrypted' : `${pendingImport.eventCount} events`})?
             </p>
+            {pendingImport.encrypted && (
+              <div className="mt-3">
+                <TextInput type="password" autoComplete="off" placeholder="Passphrase" value={importPassphrase} onChange={(event) => setImportPassphrase(event.target.value)} data-testid="import-passphrase" />
+              </div>
+            )}
             <p className="mt-2 text-xs text-ink-700">
               This cannot be undone unless you have another backup.
             </p>
