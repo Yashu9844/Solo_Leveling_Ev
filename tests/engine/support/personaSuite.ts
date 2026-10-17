@@ -194,7 +194,10 @@ export function describePersona(persona: Persona): void {
       const v2 = structuredClone(blueprint);
       v2.version = 2;
       v2.activeFrom = ISO(start, 10);
-      v2.bosses[0]!.windowStartDay = Math.max(1, v2.bosses[0]!.windowStartDay - 1);
+      // An operational amendment (02 §19.2): a daily target nudged within a quarter.
+      const nudged = v2.quests.find((quest) => quest.type === 'core')!;
+      const bump = (criterion: Criterion): Criterion => (criterion.kind === 'signal' ? { ...criterion, target: criterion.target + 1 } : { ...criterion, of: criterion.of.map(bump) });
+      nudged.criterion = bump(nudged.criterion);
       v2.changeClass = await computeChangeClass(blueprint, v2);
       expect(v2.changeClass).toBe('operational');
       expect((await validateTransition(blueprint, v2, { today: opDay, arcDay: 10, nextCheckpointDay: blueprint.progression.checkpointDays[0]! })).filter((issue) => issue.severity === 'error')).toEqual([]);

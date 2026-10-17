@@ -244,7 +244,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | Loop | Objective | Acceptance |
 |---|---|---|
 | ☑ 14.1 | System Codex view + revision timeline (Profile → Settings → System → Blueprint) | reads any version; diffs in plain words |
-| ☐ 14.2 | Staged drafts; computed change class; activation timing; calibration week | V-TRN enforced in the UI and in the writer |
+| ☑ 14.2 | Staged drafts; computed change class; activation timing; calibration week | V-TRN enforced in the UI and in the writer |
 | ☐ 14.3 | "Amend the System" step in the checkpoint flow (structural versions activate at seal + 1) | e2e: amend at Day 30 → v2 from Day 31; Day ≤ 30 unchanged |
 | ☐ 14.4 | Advanced builder (bounded weights, thresholds, params, milestones) | the validator bounds every control; no raw XP editing |
 | ☐ 14.5 | Owner opt-in offers (02 §22.4) presented at the owner's next checkpoint | the owner can accept or decline each; declining changes nothing |

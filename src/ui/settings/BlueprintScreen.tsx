@@ -1,11 +1,14 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { revisionTimeline, type Revision } from '../../blueprint/diff';
 import type { Criterion, SystemBlueprint } from '../../blueprint/schema';
 import { localDate } from '../../engine/time';
 import { realDeps } from '../../store/deps';
 import { getEngineConfig } from '../../store/engineConfig';
+import { getActiveArc } from '../../store/arc';
+import { engineV2Enabled } from '../../flags';
 import { useBlueprintVersions } from '../../store/systemBlueprint';
+import { AmendPanel } from './AmendPanel';
 import { Panel, ScreenHeader, SectionLabel } from '../kit';
 
 const leaves = (criterion: Criterion): number[] => (criterion.kind === 'signal' ? [criterion.target] : criterion.of.flatMap(leaves));
@@ -100,6 +103,15 @@ export function BlueprintScreen() {
   const [selected, setSelected] = useState<number | null>(null);
   const shown = timeline.find((revision) => revision.version === (selected ?? current.version)) ?? current;
   const blueprint = versions.find((version) => version.version === shown.version) ?? versions[0]!;
+  const inForce = versions.find((version) => version.version === current.version) ?? versions[0]!;
+  // Amending is for a generated System; the owner's opt-in offers come at their checkpoint (14.5).
+  const [arcId, setArcId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getActiveArc().then((arc) => { if (!cancelled) setArcId(arc?.id ?? null); });
+    return () => { cancelled = true; };
+  }, []);
+  const canAmend = engineV2Enabled() && arcId !== null && inForce.origin !== 'legacy' && !timeline.some((revision) => revision.state === 'SCHEDULED');
 
   return (
     <>
@@ -131,6 +143,11 @@ export function BlueprintScreen() {
             </li>
           ))}
         </ol>
+
+        {canAmend && <AmendPanel base={inForce} arcId={arcId} onActivated={() => setSelected(null)} />}
+        {engineV2Enabled() && inForce.origin !== 'legacy' && timeline.some((revision) => revision.state === 'SCHEDULED') && (
+          <p className="mt-6 text-xs leading-[1.5] text-ink-500" data-testid="amend-scheduled">A change is already scheduled. Another can be staged once it has begun.</p>
+        )}
 
         <SectionLabel rule className="mb-1 mt-6">{shown.version === current.version ? 'The System now' : `The System as of v${shown.version}`}</SectionLabel>
         <Codex blueprint={blueprint} />

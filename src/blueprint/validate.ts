@@ -191,15 +191,73 @@ export function validateBlueprint(blueprint: SystemBlueprint, context: Validatio
 
 export type ComputedChangeClass = 'cosmetic' | 'operational' | 'structural';
 
+/**
+ * A number may move this far from the version in force and still be an operational change (platform/02 §19.2: "targets within a band
+ * (±25%)"). Always at least one unit, so a target of 3 may become 4.
+ */
+const withinBand = (before: number, after: number): boolean => before === after || Math.abs(after - before) <= Math.max(1, Math.abs(before) * 0.25) + 1e-9;
+
+function criterionWithinBand(before: Criterion, after: Criterion): boolean {
+  if (before.kind === 'signal' && after.kind === 'signal') {
+    return before.instrumentId === after.instrumentId && before.signal === after.signal && before.comparator === after.comparator && canonicalJson(before.filter ?? null) === canonicalJson(after.filter ?? null) && withinBand(before.target, after.target);
+  }
+  if (before.kind === 'signal' || after.kind === 'signal') return false;
+  return before.kind === after.kind && before.of.length === after.of.length && before.of.every((part, index) => criterionWithinBand(part, after.of[index]!));
+}
+
+/** An instrument's parameters: numbers within the band, lists that only grew, everything else equal. */
+function paramsWithinBand(before: unknown, after: unknown): boolean {
+  if (typeof before === 'number' && typeof after === 'number') return withinBand(before, after);
+  if (Array.isArray(before) && Array.isArray(after)) return before.every((item) => after.some((candidate) => canonicalJson(candidate) === canonicalJson(item)));
+  if (before && after && typeof before === 'object' && typeof after === 'object') {
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    return [...keys].every((key) => paramsWithinBand((before as Record<string, unknown>)[key], (after as Record<string, unknown>)[key]));
+  }
+  return canonicalJson(before ?? null) === canonicalJson(after ?? null);
+}
+
+/**
+ * Whether a computational change reaches past what an operational one may touch (platform/02 §19.2): the arc's pinned settings, the
+ * domains a System has, the economy (weights, bonuses, channel caps), the gates, bosses, attribute formulas, milestones and metrics, an
+ * instrument's type or a parameter beyond the band, a target or floor beyond the band, and a skill-tree node that goes away.
+ * What is left - schedules, time windows, reminders, review prompts, rules, a skill-tree node added, a target within the band - is operational.
+ */
+function reachesStructure(previous: SystemBlueprint, next: SystemBlueprint): boolean {
+  if (previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression)) return true;
+  const before = partitionBlueprint(previous).computational as Record<string, unknown>;
+  const after = partitionBlueprint(next).computational as Record<string, unknown>;
+  for (const key of ['arc', 'gates', 'bosses', 'attributes', 'milestones', 'achievements', 'metrics', 'checkpoints']) if (canonicalJson(before[key]) !== canonicalJson(after[key])) return true;
+
+  // A domain keeps its role, its core quest and its channel cap; it may gain instruments (a new way to log changes nothing already counted).
+  const economy = (blueprint: SystemBlueprint) => blueprint.domains.map(({ id, role, coreQuestId, channel }) => ({ id, role, coreQuestId, channel }));
+  if (canonicalJson(economy(previous)) !== canonicalJson(economy(next))) return true;
+  if (previous.domains.some((domain) => !domain.instrumentIds.every((id) => next.domains.find((candidate) => candidate.id === domain.id)?.instrumentIds.includes(id)))) return true;
+  for (const instrument of previous.instruments) {
+    const other = next.instruments.find((candidate) => candidate.id === instrument.id);
+    if (!other || other.type !== instrument.type || other.domainId !== instrument.domainId || canonicalJson(other.eventBinding) !== canonicalJson(instrument.eventBinding) || !paramsWithinBand(instrument.params, other.params)) return true;
+  }
+
+  if (previous.quests.length !== next.quests.length) return true;
+  for (const quest of previous.quests) {
+    const other = next.quests.find((candidate) => candidate.id === quest.id);
+    if (!other || other.type !== quest.type || other.domainId !== quest.domainId || other.xp !== quest.xp || other.evidenceMode !== quest.evidenceMode || canonicalJson(other.bonus) !== canonicalJson(quest.bonus)) return true;
+    if (!criterionWithinBand(quest.criterion, other.criterion) || !criterionWithinBand(quest.floor, other.floor)) return true;
+  }
+
+  // A tree may be added; one that goes away, or changes how its parts are judged, is structural.
+  for (const tree of previous.skills) {
+    const other = next.skills.find((candidate) => candidate.id === tree.id);
+    if (!other || canonicalJson(other.policy) !== canonicalJson(tree.policy) || other.instrumentId !== tree.instrumentId) return true;
+    if (!tree.nodes.every((node) => other.nodes.some((candidate) => candidate.id === node.id && canonicalJson(candidate.dependsOn ?? null) === canonicalJson(node.dependsOn ?? null)))) return true;
+  }
+  return false;
+}
+
 /** Classifications are derived from the documents, never trusted from input. */
 export async function computeChangeClass(previous: SystemBlueprint, next: SystemBlueprint): Promise<ComputedChangeClass> {
   const previousParts = partitionBlueprint(previous); const nextParts = partitionBlueprint(next);
   if (canonicalJson(previousParts.computational) === canonicalJson(nextParts.computational)) return 'cosmetic';
-  const structural = previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression)
-    || previous.domains.some((domain) => !next.domains.some((candidate) => candidate.id === domain.id))
-    || next.domains.some((domain) => !previous.domains.some((candidate) => candidate.id === domain.id))
-    || previous.instruments.some((instrument) => next.instruments.find((candidate) => candidate.id === instrument.id)?.type !== instrument.type);
-  return structural ? 'structural' : 'operational';
+  return reachesStructure(previous, next) ? 'structural' : 'operational';
 }
 
 export async function validateTransition(previous: SystemBlueprint, next: SystemBlueprint, context: TransitionContext): Promise<Issue[]> {
@@ -209,7 +267,7 @@ export async function validateTransition(previous: SystemBlueprint, next: System
   const nextIsToday = next.activeFrom === context.today;
   if (next.activeFrom < context.today || (computed !== 'cosmetic' && nextIsToday)) add('V-TRN-01', 'error', 'activeFrom', 'THE SYSTEM CANNOT REWRITE HISTORY.', 'Activate cosmetic edits today; schedule other edits after today.');
   if (next.changeClass !== computed) add('V-TRN-02', 'error', 'changeClass', 'THE CHANGE CLASS DOES NOT MATCH THE SYSTEM DIFF.', `This change is ${computed}.`);
-  if (computed === 'structural' && context.arcDay > 7 && differenceInCalendarDays(parseISO(next.activeFrom), parseISO(context.today)) !== context.nextCheckpointDay - context.arcDay) add('V-TRN-03', 'error', 'activeFrom', 'STRUCTURAL CHANGE MUST WAIT FOR A CHECKPOINT.', 'Activate the change on the day after the next checkpoint seal.');
+  if (computed === 'structural' && context.arcDay > 7 && differenceInCalendarDays(parseISO(next.activeFrom), parseISO(context.today)) !== context.nextCheckpointDay - context.arcDay + 1) add('V-TRN-03', 'error', 'activeFrom', 'STRUCTURAL CHANGE MUST WAIT FOR A CHECKPOINT.', 'Activate the change on the day after the next checkpoint seal.');
   if (context.arcDay > 1 && (previous.arc.startDate !== next.arc.startDate || previous.arc.timezone !== next.arc.timezone || canonicalJson(previous.progression) !== canonicalJson(next.progression))) add('V-TRN-04', 'error', 'arc', 'A PINNED ARC SETTING CHANGED.', 'Progression, start date, and timezone are fixed after day 1.');
   for (const oldDomain of previous.domains) {
     const continued = next.domains.find((domain) => domain.id === oldDomain.id);

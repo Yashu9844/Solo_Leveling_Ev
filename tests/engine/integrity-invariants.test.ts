@@ -11,7 +11,7 @@ import { readModelEnv } from '../../src/blueprint/evaluate/readModel';
 import { hashesFor } from '../../src/blueprint/hash';
 import { legacyBlueprintFor, OWNER_ARC_DEFAULTS } from '../../src/blueprint/legacy/legacyV1';
 import { resolveBlueprints, versionFor } from '../../src/blueprint/resolve';
-import type { SystemBlueprint } from '../../src/blueprint/schema';
+import type { Criterion, SystemBlueprint } from '../../src/blueprint/schema';
 import { computeChangeClass } from '../../src/blueprint/validate';
 import { getAllEvents } from '../../src/db/events';
 import type { SystemEvent } from '../../src/engine/types';
@@ -135,7 +135,18 @@ describe('I13 - cosmetic versions keep the computational hash', () => {
     const base = genesis();
     const next = successor(base, dateAt(5), (b) => { b.quests[1]!.xp = 90; b.quests[2]!.xp = 110; });
     expect((await hashesFor(next)).computationalHash).not.toBe((await hashesFor(base)).computationalHash);
-    expect(await computeChangeClass(base, next)).toBe('operational');
+    // XP weights are the economy: structural (02 §19.2), so they begin only after a checkpoint.
+    expect(await computeChangeClass(base, next)).toBe('structural');
+  });
+  it('control: a target within a quarter and a new rhythm are operational; beyond a quarter is structural', async () => {
+    const base = genesis();
+    const nudge = (percent: number) => successor(base, dateAt(5), (b) => {
+      const scale = (c: Criterion): Criterion => (c.kind === 'signal' ? { ...c, target: Math.max(1, Math.round(c.target * (1 + percent / 100))) } : { ...c, of: c.of.map(scale) });
+      b.quests[0]!.criterion = scale(b.quests[0]!.criterion);
+    });
+    expect(await computeChangeClass(base, nudge(20))).toBe('operational');
+    expect(await computeChangeClass(base, nudge(80))).toBe('structural');
+    expect(await computeChangeClass(base, successor(base, dateAt(5), (b) => { b.quests[0]!.schedule = { kind: 'weekdays', days: ['mon', 'tue', 'wed', 'thu'] }; }))).toBe('operational');
   });
 });
 

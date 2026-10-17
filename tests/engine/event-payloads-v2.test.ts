@@ -112,8 +112,12 @@ describe('INSTRUMENT_RECORDED (loop 5.3)', () => {
   it('under ENGINE_V2 a record that satisfies a quest criterion completes the quest, once, and not when it falls short', async () => {
     setEngineV2Override(true);
     try {
+      // Making a quest completable another way changes what completes it: a structural change, which begins the day after a checkpoint.
+      const today = dateAt(29); // Day 30, a checkpoint day
+      const tomorrow = dateAt(30);
       const harness = await loadLegacyDb(prefixOf(log, today), today);
       const next = withReading(LEGACY_ARC_ID, tomorrow);
+      next.changeClass = 'structural';
       // Training is now also completed by reading 20+ pages.
       const training = next.quests.find((quest) => quest.id === 'training')!;
       training.criterion = { kind: 'any', of: [training.criterion, { kind: 'signal', instrumentId: 'foundations.pages', signal: 'hit', comparator: '>=', target: 1 }] };
