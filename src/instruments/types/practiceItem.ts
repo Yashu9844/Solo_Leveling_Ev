@@ -50,17 +50,25 @@ export function practiceItemSignals(records: readonly InstrumentRecord<PracticeI
   const firstAttempts = attempts.filter((attempt) => attempt.outcome === 'first_attempt').length;
   const revisits = attempts.filter((attempt) => attempt.is_revisit);
   const successfulRevisits = revisits.filter((attempt) => attempt.outcome === 'first_attempt').length;
-  const topics = new Set(attempts.map((attempt) => attempt.topic));
-  const fluentTopics = [...topics].filter((topic) => practiceItemMastery(topic, records) === 'fluent' || practiceItemMastery(topic, records) === 'retained').length;
-  return {
+  // Mastery of every topic is the expensive signal, and most reads ask for something else: it is worked out when (and only when) it is read.
+  let fluentTopics: number | undefined;
+  const signals = {
     count: attempts.length,
     weighted_volume: weightedVolume(attempts),
     minutes: records.reduce((sum, record) => sum + record.record.minutes, 0),
     first_attempt_rate: attempts.length === 0 ? 0 : firstAttempts / attempts.length,
     revisit_success_rate: revisits.length === 0 ? 0 : successfulRevisits / revisits.length,
-    topic_mastery: fluentTopics,
+    topic_mastery: 0,
     record_first_attempt_at_top_difficulty: attempts.some((attempt) => attempt.difficulty === 'H' && attempt.outcome === 'first_attempt') ? 1 : 0,
   };
+  Object.defineProperty(signals, 'topic_mastery', {
+    enumerable: true,
+    get: () => {
+      fluentTopics ??= [...new Set(attempts.map((attempt) => attempt.topic))].filter((topic) => { const state = masteryFor(topic, attempts); return state === 'fluent' || state === 'retained'; }).length;
+      return fluentTopics;
+    },
+  });
+  return signals;
 }
 
 export function practiceItemMastery(topic: string, records: readonly InstrumentRecord<PracticeItemRecord>[]): MasteryState {

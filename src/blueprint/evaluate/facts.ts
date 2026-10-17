@@ -67,7 +67,8 @@ export function buildFacts(input: FactsInput, hooks: FactsHooks): BuiltFacts {
   // Day outcomes through today (MVD days, trailing-90) and through yesterday (consistency, as the live streak does).
   const throughToday = buildDayOutcomes([...events], state.quests, arcStart, paused, asOf);
   const yesterday = shift(asOf, -1);
-  const throughYesterday = buildDayOutcomes([...events], state.quests, arcStart, paused, yesterday);
+  // Each day's outcome stands on its own, so yesterday's list is today's without its last day.
+  const throughYesterday = throughToday.filter((day) => day.local_date <= yesterday);
   const streakYesterday = throughYesterday.length > 0 ? streakFrom(throughYesterday, config.streak) : undefined;
 
   const sealed = (day: number) => checkpoints.some((checkpoint) => checkpoint.day === day && checkpoint.sealed_at !== undefined);

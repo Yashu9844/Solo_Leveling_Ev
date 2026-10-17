@@ -100,6 +100,9 @@ function instrumentFor(env: SignalEnv, instrumentId: string): InstrumentConfig {
   return instrument;
 }
 
+/** Instrument signal values already computed for an env (a SignalEnv is one read: its records and date do not change). */
+const SNAPSHOTS = new WeakMap<SignalEnv, Map<string, Readonly<Record<string, number>>>>();
+
 function resolveInstrument(ref: Extract<SignalRef, { source: 'instrument' }>, env: SignalEnv): number {
   const instrument = instrumentFor(env, ref.instrumentId);
   const all = env.recordsByInstrument.get(ref.instrumentId) ?? [];
@@ -111,6 +114,17 @@ function resolveInstrument(ref: Extract<SignalRef, { source: 'instrument' }>, en
     return topicsFor(instrument, tree, ref.filter).filter((topic) => RANK[masteryOf(instrument, topic, records, tree)] >= threshold).length;
   }
 
+  // One read asks the same instrument question many times (every rank's gate, attributes, bosses, messages): a snapshot answers it once.
+  const cache = SNAPSHOTS.get(env) ?? new Map<string, Readonly<Record<string, number>>>();
+  SNAPSHOTS.set(env, cache);
+  const key = JSON.stringify([ref.instrumentId, ref.aggregate ?? null, ref.filter ?? null]);
+  const cached = cache.get(key);
+  if (cached) {
+    const value = cached[ref.signal];
+    if (value === undefined) throw new Error(`Instrument "${ref.instrumentId}" (${instrument.type}) has no signal "${ref.signal}"`);
+    return value;
+  }
+
   const records = recordsFor(all, ref.aggregate, ref.filter, env);
   let params = instrument.params;
   if (instrument.type === 'study_block' && tree) {
@@ -120,6 +134,7 @@ function resolveInstrument(ref: Extract<SignalRef, { source: 'instrument' }>, en
   const values = INSTRUMENT_DEFINITIONS[instrument.type].signals(records, params, {
     localDate: env.asOf, from: windowStart(ref.aggregate, env.asOf) ?? env.arcStartDate, to: env.asOf, arcStartDate: env.arcStartDate, filter: ref.filter,
   });
+  cache.set(key, values);
   const value = values[ref.signal];
   if (value === undefined) throw new Error(`Instrument "${ref.instrumentId}" (${instrument.type}) has no signal "${ref.signal}"`);
   return value;
