@@ -277,13 +277,17 @@ function CheckpointRow() {
 
 /** Day-0 Baseline Row */
 function DayZeroBaselineRow() {
+  const { blueprint } = useSystem();
   return (
     <CheckpointInstrumentsCard
       day={0}
       label="Complete Day-0 baseline"
       header={{
         title: 'Baseline.',
-        subtitle: 'There is no good or bad answer — this is the number we compare against in December.',
+        subtitle:
+          blueprint.origin === 'legacy'
+            ? 'There is no good or bad answer — this is the number we compare against in December.'
+            : 'There is no good or bad answer — this is the number we compare against at each checkpoint.',
       }}
       saveLabel="Save baseline"
     />

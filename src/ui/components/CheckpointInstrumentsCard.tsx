@@ -2,15 +2,9 @@ import { useEffect, useState } from 'react';
 import type { Checkpoint } from '../../engine/rank';
 import { getCheckpoint, instrumentsComplete, saveCheckpointInstruments } from '../../store/checkpoint';
 import { realDeps } from '../../store/deps';
-import {
-  InstrumentSliders,
-  SELF_EFFICACY_QUESTIONS,
-  AUTOMATICITY_QUESTIONS,
-  ENJOYMENT_QUESTIONS,
-  type SelfEfficacyItems,
-  type AutomaticityItems,
-  type EnjoymentItems,
-} from './InstrumentSliders';
+import { InstrumentSliders } from './InstrumentSliders';
+import { INSTRUMENT_SCALES } from '../../blueprint/evaluate/checkpointInstruments';
+import { useSystem } from '../../store/SystemContext';
 import { Panel, PrimaryButton } from '../kit';
 
 interface CheckpointInstrumentsCardProps {
@@ -34,9 +28,19 @@ export function CheckpointInstrumentsCard({ day, label, header, saveLabel = 'Sav
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selfEfficacy, setSelfEfficacy] = useState<number[]>([50, 50, 50, 50, 50, 50]);
-  const [automaticity, setAutomaticity] = useState<number[]>([4, 4, 4, 4]);
-  const [enjoyment, setEnjoyment] = useState<number[]>([5, 5, 5]);
+  // The questions are the System's own (the owner's keep their original wording); the scales are fixed.
+  const { blueprint } = useSystem();
+  const questions = blueprint.checkpoints;
+  const [selfEfficacy, setSelfEfficacy] = useState<number[]>(() => questions.selfEfficacy.map(() => INSTRUMENT_SCALES.selfEfficacy.start));
+  const [automaticity, setAutomaticity] = useState<number[]>(() => questions.automaticity.map(() => INSTRUMENT_SCALES.automaticity.start));
+  const [enjoyment, setEnjoyment] = useState<number[]>(() => questions.enjoyment.map(() => INSTRUMENT_SCALES.enjoyment.start));
+
+  // A different System (or a new version of it) asks different questions: start the answers over rather than misalign them.
+  useEffect(() => {
+    setSelfEfficacy(questions.selfEfficacy.map(() => INSTRUMENT_SCALES.selfEfficacy.start));
+    setAutomaticity(questions.automaticity.map(() => INSTRUMENT_SCALES.automaticity.start));
+    setEnjoyment(questions.enjoyment.map(() => INSTRUMENT_SCALES.enjoyment.start));
+  }, [questions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +59,12 @@ export function CheckpointInstrumentsCard({ day, label, header, saveLabel = 'Sav
     await saveCheckpointInstruments(
       day,
       {
-        selfEfficacy: selfEfficacy as SelfEfficacyItems,
-        automaticity: automaticity as AutomaticityItems,
-        enjoyment: enjoyment as EnjoymentItems,
+        selfEfficacy,
+        automaticity,
+        ...(enjoyment.length > 0 ? { enjoyment } : {}),
       },
-      realDeps
+      realDeps,
+      blueprint
     );
     setSaving(false);
     setVisible(false);
@@ -90,31 +95,33 @@ export function CheckpointInstrumentsCard({ day, label, header, saveLabel = 'Sav
 
           <InstrumentSliders
             title="How confident are you, right now, that you could:"
-            questions={SELF_EFFICACY_QUESTIONS}
+            questions={questions.selfEfficacy.map((item) => item.prompt)}
             values={selfEfficacy}
             onChange={setSelfEfficacy}
-            min={0}
-            max={100}
-            step={10}
+            min={INSTRUMENT_SCALES.selfEfficacy.min}
+            max={INSTRUMENT_SCALES.selfEfficacy.max}
+            step={INSTRUMENT_SCALES.selfEfficacy.step}
           />
           <InstrumentSliders
             title={'"I do this without having to consciously remember or decide."'}
-            questions={AUTOMATICITY_QUESTIONS}
+            questions={questions.automaticity.map((item) => item.prompt)}
             values={automaticity}
             onChange={setAutomaticity}
-            min={1}
-            max={7}
-            step={1}
+            min={INSTRUMENT_SCALES.automaticity.min}
+            max={INSTRUMENT_SCALES.automaticity.max}
+            step={INSTRUMENT_SCALES.automaticity.step}
           />
-          <InstrumentSliders
-            title="How much do you enjoy this, independent of its usefulness?"
-            questions={ENJOYMENT_QUESTIONS}
-            values={enjoyment}
-            onChange={setEnjoyment}
-            min={0}
-            max={10}
-            step={1}
-          />
+          {questions.enjoyment.length > 0 && (
+            <InstrumentSliders
+              title="How much do you enjoy this, independent of its usefulness?"
+              questions={questions.enjoyment.map((item) => item.prompt)}
+              values={enjoyment}
+              onChange={setEnjoyment}
+              min={INSTRUMENT_SCALES.enjoyment.min}
+              max={INSTRUMENT_SCALES.enjoyment.max}
+              step={INSTRUMENT_SCALES.enjoyment.step}
+            />
+          )}
 
           <PrimaryButton size="md" disabled={saving} onClick={() => void handleSave()}>
             {saving ? 'Saving…' : saveLabel}

@@ -63,7 +63,7 @@ export const deepBuild: ArchetypeDef = {
     uses: { ladder: true, conditions: ['public-feature', 'project-with-eval'] }, verifiability: 'public_url',
   },
 
-  checkpoint: { selfEfficacy: 'Design an evaluation suite for an agent from a blank file?', enjoyment: 'Building' },
+  checkpoint: { selfEfficacy: 'Start a build from a blank file and get it working?', enjoyment: 'Building' },
   reviewPrompt: { prompt: 'What slowed the build today?', options: ['Unclear next step', 'A bug I could not place', 'Context switching', 'Nothing slowed it'] },
   reflectionThemes: ['craft', 'shipping'],
   achievements: [

@@ -39,6 +39,8 @@ import { db } from '../db/db';
 import type { ArcRow, CheckpointRow, EventRow, ProfileRow } from '../db/schema';
 import type { EngineConfig, EngineDeps, Rank, SystemEvent } from '../engine/types';
 import { getActiveArc, getActiveProfile } from './arc';
+import { instrumentIds, validateInstrumentAnswers } from '../blueprint/evaluate/checkpointInstruments';
+import type { SystemBlueprint } from '../blueprint/schema';
 import { engineV2Enabled } from '../flags';
 import { blueprintVersionStampV2, checkpointComparisonV2, gateEvidenceV2, gateResultV2 } from './v2Reads';
 
@@ -67,16 +69,20 @@ function stddev(values: number[]): number {
 // §4 evaluates, so recording them is never blocked by sealing and never
 // blocks it either.
 export interface SelfEfficacy {
-  items: [number, number, number, number, number, number]; // 0-100 each
+  items: number[]; // 0-100 each: six for the owner's System and a generated one
   mean: number;
+  /** The Blueprint question ids the items answer, in order. Written for a generated System only. */
+  ids?: string[];
 }
 export interface Automaticity {
-  items: [number, number, number, number]; // 1-7 each ("I do this without having to consciously remember or decide")
+  items: number[]; // 1-7 each ("I do this without having to consciously remember or decide")
   mean: number;
+  ids?: string[];
 }
 export interface Enjoyment {
-  items: [number, number, number]; // 0-10 each: DSA, Building/AI, Training
+  items: number[]; // 0-10 each: DSA, Building/AI, Training for the owner; one per engine domain (up to four) for a generated System
   mean: number;
+  ids?: string[];
 }
 
 export interface CheckpointInstruments {
@@ -84,6 +90,9 @@ export interface CheckpointInstruments {
   automaticity?: Automaticity['items'];
   enjoyment?: Enjoyment['items'];
 }
+
+/** The writer's refusal: answers that do not match the System's questions or their scales. */
+export class InstrumentAnswerError extends Error {}
 
 function meanOf(values: readonly number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
@@ -116,19 +125,26 @@ export async function getCheckpoint(day: Checkpoint['day']): Promise<CheckpointR
 export async function saveCheckpointInstruments(
   day: Checkpoint['day'],
   instruments: CheckpointInstruments,
-  deps: { newId(): string }
+  deps: { newId(): string },
+  /** When given, the answers must be the System's own questions on their scales; a generated System's rows also record which questions they answer. */
+  blueprint?: SystemBlueprint
 ): Promise<void> {
+  if (blueprint) {
+    const issues = validateInstrumentAnswers(blueprint.checkpoints, instruments);
+    if (issues.length > 0) throw new InstrumentAnswerError(issues.join('; '));
+  }
+  const withIds = (name: 'selfEfficacy' | 'automaticity' | 'enjoyment') => (blueprint && blueprint.origin !== 'legacy' ? { ids: instrumentIds(blueprint.checkpoints, name) } : {});
   const patch: Partial<CheckpointRow> = {};
   if (instruments.selfEfficacy) {
-    const self_efficacy: SelfEfficacy = { items: instruments.selfEfficacy, mean: meanOf(instruments.selfEfficacy) };
+    const self_efficacy: SelfEfficacy = { items: instruments.selfEfficacy, mean: meanOf(instruments.selfEfficacy), ...withIds('selfEfficacy') };
     patch.self_efficacy = self_efficacy as unknown as Record<string, unknown>;
   }
   if (instruments.automaticity) {
-    const automaticity: Automaticity = { items: instruments.automaticity, mean: meanOf(instruments.automaticity) };
+    const automaticity: Automaticity = { items: instruments.automaticity, mean: meanOf(instruments.automaticity), ...withIds('automaticity') };
     patch.automaticity = automaticity as unknown as Record<string, unknown>;
   }
   if (instruments.enjoyment) {
-    const enjoyment: Enjoyment = { items: instruments.enjoyment, mean: meanOf(instruments.enjoyment) };
+    const enjoyment: Enjoyment = { items: instruments.enjoyment, mean: meanOf(instruments.enjoyment), ...withIds('enjoyment') };
     patch.enjoyment = enjoyment as unknown as Record<string, unknown>;
   }
 

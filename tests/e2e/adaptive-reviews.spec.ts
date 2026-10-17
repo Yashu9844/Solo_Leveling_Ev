@@ -81,3 +81,35 @@ test.describe('the weekly review of a generated System', () => {
     expect(problems).toEqual([]);
   });
 });
+
+test.describe('the checkpoint questions of a generated System', () => {
+  test('the Day-0 baseline asks the System\'s own questions on fixed scales, and saves', async ({ page }) => {
+    const problems: string[] = [];
+    page.on('pageerror', (error) => problems.push('pageerror: ' + error.message));
+    page.on('console', (message) => { if (message.type() === 'error') problems.push('console: ' + message.text()); });
+
+    const { areas, resolution } = choicesFor('fitness');
+    await begin(page, 'quick');
+    await interview(page, areas, resolution);
+    await page.getByRole('button', { name: 'Initialise system' }).click();
+    await expect(page).toHaveURL(/\/today/, { timeout: 30_000 });
+    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 30_000 });
+
+    await page.getByRole('link', { name: 'PROFILE' }).click();
+    await page.getByRole('button', { name: 'Complete Day-0 baseline' }).click();
+    await expect(page.getByText('at each checkpoint')).toBeVisible();
+
+    // Six self-efficacy, four automaticity and one enjoyment per engine domain (at most four): never the owner's three.
+    const sliders = page.locator('input[type="range"]');
+    const count = await sliders.count();
+    expect(count).toBeGreaterThanOrEqual(11);
+    expect(count).toBeLessThanOrEqual(14);
+    // The owner's software questions are the owner's.
+    await expect(page.getByText('unseen medium DSA problem')).toHaveCount(0);
+    await expect(page.getByText('evaluation suite')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Save baseline' }).click();
+    await expect(page.getByRole('button', { name: 'Complete Day-0 baseline' })).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+});
