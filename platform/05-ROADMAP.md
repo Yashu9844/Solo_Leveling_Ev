@@ -256,7 +256,7 @@ The E3 pixel baseline from 0.4 must stay at 0 diff for the legacy Blueprint thro
 | ☑ 15.1 | Bench suite; synthetic 365-day X2 log; budgets in CI (04 §33.3) | budgets met or 15.2 triggered |
 | ☑ 15.2 | Incremental rebuild (only if needed — NOT NEEDED, budgets met, see decisions/0003-performance.md); `verifyIntegrity` as the oracle | equality with full rebuild on all corpora |
 | ☑ 15.3 | Dexie downgrade verification; rollback-build procedure; automated rollback drill (04 §38) | drill green |
-| ☐ 15.4 | Offline e2e (onboarding with network disabled); bundle check for network calls | zero network after load |
+| ☑ 15.4 | Offline e2e (onboarding with network disabled); bundle check for network calls | zero network after load |
 | ☐ 15.5 | Export encryption (AES-GCM + PBKDF2), optional, with the import path | round trip; wrong passphrase rejected cleanly |
 
 ### Phase 16 — Validation
