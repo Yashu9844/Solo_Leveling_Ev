@@ -81,4 +81,20 @@ test.describe('amending a generated System', () => {
     await expect(page.getByTestId('amend-issues')).toBeVisible();
     await expect(page.getByTestId('amend-activate')).toBeDisabled();
   });
+  test('the advanced controls are bounded steps, in plain words, and there is nowhere to type XP', async ({ page }) => {
+    test.setTimeout(120_000);
+    await openBlueprint(page, '2026-09-12T10:00:00Z', 11);
+    const advanced = page.getByTestId('amend-advanced');
+    await advanced.locator('summary').click();
+    await expect(advanced.locator('input[type="number"], input[type="range"]')).toHaveCount(0);
+    await expect(advanced.getByText(/xp/i)).toHaveCount(0);
+
+    const weight = advanced.locator('[data-testid^="amend-weight-"][data-testid$="-value"]').first();
+    const before = await weight.innerText();
+    await advanced.getByRole('button', { name: /^Raise / }).first().click();
+    await expect(weight).not.toHaveText(before);
+    await expect(page.getByTestId('amend-draft')).toContainText('counts');
+    await expect(page.getByTestId('amend-class')).toHaveText('STRUCTURAL');
+    await expect(page.getByTestId('amend-activate')).toBeDisabled();
+  });
 });

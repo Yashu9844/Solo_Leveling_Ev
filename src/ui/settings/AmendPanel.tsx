@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { planAmendment, stageOp, type AmendmentPlan, type AmendOp } from '../../blueprint/amend';
+import { editableParams, planAmendment, stageOp, type AmendmentPlan, type AmendOp } from '../../blueprint/amend';
 import type { SystemBlueprint } from '../../blueprint/schema';
 import { localDate } from '../../engine/time';
 import { activateBlueprint } from '../../store/blueprint';
@@ -68,6 +68,7 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
     const percent = percentOf(ops, kind, questId) + by;
     change(percent === 0 ? ops.filter((op) => !(op.kind === kind && op.questId === questId)) : stageOp(ops, { kind, questId, percent }));
   }
+  const gateLabel = (rank: string, conditionId: string): string => (base.gates.find((gate) => gate.rank === rank)?.conditions.find((condition) => condition.id === conditionId)?.label ?? conditionId).replace(/\{t?\d+\}/g, '…').replace(/\s*\(need [^)]*\)/, '');
   const describe = (op: AmendOp): string => {
     switch (op.kind) {
       case 'designation': return `${designationOf(op.domainId)} → ${op.value.trim().toUpperCase()}`;
@@ -75,6 +76,10 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
       case 'floor': return `${questName(op.questId)}: hard day ${op.percent > 0 ? '+' : ''}${op.percent}%`;
       case 'days': return `${questName(op.questId)}: ${op.days ? op.days.join(', ') : 'every day'}`;
       case 'weight': return `${op.xp} XP from ${questName(op.fromQuestId)} to ${questName(op.toQuestId)}`;
+      case 'attributeWeight': return `${base.attributes.defs.find((def) => def.id === op.attributeId)?.name ?? op.attributeId}: ${base.attributes.defs.find((def) => def.id === op.attributeId)?.terms.find((term) => term.id === op.termId)?.label ?? op.termId} counts ${Math.round(op.weight * 100)}%`;
+      case 'gate': return `Rank ${op.rank} gate: ${gateLabel(op.rank, op.conditionId)} ${op.percent > 0 ? '+' : ''}${op.percent}%`;
+      case 'param': return `${base.instruments.find((instrument) => instrument.id === op.instrumentId)?.label ?? op.instrumentId}: ${op.key} ${op.percent > 0 ? '+' : ''}${op.percent}%`;
+      case 'rung': return `${base.milestones.find((milestone) => milestone.id === op.milestoneId)?.label ?? op.milestoneId}: step ${op.index + 1} ${op.percent > 0 ? '+' : ''}${op.percent}%`;
     }
   };
 
@@ -138,6 +143,53 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
           </div>
           <SecondaryButton disabled={fromQuest === toQuest} onClick={() => change(stageOp(ops, { kind: 'weight', fromQuestId: fromQuest, toQuestId: toQuest, xp: 10 }))}>Move 10 XP</SecondaryButton>
         </div>
+
+        {/* Advanced: every control moves by a fixed step and the validator refuses what it will not allow. There is no field for XP. */}
+        <details className="mt-5" data-testid="amend-advanced">
+          <summary className="min-h-tap cursor-pointer text-xs uppercase tracking-[0.14em] text-ink-700">Advanced</summary>
+
+          <p className="mb-1 mt-3 text-xs uppercase tracking-[0.14em] text-ink-700">What counts toward each attribute</p>
+          {base.attributes.defs.filter((def) => def.combine === 'sum' && def.terms.length >= 2).map((def) => (
+            <div key={def.id} className="mb-2" data-testid={`amend-attribute-${def.id}`}>
+              <p className="text-sm text-ink-100">{def.name}</p>
+              {def.terms.map((term) => {
+                const staged = ops.find((op) => op.kind === 'attributeWeight' && op.attributeId === def.id && op.termId === term.id) as Extract<AmendOp, { kind: 'attributeWeight' }> | undefined;
+                const weight = staged?.weight ?? term.weight;
+                return (
+                  <Stepper
+                    key={term.id}
+                    label={term.label}
+                    value={`${Math.round(weight * 100)}%`}
+                    testId={`amend-weight-${def.id}-${term.id}`}
+                    onMinus={() => change(stageOp(ops, { kind: 'attributeWeight', attributeId: def.id, termId: term.id, weight: Math.max(0.05, weight - 0.05) }))}
+                    onPlus={() => change(stageOp(ops, { kind: 'attributeWeight', attributeId: def.id, termId: term.id, weight: Math.min(0.9, weight + 0.05) }))}
+                  />
+                );
+              })}
+            </div>
+          ))}
+
+          <p className="mb-1 mt-4 text-xs uppercase tracking-[0.14em] text-ink-700">What a rank gate asks</p>
+          {base.gates.flatMap((gate) => gate.conditions.filter((condition) => typeof (condition.clauses?.length ? condition.clauses[0]! : condition).threshold === 'number' && (condition.clauses?.length ? condition.clauses[0]! : condition).threshold !== 0 && condition.verifiability !== 'structural').map((condition) => ({ gate, condition }))).map(({ gate, condition }) => {
+            const percent = (ops.find((op) => op.kind === 'gate' && op.rank === gate.rank && op.conditionId === condition.id) as Extract<AmendOp, { kind: 'gate' }> | undefined)?.percent ?? 0;
+            const set = (value: number) => change(value === 0 ? ops.filter((op) => !(op.kind === 'gate' && op.rank === gate.rank && op.conditionId === condition.id)) : stageOp(ops, { kind: 'gate', rank: gate.rank, conditionId: condition.id, percent: value }));
+            return <Stepper key={`${gate.rank}-${condition.id}`} label={`${gate.rank} · ${gateLabel(gate.rank, condition.id)}`} value={`${percent > 0 ? '+' : ''}${percent}%`} testId={`amend-gate-${gate.rank}-${condition.id}`} onMinus={() => set(percent - STEP)} onPlus={() => set(percent + STEP)} />;
+          })}
+
+          <p className="mb-1 mt-4 text-xs uppercase tracking-[0.14em] text-ink-700">How a way of logging judges</p>
+          {base.instruments.flatMap((instrument) => editableParams(instrument).map((key) => ({ instrument, key }))).map(({ instrument, key }) => {
+            const percent = (ops.find((op) => op.kind === 'param' && op.instrumentId === instrument.id && op.key === key) as Extract<AmendOp, { kind: 'param' }> | undefined)?.percent ?? 0;
+            const set = (value: number) => change(value === 0 ? ops.filter((op) => !(op.kind === 'param' && op.instrumentId === instrument.id && op.key === key)) : stageOp(ops, { kind: 'param', instrumentId: instrument.id, key, percent: value }));
+            return <Stepper key={`${instrument.id}-${key}`} label={`${instrument.label} · ${key}`} value={`${percent > 0 ? '+' : ''}${percent}%`} testId={`amend-param-${instrument.id}-${key}`} onMinus={() => set(percent - STEP)} onPlus={() => set(percent + STEP)} />;
+          })}
+
+          <p className="mb-1 mt-4 text-xs uppercase tracking-[0.14em] text-ink-700">Milestone ladders</p>
+          {base.milestones.flatMap((milestone) => (milestone.ladder ?? []).map((rung, index) => ({ milestone, index, rung }))).map(({ milestone, index }) => {
+            const percent = (ops.find((op) => op.kind === 'rung' && op.milestoneId === milestone.id && op.index === index) as Extract<AmendOp, { kind: 'rung' }> | undefined)?.percent ?? 0;
+            const set = (value: number) => change(value === 0 ? ops.filter((op) => !(op.kind === 'rung' && op.milestoneId === milestone.id && op.index === index)) : stageOp(ops, { kind: 'rung', milestoneId: milestone.id, index, percent: value }));
+            return <Stepper key={`${milestone.id}-${index}`} label={`${milestone.label} · step ${index + 1}`} value={`${percent > 0 ? '+' : ''}${percent}%`} testId={`amend-rung-${milestone.id}-${index}`} onMinus={() => set(percent - STEP)} onPlus={() => set(percent + STEP)} />;
+          })}
+        </details>
       </Panel>
 
       {staged.length > 0 && plan && (
@@ -171,6 +223,18 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
           </Panel>
         </div>
       )}
+    </div>
+  );
+}
+
+/** A labelled value with a step down and a step up: how every advanced control moves. */
+function Stepper({ label, value, testId, onMinus, onPlus }: { label: string; value: string; testId: string; onMinus: () => void; onPlus: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1" data-testid={testId}>
+      <span className="min-w-0 flex-1 truncate text-sm text-ink-300">{label}</span>
+      <button type="button" aria-label={`Lower ${label}`} className="min-h-tap min-w-tap rounded-md border border-hair px-3 text-ink-100" onClick={onMinus}>−</button>
+      <span className="w-14 text-center font-mono text-sm tabular-nums text-accent-mid" data-testid={`${testId}-value`}>{value}</span>
+      <button type="button" aria-label={`Raise ${label}`} className="min-h-tap min-w-tap rounded-md border border-hair px-3 text-ink-100" onClick={onPlus}>+</button>
     </div>
   );
 }
