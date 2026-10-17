@@ -14,6 +14,7 @@ import { appendEvent, getAllEvents } from '../db/events';
 import type { EngineDeps } from '../engine/types';
 import { getActiveArc } from './arc';
 import { getEngineConfig } from './engineConfig';
+import { checkpointSealedToday } from './checkpoint';
 import { refreshBlueprintVersions } from './systemBlueprint';
 
 /** The versions in force for the active arc, plus any activations the log carries that were ignored. */
@@ -42,7 +43,7 @@ export async function activateBlueprint(next: SystemBlueprint, today: string, de
   const nextCheckpointDay = (previous?.progression.checkpointDays ?? next.progression.checkpointDays).find((day) => day >= arcDay) ?? arcDay;
 
   // The owner's implicit legacy v1 is the predecessor of their first explicit version; it is never logged.
-  await assertActivatable(next, previous, { today, arcDay, nextCheckpointDay, arcId: arc.id });
+  await assertActivatable(next, previous, { today, arcDay, nextCheckpointDay, sealedToday: await checkpointSealedToday(today, getEngineConfig()), arcId: arc.id });
 
   const event = activationEvent(next, { id: deps.newId(), occurred_at: deps.now(), local_date: today });
   // Hash outside the transaction: awaiting WebCrypto inside it would commit it early.

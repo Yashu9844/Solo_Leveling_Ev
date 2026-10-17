@@ -23,6 +23,8 @@ export interface ActivationContext {
   arcDay: number;
   /** The day number of the next checkpoint (for the structural-change rule). */
   nextCheckpointDay: number;
+  /** A checkpoint was sealed today (see TransitionContext). */
+  sealedToday?: boolean;
   arcId: string;
 }
 
@@ -37,7 +39,7 @@ export async function assertActivatable(next: SystemBlueprint, previous: SystemB
   }
   const blocking = [
     ...validateBlueprint(next, { today: context.today }),
-    ...(previous ? await validateTransition(previous, next, { today: context.today, arcDay: context.arcDay, nextCheckpointDay: context.nextCheckpointDay }) : []),
+    ...(previous ? await validateTransition(previous, next, { today: context.today, arcDay: context.arcDay, nextCheckpointDay: context.nextCheckpointDay, sealedToday: context.sealedToday }) : []),
   ].filter((issue) => issue.severity === 'error');
   if (blocking.length > 0) throw new ActivationError(`The Blueprint cannot become active: ${blocking.map((issue) => issue.code).join(', ')}.`, blocking);
 }

@@ -4,6 +4,7 @@ import { planAmendment, stageOp, type AmendmentPlan, type AmendOp } from '../../
 import type { SystemBlueprint } from '../../blueprint/schema';
 import { localDate } from '../../engine/time';
 import { activateBlueprint } from '../../store/blueprint';
+import { checkpointSealedToday } from '../../store/checkpoint';
 import { clearDraft, loadDraft, saveDraft } from '../../store/amendDraft';
 import { realDeps } from '../../store/deps';
 import { getEngineConfig } from '../../store/engineConfig';
@@ -29,6 +30,14 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
   const nextCheckpointDay = base.progression.checkpointDays.find((day) => day >= arcDay);
   const [ops, setOps] = useState<AmendOp[]>(() => loadDraft(arcId, base.version));
   const [plan, setPlan] = useState<AmendmentPlan | null>(null);
+  // On the day a checkpoint is sealed, a structural change is allowed and begins tomorrow (the checkpoint's Amend step).
+  const [sealedToday, setSealedToday] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void checkpointSealedToday(today, config).then((sealed) => { if (!cancelled) setSealedToday(sealed); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const cores = base.quests.filter((quest) => quest.type === 'core');
@@ -44,11 +53,11 @@ export function AmendPanel({ base, arcId, onActivated }: { base: SystemBlueprint
 
   useEffect(() => {
     let cancelled = false;
-    void planAmendment(base, ops, { today, arcDay, nextCheckpointDay }).then((next) => {
+    void planAmendment(base, ops, { today, arcDay, nextCheckpointDay, sealedToday }).then((next) => {
       if (!cancelled) setPlan(next);
     });
     return () => { cancelled = true; };
-  }, [base, ops, today, arcDay, nextCheckpointDay]);
+  }, [base, ops, today, arcDay, nextCheckpointDay, sealedToday]);
 
   function change(next: AmendOp[]): void {
     setOps(next);

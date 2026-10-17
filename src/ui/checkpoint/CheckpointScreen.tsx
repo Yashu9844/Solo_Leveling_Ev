@@ -14,7 +14,40 @@ import { realDeps } from '../../store/deps';
 import { RankAdvancedMoment } from '../moments/RankAdvancedMoment';
 import { CheckpointMoment } from '../moments/CheckpointMoment';
 import { CheckpointInstrumentsCard } from '../components/CheckpointInstrumentsCard';
+import { AmendPanel } from '../settings/AmendPanel';
+import { engineV2Enabled } from '../../flags';
+import { getActiveArc } from '../../store/arc';
+import { checkpointSealedToday } from '../../store/checkpoint';
+import { useSystem } from '../../store/SystemContext';
 import { ArtLayer, FramedPanel, Portal, PrimaryButton, SecondaryButton, SectionLabel } from '../kit';
+
+/**
+ * The checkpoint's Amend step (platform/03 §28.5): once the checkpoint is sealed today, the System may be amended, and a structural change
+ * made now begins tomorrow - the day after the seal. Nothing already sealed or lived changes.
+ */
+function AmendStep({ today }: { today: string }) {
+  const { blueprint } = useSystem();
+  const [arcId, setArcId] = useState<string | null>(null);
+  const [sealedToday, setSealedToday] = useState(false);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([getActiveArc(), checkpointSealedToday(today, getEngineConfig())]).then(([arc, sealed]) => {
+      if (cancelled) return;
+      setArcId(arc?.id ?? null);
+      setSealedToday(sealed);
+    });
+    return () => { cancelled = true; };
+  }, [today]);
+  if (!engineV2Enabled() || blueprint.origin === 'legacy' || !arcId || !sealedToday) return null;
+  return (
+    <div data-testid="amend-step">
+      <SectionLabel rule className="mb-1 mt-8">Amend the System</SectionLabel>
+      <p className="text-xs leading-[1.5] text-ink-500">The checkpoint is sealed. Whatever you change now begins tomorrow; today and every day before it stay as they were.</p>
+      {done ? <p className="glow-text mt-4 text-sm text-dawn-bright" data-testid="amend-done">Amended. It begins tomorrow.</p> : <AmendPanel base={blueprint} arcId={arcId} onActivated={() => setDone(true)} />}
+    </div>
+  );
+}
 
 interface CheckpointScreenProps {
   day: Checkpoint['day'];
@@ -225,6 +258,8 @@ export function CheckpointScreen({ day, today, onClose }: CheckpointScreenProps)
               </PrimaryButton>
             </div>
           )}
+
+          {sealed && <AmendStep today={today} />}
         </div>
 
         {rankAdvance && (

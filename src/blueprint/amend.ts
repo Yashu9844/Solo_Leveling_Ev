@@ -74,6 +74,8 @@ export interface AmendmentContext {
   arcDay: number;
   /** The next checkpoint day at or after today, or undefined when none remains. */
   nextCheckpointDay?: number;
+  /** A checkpoint was sealed today: this is its Amend step, and a structural change begins tomorrow. */
+  sealedToday?: boolean;
 }
 
 export interface AmendmentPlan {
@@ -95,6 +97,7 @@ const shift = (date: string, days: number): string => format(addDays(parseISO(da
 export function activationTiming(changeClass: ComputedChangeClass, context: AmendmentContext): { activeFrom: string; effect: string; waits: boolean } {
   if (changeClass === 'cosmetic') return { activeFrom: context.today, effect: 'TAKES EFFECT NOW.', waits: false };
   if (changeClass === 'operational') return { activeFrom: shift(context.today, 1), effect: 'TAKES EFFECT TOMORROW.', waits: false };
+  if (context.sealedToday) return { activeFrom: shift(context.today, 1), effect: 'TAKES EFFECT TOMORROW, THE DAY AFTER THE CHECKPOINT.', waits: false };
   if (context.arcDay <= 7) return { activeFrom: shift(context.today, 1), effect: 'TAKES EFFECT TOMORROW. THE FIRST WEEK FORGIVES EARLY GUESSES.', waits: false };
   if (context.nextCheckpointDay === undefined) return { activeFrom: shift(context.today, 1), effect: 'NO CHECKPOINT REMAINS TO APPLY THIS AFTER.', waits: true };
   return { activeFrom: shift(context.today, context.nextCheckpointDay - context.arcDay + 1), effect: `TAKES EFFECT AFTER THE DAY ${context.nextCheckpointDay} CHECKPOINT.`, waits: true };
@@ -109,8 +112,8 @@ export async function planAmendment(base: SystemBlueprint, ops: readonly AmendOp
   candidate.activeFrom = timing.activeFrom;
   const issues = [
     ...validateBlueprint(candidate, { today: context.today }),
-    ...(await validateTransition(base, candidate, { today: context.today, arcDay: context.arcDay, nextCheckpointDay: context.nextCheckpointDay ?? context.arcDay })),
+    ...(await validateTransition(base, candidate, { today: context.today, arcDay: context.arcDay, nextCheckpointDay: context.nextCheckpointDay ?? context.arcDay, sealedToday: context.sealedToday })),
   ].filter((found) => found.severity !== 'info');
-  const blocked = issues.some((found) => found.severity === 'error') || (changeClass === 'structural' && context.arcDay > 7 && context.nextCheckpointDay === undefined);
+  const blocked = issues.some((found) => found.severity === 'error') || (changeClass === 'structural' && context.arcDay > 7 && context.nextCheckpointDay === undefined && !context.sealedToday);
   return { empty: false, candidate, changeClass, activeFrom: timing.activeFrom, effect: timing.effect, status: blocked ? 'invalid' : timing.waits ? 'waits-for-checkpoint' : 'ready', issues };
 }

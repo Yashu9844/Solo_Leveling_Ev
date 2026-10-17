@@ -39,6 +39,7 @@ import { db } from '../db/db';
 import type { ArcRow, CheckpointRow, EventRow, ProfileRow } from '../db/schema';
 import type { EngineConfig, EngineDeps, Rank, SystemEvent } from '../engine/types';
 import { getActiveArc, getActiveProfile } from './arc';
+import { localDate } from '../engine/time';
 import { instrumentIds, validateInstrumentAnswers } from '../blueprint/evaluate/checkpointInstruments';
 import type { SystemBlueprint } from '../blueprint/schema';
 import { engineV2Enabled } from '../flags';
@@ -697,4 +698,13 @@ export async function sealCheckpoint(day: Checkpoint['day'], today: string, conf
   });
 
   return result;
+}
+
+/**
+ * Whether a checkpoint was sealed today (the arc's own day boundary): the moment of the checkpoint's Amend step, when a structural change
+ * may be made and begins tomorrow (platform/02 §19.2). Day 0 is a baseline, not a checkpoint.
+ */
+export async function checkpointSealedToday(today: string, config: EngineConfig): Promise<boolean> {
+  const rows = await db.checkpoint.toArray();
+  return rows.some((row) => row.day !== 0 && row.sealed_at !== undefined && localDate(row.sealed_at, config.arc.timezone, config.arc.dayBoundaryHour) === today);
 }

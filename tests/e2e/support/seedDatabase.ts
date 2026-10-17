@@ -45,7 +45,7 @@ export async function seedDatabase(page: Page, events: SystemEvent[], now: strin
  * Seeds the app with a generated System and a log of its days, derived the way activation and a rebuild derive them (the Blueprint is in the
  * log as BLUEPRINT_ACTIVATED). For the adaptive build, whose flags read a generated System.
  */
-export async function seedGeneratedSystem(page: Page, blueprint: SystemBlueprint, events: SystemEvent[], now: string): Promise<void> {
+export async function seedGeneratedSystem(page: Page, blueprint: SystemBlueprint, events: SystemEvent[], now: string, extra: Record<string, unknown[]> = {}): Promise<void> {
   const cache = buildProjectionsV2(events, { now: () => now, newId: () => 'seeded' }, [blueprint]);
   const rows: Record<string, unknown[]> = {
     event: events,
@@ -55,6 +55,7 @@ export async function seedGeneratedSystem(page: Page, blueprint: SystemBlueprint
     }],
     profile: [{ id: blueprint.arcId, name: blueprint.identity.displayName, created_at: now, arc_timezone: blueprint.arc.timezone, settings: {} }],
     quest_template: cache.templates, quest_instance: cache.instances, xp_ledger: cache.ledger, day_rollup: cache.dayRollups, player_state: cache.playerState ? [cache.playerState] : [],
+    ...extra,
   };
   await page.goto('/start');
   await page.evaluate((payload) => new Promise<void>((resolve, reject) => {

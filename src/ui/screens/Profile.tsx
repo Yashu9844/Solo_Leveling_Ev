@@ -209,7 +209,8 @@ function CheckpointRow() {
   const { blueprint } = useSystem();
   const [day, setDay] = useState<number | null>(null);
   const [nextCheckpointDay, setNextCheckpointDay] = useState<Checkpoint['day'] | null>(null);
-  const [open, setOpen] = useState(false);
+  // The checkpoint the sheet was opened for: sealing it (or amending the System after the seal) moves "next" on, but the open sheet stays on its own day.
+  const [openDay, setOpenDay] = useState<number | null>(null);
   const today = localDate(realDeps.now(), getEngineConfig().arc.timezone, getEngineConfig().arc.dayBoundaryHour);
 
   const refresh = useCallback(async () => {
@@ -237,7 +238,7 @@ function CheckpointRow() {
     <FramedPanel tone={due ? 'dawn' : 'accent'} className="mt-4 shadow-[0_0_16px_rgba(77,163,255,0.15)]">
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpenDay(nextCheckpointDay)}
         className="w-full px-4 py-4 text-left group transition-all duration-150"
         style={{ minHeight: 56 }}
       >
@@ -261,12 +262,12 @@ function CheckpointRow() {
               : `${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} away — open the checklist`}
         </span>
       </button>
-      {open && (
+      {openDay !== null && (
         <CheckpointScreen
-          day={nextCheckpointDay}
+          day={openDay as Checkpoint['day']}
           today={today}
           onClose={() => {
-            setOpen(false);
+            setOpenDay(null);
             void refresh();
           }}
         />
