@@ -57,7 +57,9 @@ export function resetManifestCache(): void {
 }
 
 export function clipUrl(messageId: string): string {
-  return `/voice/${encodeURIComponent(messageId)}.mp3`;
+  // A count variant is `cleared-003@4`. '@' is legal in a path, and not every static host (nor Vite's dev server) maps %40 back to the file,
+  // in which case the request would fall through to index.html and the line would be spoken by the device voice without anyone noticing.
+  return `/voice/${encodeURIComponent(messageId).replace(/%40/g, '@')}.mp3`;
 }
 
 let current: HTMLAudioElement | null = null;

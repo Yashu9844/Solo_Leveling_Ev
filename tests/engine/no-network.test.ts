@@ -28,7 +28,7 @@ describe('the source', () => {
   it('and there it asks for same-origin paths', () => {
     const text = readFileSync(join(ROOT, 'src/ui/speech/voicePackAudio.ts'), 'utf8');
     expect(text).toMatch(/MANIFEST_URL = '\/voice\/manifest\.json'/);
-    expect(text).toMatch(/`\/voice\/\$\{encodeURIComponent\(messageId\)\}\.mp3`/);
+    expect(text).toMatch(/`\/voice\/\$\{encodeURIComponent\(messageId\)\.replace\(\/%40\/g, '@'\)\}\.mp3`/);
     const calls = [...text.matchAll(/fetch\(([^)]*)\)/g)].map((match) => match[1]);
     expect(calls).toEqual(['MANIFEST_URL', 'clipUrl(messageId']);
   });

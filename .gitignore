@@ -80,3 +80,6 @@ desktop.ini
 #
 # tests/e2e/visual-baseline.spec.ts-snapshots/*.png: the E3 pixel baselines
 # are the regression contract. They are Windows/Chromium captures.
+
+# Vite writes these next to the config while the dev server loads it
+vite.config.ts.timestamp-*

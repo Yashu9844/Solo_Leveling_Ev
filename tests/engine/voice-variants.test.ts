@@ -153,17 +153,18 @@ describe('the library the audio is rendered from', () => {
     for (const tier of TIER_ORDER) expect(VOICE_PACK.some((message) => message.tier === tier), tier).toBe(true);
   });
 
-  it('the only lines without a rendered clip are the new variants - nothing legacy lost its audio id', () => {
+  it('every line has its rendered clip, and every clip is still a line of the pack (no legacy audio id was lost or renamed)', () => {
     if (manifest.length === 0) return;
-    const unrendered = VOICE_PACK.map((message) => message.id).filter((id) => !manifest.includes(id));
-    expect(unrendered.sort()).toEqual([
-      'cleared-003@4', 'cleared-003@5', 'cleared-003@7', 'cleared-003@8',
-      'exception-closed-008', 'exception-closed-009',
-      'final-condition-003@4', 'final-condition-003@5', 'final-condition-003@7', 'final-condition-003@8',
-      'midday-started-002@4', 'midday-started-002@5', 'midday-started-002@7', 'midday-started-002@8',
-      'morning-zero-005@4', 'morning-zero-005@5', 'morning-zero-005@7', 'morning-zero-005@8',
-    ]);
-    // Every clip that exists is still a line of the pack (no id was renamed away from its audio).
+    expect(VOICE_PACK.map((message) => message.id).filter((id) => !manifest.includes(id))).toEqual([]);
     expect(manifest.filter((id) => !VOICE_PACK.some((message) => message.id === id))).toEqual([]);
+  });
+});
+
+describe('the address of a clip', () => {
+  it('keeps "@" as it is, so a count variant is requested by a path every host can serve', async () => {
+    const { clipUrl } = await import('../../src/ui/speech/voicePackAudio');
+    expect(clipUrl('cleared-003@4')).toBe('/voice/cleared-003@4.mp3');
+    expect(clipUrl('morning-zero-001')).toBe('/voice/morning-zero-001.mp3');
+    expect(clipUrl('odd id/with?chars')).toBe('/voice/odd%20id%2Fwith%3Fchars.mp3');
   });
 });
