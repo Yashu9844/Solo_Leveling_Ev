@@ -1,54 +1,82 @@
+# ── Dependencies ────────────────────────────────────────────────────────────
 node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+
+# ── Build output ────────────────────────────────────────────────────────────
 dist/
 dist-ssr/
-*.local
+# the second build the adaptive e2e project serves (port 4274)
+dist-adaptive/
+# PWA dev service worker
+dev-dist/
+build/
+.vite/
+# tsc -b incremental state
+*.tsbuildinfo
+.eslintcache
+
+# ── Secrets and local config ────────────────────────────────────────────────
+# FISH_API_KEY / FISH_VOICE_ID live in .env.local; never commit them.
 .env
 .env.*
 !.env.example
+*.local
 
-# Editor
+# ── Personal data (never commit) ────────────────────────────────────────────
+# The owner's event-log exports used as private golden-master fixtures
+# (platform/04-QUALITY-AND-OPERATIONS.md §32.4), and any backup file saved by the app.
+platform-fixtures/private/
+owner-export*.json
+system-backup-*.json
+system-export-day-*.json
+solo-leveling-backup-*.json
+solo-leveling-export-day-*.json
+
+# ── Test and tool artifacts ─────────────────────────────────────────────────
+coverage/
+.nyc_output/
+playwright-report/
+playwright/.cache/
+test-results/
+blob-report/
+*.log
+npm-debug.log*
+
+# ── Scratch files at the repo root (ad-hoc screenshot scripts and the like) ─
+/_*.mjs
+/_*.cjs
+/_*.js
+/_*.ts
+/tmp/
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# ── Editors ─────────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea/
+*.swp
+*.swo
+*~
 
-# OS
+# ── OS ──────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Test artifacts
-coverage/
-playwright-report/
-test-results/
-blob-report/
+# ── Claude Code (local session state; not part of the project) ──────────────
+.claude/
 
-# PWA generated
-dev-dist/
-
-# The System's rendered voice pack (scripts/generate-voice-pack.mjs) is
-# deliberately NOT ignored.
+# ── Deliberately NOT ignored ────────────────────────────────────────────────
+# public/voice/*.mp3 and manifest.json: `public/` is copied verbatim into the
+# build, so ignoring the rendered voice pack would only keep it off the
+# deployment, where the feature lives. A deployed build serves every clip to
+# anyone who asks, so ignoring them in git would not make them private either.
+# Regenerate with `npm run voice`; an absent clip falls back to the device voice.
 #
-# It was, on the reasoning that ~5 MB of cloned character audio belongs
-# on the Player's own machine rather than in a public repo. That held
-# right up until the app was deployed: `public/` is copied verbatim into
-# the build, so keeping the pack out of git only kept it off the
-# *deployment*, where the entire feature lives. Production fell back to
-# the device's speech engine on every line, which is the generic voice
-# this pack exists to replace.
-#
-# Nor did ignoring it keep the audio private. A deployed build serves
-# every clip at https://<host>/voice/<id>.mp3 to anyone who asks, so the
-# public exposure is identical either way — the only thing the ignore
-# rule bought was a broken feature in production.
-#
-# Regenerate with `npm run voice`. A clip that is absent still falls back
-# to the device's engine rather than to silence.
-
-# Personal event-log exports used as private golden-master fixtures
-# (platform/04-QUALITY-AND-OPERATIONS.md §32.4). Real personal data —
-# never commit anything under this path.
-platform-fixtures/private/
-
-# Claude Code session lock
-.claude/scheduled_tasks.lock
-
-dist-adaptive/
+# tests/e2e/visual-baseline.spec.ts-snapshots/*.png: the E3 pixel baselines
+# are the regression contract. They are Windows/Chromium captures.
