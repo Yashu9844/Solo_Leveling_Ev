@@ -247,7 +247,8 @@ describe('triggers become intentions on the System’s own quests', () => {
       'identity.displayName': 'Ada', areas: ['career', 'financial', 'body'], 'area.career.triggerTime': '08:00', 'area.career.triggerPlace': 'the desk', 'area.career.triggerAction': 'open the tracker',
       'area.financial.triggerTime': '09:00', 'area.financial.triggerPlace': 'the kitchen', 'area.financial.triggerAction': 'log the spend',
     }), QUESTIONS, mapping);
-    expect(intentions.map((intention) => intention.archetypeId)).toEqual(['career-pipeline']);
+    // Career, unanswered, is growing in the current job: it allows a reminder, finance does not.
+    expect(intentions.map((intention) => intention.archetypeId)).toEqual(['career-growth']);
     const { blueprint } = generateBlueprint(input);
     const resolved = questIntentions(blueprint, [...intentions, ...intentions, { archetypeId: 'finance-control', time: '09:00', place: 'x', action: 'y' }]);
     expect(resolved).toHaveLength(1);
@@ -321,7 +322,7 @@ describe('things of their own (Guided, 03 §26)', () => {
 
 describe('more than one thing in an area', () => {
   const answers = {
-    'identity.displayName': 'Maya', areas: ['creativity', 'body', 'career'],
+    'identity.displayName': 'Maya', areas: ['creativity', 'body', 'business'],
     'area.creativity.resolution': 'creative-practice', 'area.creativity.also': ['writing', 'public-speaking'],
     'area.body.resolution': 'strength-movement', 'area.body.also': ['endurance'],
   };
@@ -332,7 +333,7 @@ describe('more than one thing in an area', () => {
     const keys = plan.map((instance) => instance.key);
     expect(keys).toContain('also@creativity');
     expect(keys).toContain('also@body');
-    expect(keys).not.toContain('also@career'); // one thing it can be
+    expect(keys).not.toContain('also@business'); // one thing it can be
     expect(keys).not.toContain('also@body~endurance'); // an added thing has no "anything else" of its own
     const body = plan.find((instance) => instance.key === 'also@body')!;
     expect(optionsFor(body, interview.answers).map((option) => option.value)).toEqual(['endurance']);
@@ -343,9 +344,9 @@ describe('more than one thing in an area', () => {
   it('each thing added is a domain of its own with its own measure, ranked beside its area', () => {
     const keys = plan.map((instance) => instance.key);
     for (const key of ['goodDay.endurance@body~endurance', 'goodDay.writing@creativity~writing', 'goodDay.public-speaking@creativity~public-speaking']) expect(keys, key).toContain(key);
-    expect(interview.answers.priorities).toEqual(['creativity', 'creativity~writing', 'creativity~public-speaking', 'body', 'body~endurance', 'career']);
+    expect(interview.answers.priorities).toEqual(['creativity', 'creativity~writing', 'creativity~public-speaking', 'body', 'body~endurance', 'business']);
     const { draft } = interviewToDraft(interview, QUESTIONS, mapping);
-    expect(draft.domains.slice(0, 6).map((choice) => choice.archetypeId)).toEqual(['creative-practice', 'writing', 'public-speaking', 'strength-movement', 'endurance', 'career-pipeline']);
+    expect(draft.domains.slice(0, 6).map((choice) => choice.archetypeId)).toEqual(['creative-practice', 'writing', 'public-speaking', 'strength-movement', 'endurance', 'business-building']);
     const { blueprint, issues } = generateBlueprint(draft);
     expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
     expect(blueprint.domains.filter((domain) => domain.role === 'engine')).toHaveLength(6);
@@ -391,5 +392,38 @@ describe('the System is never given more domains than it can price', () => {
     expect(validateAnswer(guardrails, crowded.answers, ['sleep-regularity', 'attention-control', 'health-routine']).ok).toBe(false); // 6 + 3 > 8
     const { draft: input } = interviewToDraft(crowded, QUESTIONS, mapping);
     expect(generateBlueprint(input).blueprint.domains.length).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('career is not only finding a job', () => {
+  it('the career card asks which: growing in the current job (first, the default) or finding a new one', () => {
+    expect(RESOLUTIONS.career!.map((option) => option.value)).toEqual(['career-growth', 'career-pipeline']);
+    const interview = run('quick', { 'identity.displayName': 'Ada', areas: ['career'] });
+    const card = livePlan(interview, QUESTIONS).find((instance) => instance.key === 'resolution@career')!;
+    expect(optionsFor(card, interview.answers).map((option) => option.label)).toEqual(['Growing in my current job', 'Finding a new job']);
+    expect(interview.answers['area.career.resolution']).toBe('career-growth');
+  });
+
+  it('growing at work is focused time on the role and the wins it brings - no applications anywhere in it', () => {
+    const { draft } = interviewToDraft(run('quick', { 'identity.displayName': 'Ada', areas: ['career', 'body'] }), QUESTIONS, mapping);
+    const { blueprint, issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    const work = blueprint.domains.find((domain) => domain.archetypeId === 'career-growth')!;
+    const instruments = blueprint.instruments.filter((instrument) => work.instrumentIds.includes(instrument.id));
+    expect(instruments.map((instrument) => instrument.type).sort()).toEqual(['artifact', 'duration']);
+    expect(instruments.find((instrument) => instrument.type === 'artifact')!.params.kinds).toEqual(['delivered', 'improvement', 'feedback', 'skill']);
+    const quest = blueprint.quests.find((candidate) => candidate.domainId === work.id && candidate.type === 'core')!;
+    expect(quest.objective).toMatch(/minutes of focused work on what moves your role/);
+    expect(JSON.stringify({ quest, instruments, domain: work })).not.toMatch(/applicat|resume|recruiter|interview/i);
+  });
+
+  it('finding a new job is still there, and a person can hold both', () => {
+    const both = run('guided', { 'identity.displayName': 'Ada', areas: ['career'], 'area.career.resolution': 'career-growth', 'area.career.also': ['career-pipeline'] });
+    const { draft } = interviewToDraft(both, QUESTIONS, mapping);
+    expect(draft.domains.map((choice) => choice.archetypeId)).toEqual(expect.arrayContaining(['career-growth', 'career-pipeline']));
+    const { blueprint, issues } = generateBlueprint(draft);
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([]);
+    const designations = blueprint.domains.map((domain) => domain.designation);
+    expect(new Set(designations).size).toBe(designations.length);
   });
 });

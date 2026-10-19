@@ -34,7 +34,7 @@ describe('the activation report', () => {
   });
 
   it('a designation that cannot be used is a warning: it needs acknowledging, and a pinned one offers its release', () => {
-    const key = 'career-pipeline';
+    const key = 'career-growth';
     const pins = withPin(NO_PINS, key, 'designation', 'A DESIGNATION FAR TOO LONG TO USE');
     const { blueprint, issues } = build(pins);
     const report = reportFor(blueprint, issues, TODAY, pins);

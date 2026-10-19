@@ -24,6 +24,7 @@ export function isValidDesignation(designation: string): boolean {
  */
 export const ARCHETYPE_DESIGNATIONS: Readonly<Record<string, readonly string[]>> = {
   'software-practice': ['LOGIC TRIAL', 'ALGORITHM GATE', 'CODE TRIAL'],
+  'career-growth': ['MANDATE', 'TENURE', 'VANGUARD'],
   'career-pipeline': ['ASCENSION', 'DESPATCH', 'CAMPAIGN'],
   'deep-build': ['FORGE', 'CONSTRUCT', 'ANVIL'],
   'exam-prep': ['ARCANE STUDY', 'KNOWLEDGE TRIAL', 'SCHOLAR TRIAL'],

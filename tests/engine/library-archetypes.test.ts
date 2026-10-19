@@ -50,7 +50,7 @@ describe('the library\'s archetypes', () => {
   it('ids are unique kebab-case and each is keyed by its own id', () => {
     const registered = Object.values(ARCHETYPES);
     expect(new Set(ALL.map((archetype) => archetype.id)).size).toBe(ALL.length);
-    expect(registered.length).toBe(18);
+    expect(registered.length).toBe(19);
     for (const archetype of registered) {
       expect(ARCHETYPES[archetype.id]).toBe(archetype);
       expect(archetype.id).toMatch(/^[a-z]+(-[a-z]+)*$|^custom:[a-z_]+$/);

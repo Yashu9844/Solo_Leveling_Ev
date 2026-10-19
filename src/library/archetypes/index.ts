@@ -1,5 +1,6 @@
 import { attentionControl } from './attentionControl';
 import { careerPipeline } from './careerPipeline';
+import { careerGrowth } from './careerGrowth';
 import { businessBuilding } from './businessBuilding';
 import { creativePractice } from './creativePractice';
 import { endurance } from './endurance';
@@ -26,5 +27,5 @@ export type { ArchetypeDef } from './types';
  * rest of the table. A `custom:<instrument type>` archetype is built on demand (custom.ts).
  */
 export const ARCHETYPES: Readonly<Record<string, ArchetypeDef>> = Object.fromEntries(
-  [softwarePractice, careerPipeline, deepBuild, strengthMovement, sleepRegularity, attentionControl, examPrep, reading, businessBuilding, creativePractice, endurance, financeControl, healthRoutine, languageLearning, publicSpeaking, relationships, spiritualPractice, writing].map((archetype) => [archetype.id, archetype])
+  [softwarePractice, careerPipeline, careerGrowth, deepBuild, strengthMovement, sleepRegularity, attentionControl, examPrep, reading, businessBuilding, creativePractice, endurance, financeControl, healthRoutine, languageLearning, publicSpeaking, relationships, spiritualPractice, writing].map((archetype) => [archetype.id, archetype])
 );

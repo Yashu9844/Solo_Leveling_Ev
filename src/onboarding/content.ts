@@ -14,7 +14,7 @@ import { SKIP, type OptionDef, type Predicate, type QuestionDef } from './types'
 // ── Areas and what each can resolve to ──────────────────────────────────────
 
 const AREA_OPTIONS: Record<string, OptionDef> = {
-  career: { value: 'career', label: 'Career', hint: 'Finding work, or the next step in it' },
+  career: { value: 'career', label: 'Career', hint: 'Doing well in your job, or finding the next one' },
   knowledge: { value: 'knowledge', label: 'Knowledge', hint: 'An exam, a language, a subject, books' },
   body: { value: 'body', label: 'Body', hint: 'Strength, endurance, moving every day' },
   discipline: { value: 'discipline', label: 'Discipline', hint: 'A practice you hold to' },
@@ -28,7 +28,10 @@ const AREA_OPTIONS: Record<string, OptionDef> = {
 
 /** What "FOR WHAT?" offers in each area. The value is the archetype it resolves to; the first is the Quick default. */
 export const RESOLUTIONS: Record<string, OptionDef[]> = {
-  career: [{ value: 'career-pipeline', label: 'Finding a job', hint: 'Applications, and the work that stands in for them' }],
+  career: [
+    { value: 'career-growth', label: 'Growing in my current job', hint: 'Focused time on what moves your role, and the wins: work delivered, improvements, feedback' },
+    { value: 'career-pipeline', label: 'Finding a new job', hint: 'Applications, and the work that stands in for them' },
+  ],
   knowledge: [
     { value: 'reading', label: 'Reading', hint: 'Pages read, and notes kept' },
     { value: 'exam-prep', label: 'An exam', hint: 'Practice questions, study blocks and mock papers, toward a date' },
@@ -61,6 +64,7 @@ interface Unit { noun: string; min: number; max: number; step: number }
 /** What "a good day" is counted in, per archetype. The three the System shapes itself (sleep, attention) have no good day to ask about. */
 const UNITS: Record<string, Unit> = {
   'software-practice': { noun: 'PROBLEMS', min: 1, max: 15, step: 1 },
+  'career-growth': { noun: 'MINUTES OF FOCUSED WORK', min: 15, max: 480, step: 15 },
   'career-pipeline': { noun: 'QUALIFIED APPLICATIONS', min: 1, max: 15, step: 1 },
   'deep-build': { noun: 'MINUTES OF BUILDING', min: 15, max: 240, step: 5 },
   'strength-movement': { noun: 'STEPS', min: 2000, max: 30000, step: 500 },

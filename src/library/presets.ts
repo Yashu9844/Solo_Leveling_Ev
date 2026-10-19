@@ -74,7 +74,7 @@ export const presetById = (id: string): PresetDef | undefined => PRESETS.find((p
 
 /** The areas the INTENT stage offers, and the archetype each leads to when nothing more is said. */
 export const AREAS: readonly { id: string; label: string; archetypeId: string | undefined }[] = [
-  { id: 'career', label: 'Career', archetypeId: 'career-pipeline' },
+  { id: 'career', label: 'Career', archetypeId: 'career-growth' },
   { id: 'knowledge', label: 'Knowledge', archetypeId: 'reading' },
   { id: 'body', label: 'Body', archetypeId: 'strength-movement' },
   { id: 'discipline', label: 'Discipline', archetypeId: 'spiritual-practice' },
