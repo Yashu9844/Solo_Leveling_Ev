@@ -8,6 +8,7 @@ export default defineConfig({
     pool: 'threads',
     fileParallelism: false,
     testTimeout: 120_000,
+    env: { VITE_ENGINE_V2: 'false', VITE_NEW_ONBOARDING: 'false' },
     include: ['tests/perf/**/*.test.ts'],
   },
 });

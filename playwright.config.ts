@@ -87,6 +87,8 @@ export default defineConfig({
   ],
   webServer: [{
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
+    // The original onboarding and engine, pinned: every non-adaptive spec and the E3 baselines describe that build.
+    env: { VITE_ENGINE_V2: 'false', VITE_NEW_ONBOARDING: 'false' },
     url: `http://localhost:${PORT}`,
     // Never reuse. With reuse on, any server already listening on the
     // port was tested instead of this checkout — including another
